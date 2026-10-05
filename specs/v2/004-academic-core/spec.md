@@ -506,3 +506,6 @@ Demandes de changement des specs **005** (§14.2), **006** (§7.4, data-model §
 
 `academic.enrollment_not_pending` (409), `academic.classroom_activation_refused` (409, repli quand le garde ne donne pas de code). Les codes d'un garde d'activation câblé sont ceux de son module (ex. `primary_school.homeroom_required`).
 
+## Évolution O-04 — cumul de financements d'une inscription (décision du propriétaire, 2026-10)
+
+`enrollments.funding_type` reste le type **principal** ; la table `enrollment_fundings` (migration additive 0710) porte les **parts** du cumul (pourcentage en points de base ou montant) : somme des pourcentages ≤ 100 % et devise unique imposées par la base, parts terminées immuables, historique `FUNDING` conservé, événement `academic.enrollment.funding_changed` enrichi du champ additif `fundings`. Routes `GET|PUT /enrollments/:id/fundings` ; l'ancienne route de financement unique est inchangée. Voir `apps/api/src/modules/academic/README.md`.

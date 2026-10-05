@@ -260,7 +260,12 @@ export const financeDiscountDtoSchema = z.object({
 export const financeLearnerParamsSchema = z.object({ learnerId: financeUuidSchema }).strict();
 
 export const financeSetFundingBodySchema = z
-  .object({ fundingType: financeFundingTypeSchema, assignmentRef: optionalText(120).optional() })
+  .object({
+    fundingType: financeFundingTypeSchema,
+    assignmentRef: optionalText(120).optional(),
+    /** O-04 : financements CUMULÉS avec le type principal (absent : cumul existant conservé ; null ou liste : remplacé). */
+    additionalFundingTypes: z.array(financeFundingTypeSchema.exclude(["PRIVATE"])).max(5).nullable().optional(),
+  })
   .strict();
 
 export const financeCreateScholarshipBodySchema = z
@@ -278,6 +283,8 @@ export const financeCreateScholarshipBodySchema = z
     currency: financeCurrencySchema.optional(),
     categories: z.array(financeFeeCategorySchema).max(11).optional(),
     priority: z.number().int().min(0).max(1000).optional(),
+    /** O-04 : base du pourcentage ; `TOTAL` = part du total net (somme des parts contrôlée à 100 % au plus). */
+    shareBasis: z.enum(["REMAINING", "TOTAL"]).optional(),
   })
   .strict();
 export type FinanceCreateScholarshipBody = z.infer<typeof financeCreateScholarshipBodySchema>;
@@ -299,10 +306,16 @@ export const financeScholarshipDtoSchema = z.object({
   categories: z.array(financeFeeCategorySchema).nullable(),
   status: z.enum(["ACTIVE", "SUSPENDED", "ENDED"]),
   priority: z.number().int(),
+  shareBasis: z.enum(["REMAINING", "TOTAL"]).default("REMAINING"),
 });
 
 export const financeLearnerFundingDtoSchema = z.object({
-  account: z.object({ learnerId: financeUuidSchema, fundingType: financeFundingTypeSchema, assignmentRef: z.string().nullable() }),
+  account: z.object({
+    learnerId: financeUuidSchema,
+    fundingType: financeFundingTypeSchema,
+    assignmentRef: z.string().nullable(),
+    additionalFundingTypes: z.array(financeFundingTypeSchema).default([]),
+  }),
   scholarships: z.array(financeScholarshipDtoSchema),
 });
 

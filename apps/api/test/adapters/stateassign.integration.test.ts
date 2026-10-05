@@ -6,7 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Money, newId, unwrap, type RequestContext } from "@ecoledigitale/kernel";
-import { getEnrollment } from "../../src/modules/academic";
+import { changeEnrollmentFunding, getEnrollment, listEnrollmentFundings } from "../../src/modules/academic";
 import { createFinanceDeps, createInvoice, createScholarship, recordManualPayment, setLearnerFunding, type FinanceDeps } from "../../src/modules/finance";
 import {
   actOnAssignment,
@@ -37,7 +37,7 @@ describeIntegration("stateassign assemblé : academic + finance + attendance + d
 
   beforeAll(async () => {
     w = await createAssemblyWorld();
-    school = await seedHigherSchool(w, { pupils: 3 });
+    school = await seedHigherSchool(w, { pupils: 4 });
     fin = createFinanceDeps({ db: w.tenantDb, clock: w.clock, logger: w.kit.logger, portsProvider: () => w.ports.finance });
     sa = createStateassignDeps({ db: w.tenantDb, clock: w.clock, logger: w.kit.logger, portsProvider: () => w.ports.stateassign });
     yearCode = (await adminRows<{ code: string }>(w, "SELECT code FROM academic.academic_years WHERE id = $1", [school.seed.yearId]))[0]!.code;
@@ -165,6 +165,71 @@ describeIntegration("stateassign assemblé : academic + finance + attendance + d
     expect(r.warnings.join(" ")).toMatch(/Aucune facture de l'État/);
     const alerts = await adminRows<{ type: string }>(w, "SELECT type FROM kernel.domain_events WHERE tenant_id = $1 AND aggregate_id = $2", [w.tenantId, rec.id]);
     expect(alerts.map((a) => a.type)).toContain("stateassign.reconciliation.discrepancy");
+  });
+
+  it("CUMUL (O-04) : bourse + État + famille avec les vrais adaptateurs — la vérification n'écrase pas la bourse, les parts sont facturées par financeur et rapprochées", async () => {
+    const pupil = school.pupils[3]!;
+    // Inscription déjà boursière (type principal historique) AVANT l'affectation de l'État.
+    unwrap(await changeEnrollmentFunding(w.kit.academic, w.director, pupil.enrollmentId, { fundingType: "SCHOLARSHIP", funderLabel: "Fondation Espoir", reason: "Bourse accordée avant l'affectation" }));
+    // finance : État 60 % + fondation 20 % du total net, famille 20 % ; type principal « affecté » + « boursier » cumulés.
+    unwrap(await setLearnerFunding(fin, w.director, { learnerId: pupil.studentId, fundingType: "STATE_ASSIGNED", assignmentRef: "AFF-CUM-1", additionalFundingTypes: ["SCHOLARSHIP"] }));
+    const stateSch = unwrap(await createScholarship(fin, w.director, { learnerId: pupil.studentId, academicYear: yearCode, funderKind: "STATE", funderName: "État", reference: "AFF-CUM-1", coverage: { kind: "PERCENT", bps: 6000 }, shareBasis: "TOTAL", priority: 1 }));
+    const foundation = unwrap(await createScholarship(fin, w.director, { learnerId: pupil.studentId, academicYear: yearCode, funderKind: "FOUNDATION", funderName: "Fondation Espoir", coverage: { kind: "PERCENT", bps: 2000 }, shareBasis: "TOTAL", priority: 2 }));
+    const created = unwrap(
+      await createInvoice(fin, w.director, {
+        learnerId: pupil.studentId,
+        enrollmentId: pupil.enrollmentId,
+        lines: [{ category: "TUITION", description: "Scolarité", unitAmount: xof(500_000) }],
+        dueDate: dayOffset(w, 60),
+        applyFunding: true,
+        issue: true,
+      }),
+    );
+    expect(created.invoices.map((i) => `${i.invoice.payerRef ?? "FAMILLE"}:${i.invoice.total.amount}`).sort()).toEqual([`${stateSch.id}:300000`, `${foundation.id}:100000`, "FAMILLE:100000"].sort());
+    // stateassign : l'acte déclare 300 000 pour l'État et 200 000 pour la famille (dont la bourse de 100 000).
+    const rec = unwrap(await recordAssignment(sa, secretary(), { enrollmentId: pupil.enrollmentId, reference: "AFF-CUM-1", issuingAuthority: "Direction régionale", issuedOn: "2026-09-15", declaredStateAmount: 300_000, declaredParentAmount: 200_000 }));
+    unwrap(await actOnAssignment(sa, bursar(), rec.id, "verify", {}));
+    const enrollment = unwrap(await getEnrollment(w.kit.academic, w.director, pupil.enrollmentId));
+    expect(enrollment.fundingType).toBe("SCHOLARSHIP"); // la bourse n'est pas écrasée : le cumul s'y ajoute
+    const cumul = unwrap(await listEnrollmentFundings(w.kit.academic, w.director, pupil.enrollmentId));
+    expect(cumul.fundings.map((f) => [f.fundingType, f.share, f.assignmentReference])).toEqual([["STATE_ASSIGNED", { kind: "AMOUNT", amount: 300_000, currency: "XOF" }, "AFF-CUM-1"]]);
+    // rapprochement : la bourse est comptée avec la part de la famille déclarée.
+    const r = unwrap(await reconcileAssignment(sa, bursar(), rec.id));
+    expect(r.assignment.reconciliation).toMatchObject({ status: "BALANCED", stateBilled: { amount: 300_000 }, parentBilled: { amount: 200_000 } });
+    expect(r.billing.otherFunderInvoices.map((i) => [i.scholarshipId, i.funderKind, i.total.amount])).toEqual([[foundation.id, "FOUNDATION", 100_000]]);
+    // le versement de la fondation (payeur FUNDER rattaché à SA bourse) n'est jamais compté comme un versement de l'État
+    unwrap(
+      await recordManualPayment(fin, w.director, {
+        idempotencyKey: `fond-${newId()}`,
+        learnerId: pupil.studentId,
+        enrollmentId: pupil.enrollmentId,
+        amount: xof(100_000),
+        method: "TRANSFER",
+        reference: "VIR-FOND-001",
+        payerKind: "FUNDER",
+        payerRef: foundation.id,
+        allocation: { mode: "AUTO", invoiceIds: [created.invoices.find((i) => i.invoice.payerRef === foundation.id)!.invoice.id] },
+      }),
+    );
+    const after = unwrap(await reconcileAssignment(sa, bursar(), rec.id));
+    expect(after.billing.statePayments).toEqual([]);
+    expect(after.billing.otherFunderInvoices[0]).toMatchObject({ paid: { amount: 100_000 } });
+    // le versement de l'État, lui, est bien rapproché
+    unwrap(
+      await recordManualPayment(fin, w.director, {
+        idempotencyKey: `etat-${newId()}`,
+        learnerId: pupil.studentId,
+        enrollmentId: pupil.enrollmentId,
+        amount: xof(300_000),
+        method: "TRANSFER",
+        reference: "VIR-ETAT-CUM",
+        payerKind: "FUNDER",
+        payerRef: stateSch.id,
+        allocation: { mode: "AUTO", invoiceIds: [created.invoices.find((i) => i.invoice.payerRef === stateSch.id)!.invoice.id] },
+      }),
+    );
+    const final = unwrap(await reconcileAssignment(sa, bursar(), rec.id));
+    expect(final.billing.statePayments.map((p) => p.amount.amount)).toEqual([300_000]);
   });
 
   it("documents et tutelle : un document inconnu n'existe pas pour la GED réelle ; un compte sans fiche liée n'est tuteur de personne (échec fermé)", async () => {

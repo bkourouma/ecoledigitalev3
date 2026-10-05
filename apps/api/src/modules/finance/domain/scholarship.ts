@@ -12,8 +12,8 @@
 import { err, ok, Money, type AppError, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, validation } from "./errors";
 import { minMoney, sumMoney } from "./money-utils";
-import type { FeeCategory, FunderKind, ScholarshipStatus, Uuid } from "./types";
-import { FUNDER_KINDS } from "./types";
+import type { FeeCategory, FunderKind, ScholarshipStatus, ShareBasis, Uuid } from "./types";
+import { FUNDER_KINDS, SHARE_BASES } from "./types";
 
 export type Coverage =
   | { readonly kind: "PERCENT"; readonly bps: number }
@@ -33,6 +33,11 @@ export interface Scholarship {
   readonly categories: ReadonlyArray<FeeCategory> | null;
   readonly status: ScholarshipStatus;
   readonly priority: number;
+  /**
+   * Base du pourcentage (O-04) : `REMAINING` (historique, défaut si absent) ou `TOTAL` (total net à facturer, somme des parts
+   * contrôlée à 100 % au plus). Sans effet pour une couverture `FIXED`.
+   */
+  readonly shareBasis?: ShareBasis;
 }
 
 export interface FundableLine {
@@ -58,6 +63,11 @@ export interface FundingSplit {
   /** Part restant à la charge de la famille. */
   readonly parentTotal: Money;
   readonly parentPerLine: ReadonlyArray<{ lineId: string; amount: Money }>;
+  /**
+   * Parts `TOTAL` (O-04) que le reste à financer n'a pas pu couvrir en entier (cumul qui dépasse le total à facturer) : la facturation
+   * refuse d'émettre plutôt que de tronquer silencieusement une prise en charge. Vide pour les parts `REMAINING` (jamais une erreur).
+   */
+  readonly overcommitted: ReadonlyArray<{ scholarshipId: Uuid; funderName: string; requested: Money; applied: Money }>;
 }
 
 const covers = (s: Scholarship, category: FeeCategory): boolean =>
@@ -76,7 +86,7 @@ export function splitFunding(
 ): Result<FundingSplit, AppError> {
   const currency = lines[0]?.amount.currency;
   if (!currency) {
-    return ok({ shares: [], fundedPerLine: [], fundedTotal: Money.zero(), parentTotal: Money.zero(), parentPerLine: [] });
+    return ok({ shares: [], fundedPerLine: [], fundedTotal: Money.zero(), parentTotal: Money.zero(), parentPerLine: [], overcommitted: [] });
   }
   if (lines.some((l) => l.amount.currency !== currency)) {
     return err(validation(FinanceCode.CURRENCY_MISMATCH, "Toutes les lignes doivent avoir la même devise.", "lines"));
@@ -84,17 +94,34 @@ export function splitFunding(
   const remaining = lines.map((l) => l.amount);
   const funded = lines.map(() => Money.zero(currency));
   const shares: FunderShare[] = [];
+  const overcommitted: Array<{ scholarshipId: Uuid; funderName: string; requested: Money; applied: Money }> = [];
 
   const ordered = scholarships
     .filter((s) => s.status === "ACTIVE")
     .slice()
     .sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
 
+  // Arrondi : chaque part en pourcentage est arrondie à l'unité mineure (demi vers le haut) ; plusieurs parts qui totalisent 100 % peuvent
+  // donc dépasser le total d'au plus une unité mineure par part. Cet écart d'arrondi est absorbé par la dernière part, pas signalé.
+  const totalBasisCount = ordered.filter((s) => s.shareBasis === "TOTAL").length;
+
   for (const s of ordered) {
-    const idx = lines.flatMap((l, i) => (covers(s, l.category) && remaining[i]!.isPositive() ? [i] : []));
+    const covered = lines.flatMap((l, i) => (covers(s, l.category) ? [i] : []));
+    const idx = covered.filter((i) => remaining[i]!.isPositive());
     const base = sumMoney(idx.map((i) => remaining[i]!), currency);
-    if (base.isZero()) continue;
-    const amount = computeScholarshipAmount(base, s);
+    let amount: Money;
+    if (s.shareBasis === "TOTAL") {
+      // O-04 : la part porte sur le TOTAL NET (avant les autres prises en charge), plafonnée par ce qui reste à financer.
+      const totalBase = sumMoney(covered.map((i) => lines[i]!.amount), currency);
+      const requested = computeScholarshipAmount(totalBase, s);
+      amount = base.isZero() ? Money.zero(currency) : minMoney(requested, base);
+      if (requested.amount - amount.amount > totalBasisCount) {
+        overcommitted.push({ scholarshipId: s.id, funderName: s.funderName, requested, applied: amount });
+      }
+    } else {
+      if (base.isZero()) continue;
+      amount = computeScholarshipAmount(base, s);
+    }
     if (!amount.isPositive()) continue;
     const parts = amount.allocate(idx.map((i) => remaining[i]!.amount));
     const perLine: Array<{ lineId: string; amount: Money }> = [];
@@ -114,6 +141,7 @@ export function splitFunding(
     fundedTotal,
     parentTotal: sumMoney(remaining, currency),
     parentPerLine: lines.map((l, i) => ({ lineId: l.id, amount: remaining[i]! })),
+    overcommitted,
   });
 }
 
@@ -137,6 +165,8 @@ export interface ScholarshipDraft {
   capAmount?: Money | null;
   categories?: FeeCategory[] | null;
   priority?: number;
+  /** O-04 : base du pourcentage (`REMAINING` par défaut, `TOTAL` pour un cumul dont la somme est contrôlée). */
+  shareBasis?: string;
 }
 
 export function validateScholarshipDraft(draft: ScholarshipDraft): Result<Omit<Scholarship, "id" | "status">, AppError> {
@@ -162,6 +192,10 @@ export function validateScholarshipDraft(draft: ScholarshipDraft): Result<Omit<S
   } else {
     return err(validation(FinanceCode.INVALID_INPUT, "Couverture inconnue (PERCENT ou FIXED).", "coverage.kind"));
   }
+  const shareBasis: ShareBasis = (draft.shareBasis ?? "REMAINING") as ShareBasis;
+  if (!(SHARE_BASES as readonly string[]).includes(shareBasis)) {
+    return err(validation(FinanceCode.INVALID_INPUT, "Base de calcul inconnue (REMAINING ou TOTAL).", "shareBasis"));
+  }
   if (draft.capAmount && !draft.capAmount.isPositive()) {
     return err(validation(FinanceCode.INVALID_AMOUNT, "Plafond de bourse invalide.", "capAmount"));
   }
@@ -175,6 +209,7 @@ export function validateScholarshipDraft(draft: ScholarshipDraft): Result<Omit<S
     capAmount: draft.capAmount ?? null,
     categories: draft.categories && draft.categories.length > 0 ? [...draft.categories] : null,
     priority: draft.priority ?? 100,
+    shareBasis,
   });
 }
 

@@ -610,3 +610,7 @@ La spec est terminée lorsque :
 8. Aucune série, langue, coefficient, type de sanction, barème, quorum, parcours d'orientation, durée de conservation n'est codé (lint + test des modèles de pack) ; le jeu de règles `placeholder` est marqué sur PV, résultats et bulletins.
 9. Les demandes aux specs 004, 010, 011, 012, 013, 016, 018, 002 (§7.4) sont acceptées ou renvoyées en questions ouvertes ; aucune question réglementaire bloquante n'est résolue par une valeur inventée.
 10. Le bulletin « classique » de référence (`tests/characterization`) est reproduit jusqu'à la décision de fin d'année ; les écarts assumés (indicateur « Affecté(e) », décisions par texte, moyennes saisies) figurent tous dans `parity.md`.
+
+## Évolution O-04 — cumul de financements (décision du propriétaire, 2026-10)
+
+Un élève affecté par l'État peut aussi bénéficier d'une bourse. Le **rapprochement** compare la part « famille » déclarée par l'acte à la facture de la famille **plus** les factures des autres financeurs (sans autre financeur : résultat inchangé) ; les versements restent attribués **par financement** ; la **vérification** d'un dossier ajoute la part de l'État (montant déclaré) au cumul de l'inscription sans écraser la bourse (refus explicite si le montant n'est pas déclaré). Voir `apps/api/src/modules/stateassign/README.md`.

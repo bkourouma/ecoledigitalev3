@@ -191,6 +191,13 @@ export const higherAssignSlotBodySchema = z
 
 export const higherUpdateSettingsBodySchema = z.object({ creditValidityMonths: z.number().int().min(1).max(1200).nullable() }).strict();
 
+// Numérotation libre des diplômes et attestations (Q-24)
+export const higherCounterKeySchema = z.enum(["DIPLOMA", "AUTHENTICITY", "ATTESTATION"]);
+export const higherNumberingParamsSchema = z.object({ counterKey: higherCounterKeySchema }).strict();
+/** Motif : texte fixe + `{YYYY}` | `{YY}` + exactement un `{SEQ}` | `{SEQ:n}` (validation complète côté module). */
+export const higherUpdateNumberingBodySchema = z.object({ pattern: z.string().trim().min(3).max(60), gapless: z.boolean() }).strict();
+export const higherAdvanceNumberingBodySchema = z.object({ nextNumber: z.number().int().min(2).max(999_999_999), reason: z.string().trim().min(10).max(500) }).strict();
+
 // ---------------------------------------------------------------------------
 // DTO de réponse
 // ---------------------------------------------------------------------------
@@ -485,6 +492,19 @@ export const higherSlotDtoSchema = z.object({
 });
 
 export const higherSettingsDtoSchema = z.object({ creditValidityMonths: z.number().int().nullable() });
+
+export const higherNumberingDtoSchema = z.object({
+  counterKey: higherCounterKeySchema,
+  pattern: z.string(),
+  gapless: z.boolean(),
+  /** `true` : aucun réglage enregistré (motif historique, sans trou). */
+  isDefault: z.boolean(),
+  /** Séquence continue : motif sans année. */
+  continuous: z.boolean(),
+  nextNumber: z.number().int().min(1),
+  nextReference: z.string(),
+  updatedAt: higherInstantSchema.nullable(),
+});
 
 export const higherPathwayDtoSchema = z.object({
   studentId: higherUuidSchema,

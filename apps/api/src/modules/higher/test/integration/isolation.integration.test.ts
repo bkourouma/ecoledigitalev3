@@ -9,6 +9,7 @@ import { capitalizePeriod, getCreditSummary, listAcquiredUe, listDebts } from ".
 import { setPrerequisites, getPrerequisites } from "../../application/prerequisites";
 import { getResitWindow, openResitWindow } from "../../application/resit";
 import { getHigherSettings, updateHigherSettings } from "../../application/settings";
+import { getNumbering, updateNumbering } from "../../application/numbering";
 import { adminOne, adminRows, createHigherTestDb, ctxFor, describeIntegration, type HigherTestDb } from "../support/db";
 import { makeWorld, scriptRules, seedSchool, ueLine, type School, type TestWorld } from "../support/world";
 
@@ -32,6 +33,7 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
     const ctx = a.admin.ctx;
     // Une donnée dans CHAQUE table du schéma, côté A.
     unwrap(await updateHigherSettings(world.deps, ctx, { creditValidityMonths: 60 }));
+    unwrap(await updateNumbering(world.deps, ctx, "ATTESTATION", { pattern: "CERT-{YYYY}-{SEQ:5}", gapless: true }));
     const def = unwrap(await createDiploma(world.deps, ctx, { code: "ISO-A", label: "Licence A", gradeCode: "LICENCE", curriculumNodeId: a.cycleNodeId, uvRequired: 6, requirements: [{ ueNodeId: a.ues[0]!.nodeId }] }));
     definitionA = def.definition.id;
     world.ports.credits.setFinalLines(a.classroomId, a.periodId, [
@@ -76,7 +78,7 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
     expect(noRls).toEqual([]);
   });
 
-  it("sous le tenant B, AUCUNE ligne du tenant A n'est visible ni modifiable dans AUCUNE des 12 tables", async () => {
+  it("sous le tenant B, AUCUNE ligne du tenant A n'est visible ni modifiable dans AUCUNE des 13 tables", async () => {
     const b = ctxFor(tenantB);
     for (const table of higherTenantTables) {
       const own = Number((await adminOne<{ n: string }>(db, `SELECT count(*) AS n FROM ${table} WHERE tenant_id = $1`, [a.tenantId])).n);
@@ -125,6 +127,8 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
     expect(unwrap(await listDebts(world.deps, b, a.students[1]!.studentId))).toHaveLength(0);
     expect(unwrap(await getPrerequisites(world.deps, b, a.ues[1]!.nodeId))).toHaveLength(0);
     expect(unwrap(await getHigherSettings(world.deps, b))).toEqual({ creditValidityMonths: null });
+    expect(unwrap(await getNumbering(world.deps, b)).every((n) => n.isDefault && n.gapless)).toBe(true); // le motif de A est invisible de B
+    expect(unwrap(await getNumbering(world.deps, a.admin.ctx)).find((n) => n.counterKey === "ATTESTATION")).toMatchObject({ pattern: "CERT-{YYYY}-{SEQ:5}", isDefault: false });
     // Côté A, tout est intact.
     expect(unwrap(await getAward(world.deps, a.admin.ctx, awardA)).status).toBe("OBTAINED");
     expect(unwrap(await getHigherSettings(world.deps, a.admin.ctx))).toEqual({ creditValidityMonths: 60 });

@@ -292,7 +292,7 @@ describe("règles livrées et validation", () => {
     for (const t of ["finance.invoice.issued", "finance.invoice.overdue", "finance.payment.completed", "attendance.absence.recorded", "attendance.late.recorded", "reportcards.report_card.published", "scheduling.occurrence.cancelled", "messaging.announcement.published", "dunning", "OVERDUE_DAYS", "GRADE_DROP", "TEACHING_LOAD", "people.staff_qualification.expiring"]) {
       expect(triggers.has(t), t).toBe(true);
     }
-    expect(DEFAULT_RULES.find((r) => r.key === "dunning.default")?.conditions.stages).toEqual([3, 10, 30]);
+    expect(DEFAULT_RULES.find((r) => r.key === "dunning.default")?.conditions.stages).toEqual([7, 21, 45]);
   });
 
   it("refuse un gabarit dont une variable obligatoire n'est pas fournie par le déclencheur", () => {

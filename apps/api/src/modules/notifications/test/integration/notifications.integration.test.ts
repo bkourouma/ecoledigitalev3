@@ -544,42 +544,42 @@ describeIntegration("module notifications : base réelle", () => {
   describe("relances d'impayés", () => {
     const inst = (id: string, days: number, over: Record<string, unknown> = {}) => ({ installmentId: id, invoiceId: IDS.INV1, invoiceNumber: "FAC-2026-1", learnerId: IDS.S1, dueDate: "2026-09-01", daysOverdue: days, remaining: { amount: 75000, currency: "XOF" }, ...over });
 
-    it("paliers J+3 / J+10 / J+30 : un message par palier atteint, jamais deux fois le même, même job rejoué", async () => {
+    it("paliers J+7 / J+21 / J+45 (défaut Q-26) : un message par palier atteint, jamais deux fois le même, même job rejoué", async () => {
       await reset();
-      mem.overdue.items = [inst(IDS.INST1, 2)];
+      mem.overdue.items = [inst(IDS.INST1, 6)];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 0 }); // palier non atteint : la source ne remonte même pas l'échéance
-      mem.overdue.items = [inst(IDS.INST1, 3)];
+      mem.overdue.items = [inst(IDS.INST1, 7)];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 });
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 0 }); // rejoué : rien
-      mem.overdue.items = [inst(IDS.INST1, 4)];
+      mem.overdue.items = [inst(IDS.INST1, 8)];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 0 }); // même palier
-      mem.overdue.items = [inst(IDS.INST1, 12)];
-      expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 }); // palier 10
+      mem.overdue.items = [inst(IDS.INST1, 22)];
+      expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 }); // palier 21
       mem.overdue.items = [inst(IDS.INST1, 45)];
-      expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 }); // palier 30
+      expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 }); // palier 45
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 0 });
       const stages = await q<{ stage_days: number; notified: boolean }>("SELECT stage_days, notified FROM notifications.dunning_steps ORDER BY stage_days");
-      expect(stages).toEqual([{ stage_days: 3, notified: true }, { stage_days: 10, notified: true }, { stage_days: 30, notified: true }]);
+      expect(stages).toEqual([{ stage_days: 7, notified: true }, { stage_days: 21, notified: true }, { stage_days: 45, notified: true }]);
       const rows = await journal("source_kind = 'DUNNING' AND channel = 'EMAIL'");
       expect(rows).toHaveLength(3); // un e-mail par palier (le responsable financier est seul visé)
     });
 
     it("un job en retard d'une semaine n'envoie QUE le palier le plus récent ; les paliers rattrapés sont consignés sans envoi", async () => {
       await reset();
-      mem.overdue.items = [inst(IDS.INST2, 12)];
+      mem.overdue.items = [inst(IDS.INST2, 22)];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 });
       expect((await journal("source_kind = 'DUNNING' AND channel = 'EMAIL'")).length).toBe(1);
       const stages = await q<{ stage_days: number; notified: boolean }>("SELECT stage_days, notified FROM notifications.dunning_steps ORDER BY stage_days");
-      expect(stages).toEqual([{ stage_days: 3, notified: false }, { stage_days: 10, notified: true }]);
+      expect(stages).toEqual([{ stage_days: 7, notified: false }, { stage_days: 21, notified: true }]);
       await dispatchTenant(deps, tenantA);
-      expect(ch.EMAIL.sent[0]!.text).toContain("12 jours de retard");
+      expect(ch.EMAIL.sent[0]!.text).toContain("22 jours de retard");
       expect(ch.EMAIL.sent[0]!.text).toContain("75 000 F CFA");
       expect(ch.EMAIL.sent[0]!.text).toContain("FAC-2026-1");
     });
 
     it("arrêt dès paiement : l'échéance soldée entre la mise en file et l'envoi est ANNULÉE (relue à l'envoi)", async () => {
       await reset();
-      mem.overdue.items = [inst(IDS.INST1, 5)];
+      mem.overdue.items = [inst(IDS.INST1, 9)];
       unwrap(await runDunning(deps, sys()));
       mem.overdue.settled.add(IDS.INST1);
       const report = await dispatchTenant(deps, tenantA);
@@ -590,13 +590,13 @@ describeIntegration("module notifications : base réelle", () => {
       expect(rows.length).toBeGreaterThanOrEqual(1);
       expect(rows.every((x) => x.skip_reason === "paid")).toBe(true);
       // Plus aucune relance pour une échéance soldée.
-      mem.overdue.items = [inst(IDS.INST1, 40)];
+      mem.overdue.items = [inst(IDS.INST1, 50)];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ examined: 0, notified: 0 });
     });
 
     it("facture soldée (finance.invoice.paid) : les relances EN ATTENTE de la facture sont annulées ; celles d'une autre facture restent", async () => {
       await reset();
-      mem.overdue.items = [inst(IDS.INST1, 5), inst(IDS.INST3, 5, { invoiceId: IDS.INV2 })];
+      mem.overdue.items = [inst(IDS.INST1, 9), inst(IDS.INST3, 9, { invoiceId: IDS.INV2 })];
       unwrap(await runDunning(deps, sys()));
       const before = (await journal("status = 'PENDING' AND source_kind = 'DUNNING'")).length;
       expect(unwrap(await onInvoicePaid(deps, sys(), { payload: { v: 1, invoiceId: IDS.INV1, number: "F", learnerId: IDS.S1, total: { amount: 1, currency: "XOF" } } })).cancelled).toBeGreaterThan(0);
@@ -607,7 +607,7 @@ describeIntegration("module notifications : base réelle", () => {
 
     it("famille injoignable : le palier n'est pas consommé (nouvel essai à la prochaine passe)", async () => {
       await reset();
-      mem.overdue.items = [inst(IDS.INST1, 5, { learnerId: IDS.EVT(990) })];
+      mem.overdue.items = [inst(IDS.INST1, 9, { learnerId: IDS.EVT(990) })];
       expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ unreachable: 1, notified: 0 });
       expect(await q("SELECT 1 FROM notifications.dunning_steps")).toHaveLength(0);
     });

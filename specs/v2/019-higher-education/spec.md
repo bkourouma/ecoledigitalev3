@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Rédigée — **backend implémenté** (module `higher`, migrations 1400-1408, voir `apps/api/src/modules/higher/README.md`) ; à relire avec le propriétaire du produit (questions : `../012-rules-engine/open-questions.md` §B, Q-01 à Q-05, Q-21, Q-22, Q-24, Q-25, Q-26)
+**Status**: Rédigée — **backend implémenté** (module `higher`, migrations 1400-1409, voir `apps/api/src/modules/higher/README.md`) ; à relire avec le propriétaire du produit (questions : `../012-rules-engine/open-questions.md` §B, Q-01 à Q-05, Q-21, Q-22, Q-24, Q-25, Q-26)
 
 > **Corrections de la spec à l'implémentation (2026-10-01)** — décisions métier validées (`../DECISIONS-METIER.md`) appliquées : la session 2 **remplace** la session 1 (aucune logique de note dans `higher`), un semestre est validé si **toutes** les UE le sont (les règles « 20 crédits » / « > 48 crédits » ne sont pas reprises). Incohérences levées :
 > - **Données** : voir l'encadré en tête de `data-model.md` (table de dettes `ue_debts`, durée de validité des crédits et statut `EXPIRED`, unicité des inscriptions de rattrapage par période, octroi forcé sans acquisition, scellement postérieur des documents, duplicata `/Dn`, `reaward_decision`).
@@ -119,6 +119,7 @@
 - **AC7.1** Trois natures de documents : **diplôme**, **attestation de réussite** (programme complet), **attestation d'authenticité** ; chacun est un snapshot immuable signé, avec QR de vérification, rendu par 013.
 - **AC7.2** L'**attestation de réussite** est délivrable lorsque toutes les UE du programme (filière) demandé sont acquises ; elle indique la date d'obtention = date de la **dernière acquisition** (jamais « aujourd'hui » ni la date de début de session) et l'année académique de la dernière cohorte.
 - **AC7.3** L'**attestation d'authenticité** porte un numéro `AUTH/AAAA/NNN` attribué **une seule fois** par octroi (régénérer le PDF renvoie le même numéro), séquentiel sans trou par établissement et par année de génération ; compteur initial 1 sur base neuve (Q-24).
+- **AC7.3b (Q-24, décision du propriétaire)** Le **format** des références (diplôme, attestation d'authenticité, attestation de réussite) est un **motif libre par établissement** (préfixe, année, séquence : `DIP-{YYYY}-{SEQ:6}` par défaut) ; l'unicité est garantie par contrainte quel que soit le motif ; la garantie **« sans trou » est un réglage** (activée par défaut, donc inchangée pour les établissements qui ne touchent à rien) : désactivée, l'établissement peut avancer le compteur (reprise d'un registre papier), jamais le reculer ; les références déjà émises ne changent jamais. Voir `apps/api/src/modules/higher/README.md` § « Numérotation libre ».
 - **AC7.4** Les **emplacements de signature** (`DIPLOMA_LEFT`, `DIPLOMA_RIGHT`, `ATTESTATION_SUCCESS`, `AUTHENTICITY`) sont affectés à des signataires du registre de 013 avec **dates de validité** ; le document imprimé conserve le signataire en vigueur à l'émission ; **aucune valeur par défaut** n'existe : sans signataire valide pour un emplacement obligatoire, l'émission est refusée (Q-21).
 - **AC7.5** L'étudiant ne télécharge que ses documents publiés, via URL signée ; un tuteur lié les consulte en lecture seule.
 - **AC7.6** Tout document reste **rejouable** : le même snapshot produit le même rendu (013).
@@ -166,7 +167,8 @@ Voir `data-model.md`. Schéma `higher` (migrations `1400-1499`, plage proposée)
 | `diploma_awards` | Octrois (remplace `student_professional_diplomas`) |
 | `official_documents` | Snapshots immuables des documents officiels |
 | `official_document_slots` | Emplacements de signature → signataire (registre de 013), avec validité (remplace `professional_signataires`) |
-| `number_counters` | Compteurs sans trou (références) |
+| `number_counters` | Compteurs de références (année 0 = séquence continue) ; sans trou sauf réglage contraire (Q-24) |
+| `numbering_settings` | Motif de numérotation et réglage « sans trou » par établissement et par nature de document (Q-24, migration 1409) |
 
 ## 7. Endpoints
 

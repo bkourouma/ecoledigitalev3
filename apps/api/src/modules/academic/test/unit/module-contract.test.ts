@@ -122,12 +122,12 @@ describe("contrats et API publique", () => {
   });
 });
 
-describe("migrations 0700-0709", () => {
+describe("migrations 0700-0710", () => {
   const dir = join(moduleDir, "migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
   const sql = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
   it("numéros dans la plage réservée 0700-0799, contigus", () => {
-    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706, 707, 708, 709]);
+    expect(files.map((f) => Number(f.slice(0, 4)))).toEqual([700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710]);
   });
   it("chaque table du schéma est un tenant : RLS + GRANT, et la liste attendue de l'isolation est exacte", () => {
     const tables = [...sql.matchAll(/CREATE TABLE academic\.(\w+)/g)].map((m) => `academic.${m[1]}`).sort();

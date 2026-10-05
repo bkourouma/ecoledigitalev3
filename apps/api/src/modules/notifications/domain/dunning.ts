@@ -1,10 +1,10 @@
 /**
  * Relances d'impayés : calcul pur du palier à notifier.
  *
- * Paliers = jours de retard (par défaut J+3, J+10, J+30, configurables). Pour une échéance en retard de `d` jours :
+ * Paliers = jours de retard (par défaut J+7, J+21, J+45, configurables). Pour une échéance en retard de `d` jours :
  *  - `reached` = les paliers `<= d` ;
  *  - `target`  = le plus haut atteint : c'est LUI seul qui donne lieu à un envoi (si le job n'a pas tourné pendant une
- *    semaine, la famille ne reçoit pas J+3 ET J+10 d'un coup : un seul message, le palier le plus récent) ;
+ *    semaine, la famille ne reçoit pas J+7 ET J+21 d'un coup : un seul message, le palier le plus récent) ;
  *  - tous les paliers atteints sont consignés au registre (`dunning_steps`) : plus jamais renvoyés.
  * Idempotence : une échéance + un palier ne produisent JAMAIS deux relances (clé primaire du registre + clé de remise).
  */

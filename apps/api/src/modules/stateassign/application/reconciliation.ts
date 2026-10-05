@@ -32,12 +32,18 @@ const RECONCILABLE = ["VERIFIED", "ACTIVE", "SUSPENDED", "ENDED", "TRANSFERRED"]
 
 const net = (m: Money, credited: Money): Money => m.subtract(credited);
 
-/** Facturé net d'avoirs, par part. */
-export function billedOf(billing: StateFundingBilling): { state: Money; parent: Money; statePaid: Money } {
+/**
+ * Facturé net d'avoirs, par part. Cumul de financements (O-04) : la part « famille » du dossier est ce que la famille doit AVANT les autres
+ * financeurs (bourse, entreprise…) ; on la compare donc à la facture de la famille PLUS les factures des autres financeurs. Sans autre
+ * financeur, `parent` est exactement la facture de la famille (comportement historique).
+ */
+export function billedOf(billing: StateFundingBilling): { state: Money; parent: Money; otherFunders: Money; statePaid: Money } {
   const cur = billing.currency;
+  const otherFunders = sumMoney((billing.otherFunderInvoices ?? []).map((i) => net(i.total, i.credited)), cur);
   return {
     state: sumMoney(billing.stateInvoices.map((i) => net(i.total, i.credited)), cur),
-    parent: sumMoney(billing.parentInvoices.map((i) => net(i.total, i.credited)), cur),
+    parent: sumMoney(billing.parentInvoices.map((i) => net(i.total, i.credited)), cur).add(otherFunders),
+    otherFunders,
     statePaid: sumMoney(billing.stateInvoices.map((i) => i.paid), cur),
   };
 }
@@ -79,6 +85,12 @@ export async function reconcileInTx(
   if (billing.stateInvoices.length > 1) warnings.push("Plusieurs factures de l'État : le lien de facture n'est pas posé, les montants sont additionnés.");
   if (billing.parentInvoices.length > 1) warnings.push("Plusieurs factures de la famille : le lien de facture n'est pas posé, les montants sont additionnés.");
   if (billing.stateInvoices.length === 0) warnings.push("Aucune facture de l'État n'est liée : l'écart est le montant déclaré.");
+  if ((billing.otherFunderInvoices ?? []).length > 0) {
+    warnings.push(`Cumul de financements : ${billing.otherFunderInvoices!.length} facture(s) d'autres financeurs (${billed.otherFunders.amount}) comptée(s) avec la part de la famille.`);
+  }
+  if ((billing.unattributedPayments ?? []).length > 0) {
+    warnings.push(`${billing.unattributedPayments!.length} paiement(s) de financeur sans référence de prise en charge ne sont pas rattachés à l'État (plusieurs financeurs) : renseignez la prise en charge du paiement.`);
+  }
 
   const sameLinks = a.scholarshipId === scholarshipId && a.stateInvoiceId === stateInvoiceId && a.parentInvoiceId === parentInvoiceId;
   const sameDeltas =
@@ -123,7 +135,7 @@ export async function reconcileInTx(
       resourceId: a.id,
       before: { status: a.reconciliationStatus, stateDelta: a.stateDelta?.amount ?? null, parentDelta: a.parentDelta?.amount ?? null },
       after: { status: updated.reconciliationStatus, stateDelta: outcome.stateDelta.amount, parentDelta: outcome.parentDelta.amount },
-      metadata: { stateBilled: billed.state.amount, parentBilled: billed.parent.amount, statePaid: billed.statePaid.amount, receivablesChanged, byUser: ctx.actor === "user" },
+      metadata: { stateBilled: billed.state.amount, parentBilled: billed.parent.amount, otherFundersBilled: billed.otherFunders.amount, statePaid: billed.statePaid.amount, receivablesChanged, byUser: ctx.actor === "user" },
     });
   }
   await events.flush(tx);
@@ -139,6 +151,8 @@ export async function reconcileInTx(
       currency: billing.currency,
       stateInvoices: billing.stateInvoices.map((i) => ({ invoiceId: i.invoiceId, number: i.number, status: i.status, total: dto(i.total), paid: dto(i.paid), credited: dto(i.credited), dueDate: i.dueDate, scholarshipId: i.scholarshipId })),
       parentInvoices: billing.parentInvoices.map((i) => ({ invoiceId: i.invoiceId, number: i.number, status: i.status, total: dto(i.total), paid: dto(i.paid), credited: dto(i.credited), dueDate: i.dueDate })),
+      otherFunderInvoices: (billing.otherFunderInvoices ?? []).map((i) => ({ invoiceId: i.invoiceId, number: i.number, status: i.status, total: dto(i.total), paid: dto(i.paid), credited: dto(i.credited), dueDate: i.dueDate, scholarshipId: i.scholarshipId, funderKind: i.funderKind ?? null, funderName: i.funderName ?? null })),
+      unattributedPayments: (billing.unattributedPayments ?? []).map((p) => ({ paymentId: p.paymentId, receivedAt: p.receivedAt.toISOString(), amount: dto(p.amount), allocated: dto(p.allocated), reference: p.reference })),
       statePayments: billing.statePayments.map((p) => ({ paymentId: p.paymentId, receivedAt: p.receivedAt.toISOString(), amount: dto(p.amount), allocated: dto(p.allocated), reference: p.reference })),
       scholarshipIds: [...billing.scholarshipIds],
     },

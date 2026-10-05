@@ -17,6 +17,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerAsyncHook
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import { ForbiddenError, UnauthorizedError, ValidationError, toAppError, toErrorBody, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import {
+  higherAdvanceNumberingBodySchema,
+  higherNumberingParamsSchema,
+  higherUpdateNumberingBodySchema,
   higherAssignSlotBodySchema,
   higherAttestationRosterQuerySchema,
   higherAwardBodySchema,
@@ -66,6 +69,7 @@ import type { HigherPorts } from "../application/ports";
 import { checkPrerequisites, getPrerequisites, setPrerequisites } from "../application/prerequisites";
 import { closeResitWindow, getResitWindow, listResitCandidates, listResitWindows, listStudentResits, openResitWindow } from "../application/resit";
 import { getHigherSettings, updateHigherSettings } from "../application/settings";
+import { advanceNumbering, getNumbering, updateNumbering } from "../application/numbering";
 import { getStudentDiplomaView, getStudentPathway } from "../application/student-view";
 import { HigherCode, conflict, forbidden } from "../domain/errors";
 import type { OfficialDocument, Uuid } from "../domain/types";
@@ -488,6 +492,19 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
     scope.put("/settings", { preHandler: kit.require(P.settingsManage) }, async (req) => {
       const b = parse(higherUpdateSettingsBodySchema, req.body);
       return unwrapOrThrow(await updateHigherSettings(deps, ctxOf(req), b));
+    });
+
+    // ===== Numérotation libre des diplômes et attestations (Q-24) ==============================================
+    scope.get("/numbering", { preHandler: kit.require(P.settingsManage) }, async (req) => ({ items: unwrapOrThrow(await getNumbering(deps, ctxOf(req))).map(present.numberingDto) }));
+    scope.put("/numbering/:counterKey", { preHandler: kit.require(P.settingsManage) }, async (req) => {
+      const { counterKey } = parse(higherNumberingParamsSchema, req.params);
+      const b = parse(higherUpdateNumberingBodySchema, req.body);
+      return present.numberingDto(unwrapOrThrow(await updateNumbering(deps, ctxOf(req), counterKey, b)));
+    });
+    scope.post("/numbering/:counterKey/advance", { preHandler: kit.require(P.settingsManage) }, async (req) => {
+      const { counterKey } = parse(higherNumberingParamsSchema, req.params);
+      const b = parse(higherAdvanceNumberingBodySchema, req.body);
+      return present.numberingDto(unwrapOrThrow(await advanceNumbering(deps, ctxOf(req), counterKey, b)));
     });
   });
 }

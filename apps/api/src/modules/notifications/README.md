@@ -11,7 +11,7 @@ Spec : `specs/v2/016-communications/` (partie B : `spec.md` §17 à §30, `data-
 | Journal | une ligne par envoi (file ET trace) : destinataire **masqué**, canal, gabarit + version, statut, tentatives, erreur, identifiant fournisseur, coût ; reprise avec backoff ; dédoublonnage par clé d'événement ; adresse et contenu effacés à l'état terminal |
 | Consentement | par personne, canal et catégorie ; modèle `IMPLIED` / `EXPLICIT` ; heures calmes (établissement et personne) ; urgence qui contourne (sauf suppression) ; désinscription par lien signé ; journal de preuve |
 | Règles | déclencheur -> audience -> canaux (`ALL` / `FIRST_REACHABLE`) -> gabarit -> urgence -> seuils ; règles livrées surchargeables, règles `custom.*` ; validation (le gabarit n'exige rien que le déclencheur ne fournisse) |
-| Relances | job quotidien, paliers J+3 / J+10 / J+30 configurables, jamais deux fois le même palier, arrêt dès paiement (relu à l'envoi + `finance.invoice.paid`) |
+| Relances | job quotidien, paliers par défaut **J+7 / J+21 / J+45** (Q-26, anciennement J+3 / J+10 / J+30 ; seule la règle LIVRÉE change, une règle déjà enregistrée par un établissement garde ses paliers) et configurables, jamais deux fois le même palier, arrêt dès paiement (relu à l'envoi + `finance.invoice.paid`) |
 | Alertes | absences (>= seuil -> parents), retard de paiement (>= X jours -> économat), baisse de résultats FINAL (-> enseignants), charge d'enseignement (-> direction des études), document expirant (-> RH) |
 | Envoi manuel | convocation, annonce, avis urgent (permission sensible, audité) |
 | Anti-abus | plafond journalier par canal, par destinataire, file maximale, limiteur des routes publiques |

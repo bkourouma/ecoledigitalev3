@@ -118,7 +118,7 @@ export function makeWorld(db: FinanceTestDb, overrides: { config?: Partial<Finan
     audit,
     providers,
     enrollments,
-    config: { environment: "test", ...overrides.config },
+    config: { environment: "test", providerRefundAutoExecution: true, ...overrides.config },
   });
   return { deps, clock, audit, enrollments, providers };
 }

@@ -3,6 +3,7 @@
  * des apprenants, bourses.
  */
 import { err, ok, type AppError, type Money, type RequestContext, type Result } from "@ecoledigitale/kernel";
+import { pgErrorCode } from "@ecoledigitale/database";
 import { validateDiscountDraft, type Discount, type DiscountDraft } from "../domain/discount";
 import { FinanceCode, conflict, notFound, validation } from "../domain/errors";
 import { validateFeeDraft, type Fee, type FeeDraft } from "../domain/fee";
@@ -13,7 +14,7 @@ import {
   type FeeSchedule,
   type FeeScope,
 } from "../domain/fee-schedule";
-import { validateFundingType, type LearnerAccount } from "../domain/funding";
+import { validateAdditionalFundingTypes, validateFundingType, type LearnerAccount } from "../domain/funding";
 import { assertIsoDate } from "../domain/dates";
 import { validatePlanSteps, type InstallmentPlan, type PlanStep } from "../domain/installments";
 import { validateScholarshipDraft, type Scholarship, type ScholarshipDraft } from "../domain/scholarship";
@@ -229,10 +230,13 @@ export async function listDiscountCatalog(deps: FinanceDeps, ctx: RequestContext
 export async function setLearnerFunding(
   deps: FinanceDeps,
   ctx: RequestContext,
-  input: { learnerId: Uuid; fundingType: string; assignmentRef?: string | null },
+  input: { learnerId: Uuid; fundingType: string; assignmentRef?: string | null; additionalFundingTypes?: ReadonlyArray<string> | null },
 ): Promise<Result<LearnerAccount, AppError>> {
   const fundingType = validateFundingType(input.fundingType);
   if (!fundingType.ok) return fundingType;
+  // `undefined` : le cumul existant est conservé (l'ancienne route ne change que le type principal) ; `null` ou liste : remplacé.
+  const additional = validateAdditionalFundingTypes(fundingType.value, input.additionalFundingTypes ?? (input.additionalFundingTypes === undefined ? undefined : []));
+  if (!additional.ok) return additional;
   const learner = await deps.learners.getLearner(ctx, input.learnerId);
   if (!learner) return err(notFound(FinanceCode.LEARNER_NOT_FOUND, "Apprenant", input.learnerId));
   return inTx(deps, ctx, async (tx) => {
@@ -241,6 +245,7 @@ export async function setLearnerFunding(
       learnerId: input.learnerId,
       fundingType: fundingType.value,
       assignmentRef: input.assignmentRef?.trim() || null,
+      additionalFundingTypes: input.additionalFundingTypes === undefined ? (before?.additionalFundingTypes ?? []).filter((t) => t !== fundingType.value) : additional.value,
     });
     await audit(deps, tx, ctx, {
       action: "finance.learner_account.funding_changed",
@@ -262,7 +267,7 @@ export async function getLearnerFunding(
     deps,
     ctx,
     async (tx) => {
-      const account = (await getLearnerAccount(tx, learnerId)) ?? { learnerId, fundingType: "PRIVATE" as const, assignmentRef: null };
+      const account = (await getLearnerAccount(tx, learnerId)) ?? { learnerId, fundingType: "PRIVATE" as const, assignmentRef: null, additionalFundingTypes: [] };
       return ok({ account, scholarships: await listScholarships(tx, { learnerId }) });
     },
     { readOnly: true },
@@ -283,6 +288,21 @@ export async function createScholarship(
     draft.value.capAmount?.currency ??
     deps.config.defaultCurrency;
   return inTx(deps, ctx, async (tx) => {
+    // O-04 : la somme des parts en pourcentage à base TOTAL d'un apprenant (même année) ne dépasse pas 100 % (aussi imposé par la base).
+    if (draft.value.shareBasis === "TOTAL" && draft.value.coverage.kind === "PERCENT") {
+      const live = (await listScholarships(tx, { learnerId: draft.value.learnerId, academicYear: draft.value.academicYear })).filter(
+        (x) => x.status === "ACTIVE" && x.shareBasis === "TOTAL" && x.coverage.kind === "PERCENT",
+      );
+      const used = live.reduce((sum, x) => sum + (x.coverage.kind === "PERCENT" ? x.coverage.bps : 0), 0);
+      if (used + draft.value.coverage.bps > 10_000) {
+        return err(
+          conflict(FinanceCode.FUNDING_SHARES_EXCEED, `La somme des parts de financement dépasserait 100 % (${used / 100} % déjà couverts).`, {
+            usedBps: used,
+            requestedBps: draft.value.coverage.bps,
+          }),
+        );
+      }
+    }
     const s = await insertScholarship(tx, ctx.tenantId, { id: deps.newId(), ...draft.value }, currency);
     await audit(deps, tx, ctx, { action: "finance.scholarship.created", resourceType: "scholarship", resourceId: s.id, after: s, sensitive: true });
     return ok(s);
@@ -297,7 +317,8 @@ export async function changeScholarshipStatus(
   if (!(SCHOLARSHIP_STATUSES as readonly string[]).includes(input.status)) {
     return err(validation(FinanceCode.INVALID_INPUT, "Statut de bourse inconnu.", "status"));
   }
-  return inTx(deps, ctx, async (tx) => {
+  try {
+  return await inTx(deps, ctx, async (tx) => {
     const changed = await setScholarshipStatus(tx, input.scholarshipId, input.status);
     if (!changed) return err(notFound(FinanceCode.NOT_FOUND, "Bourse", input.scholarshipId));
     await audit(deps, tx, ctx, {
@@ -309,4 +330,11 @@ export async function changeScholarshipStatus(
     });
     return ok(true as const);
   });
+  } catch (e) {
+    // Réactivation d'une part qui ferait dépasser 100 % (déclencheur 0508) : refus métier, pas une erreur 500.
+    if (pgErrorCode(e) === "23514" && /finance.funding_shares_exceed/.test(e instanceof Error ? e.message : "")) {
+      return err(conflict(FinanceCode.FUNDING_SHARES_EXCEED, "La somme des parts de financement dépasserait 100 %."));
+    }
+    throw e;
+  }
 }

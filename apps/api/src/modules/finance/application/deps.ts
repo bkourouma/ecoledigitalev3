@@ -66,6 +66,13 @@ export interface FinanceConfig {
   maxDiscountBps: number;
   /** Autorise le demandeur d'un remboursement à l'approuver lui-même (déconseillé). */
   refundSelfApproval: boolean;
+  /**
+   * Exécution AUTOMATIQUE des remboursements chez les fournisseurs de paiement (décision Q-PAY-32 : toujours manuels).
+   * `false` par défaut : un remboursement d'un paiement en ligne n'est jamais envoyé au fournisseur par la plateforme ; l'exécutant
+   * rembourse à la main et atteste avec une référence de preuve auditée. Un remboursement DÉJÀ parti (`REFUND_PENDING`) reste
+   * conclu par le rapprochement, quel que soit ce réglage. Variable d'environnement : `FINANCE_PROVIDER_REFUND_AUTO=true`.
+   */
+  providerRefundAutoExecution: boolean;
   /** Écart de caisse toléré sans justification (unités mineures). */
   cashVarianceTolerance: number;
   /** URL publique de base des webhooks (communiquée aux fournisseurs). */
@@ -83,6 +90,7 @@ export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
   allocationOrder: DEFAULT_ALLOCATION_ORDER,
   maxDiscountBps: 10_000,
   refundSelfApproval: false,
+  providerRefundAutoExecution: false,
   cashVarianceTolerance: 0,
   webhookBaseUrl: null,
   exportMaxRows: 50_000,

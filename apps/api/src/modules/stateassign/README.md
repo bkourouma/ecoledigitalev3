@@ -19,6 +19,15 @@ Le module ne décide jamais seul : il **enregistre** ce que dit l'acte d'affecta
 | Passerelle future | port `StateGateway`, adaptateur par défaut **`NotConfigured`** : aucun appel externe n'existe ; `source = GATEWAY` + empreinte d'échange sont prêts |
 | Vue famille | le **statut** du dossier de l'enfant, jamais les montants de l'État, échéances, écarts ni contrôles ; lien de tutelle relu à chaque requête |
 
+## Cumul de financements (O-04)
+
+Une inscription peut cumuler plusieurs financements (ex. bourse d'une fondation + État + famille) — voir `finance` (parts `TOTAL`, une facture par financeur) et `academic` (`enrollment_fundings`).
+
+* **Rapprochement** : la part « famille » déclarée par l'acte est ce que la famille doit **avant** les autres financeurs ; elle se compare donc à la facture de la famille **plus** les factures des autres financeurs (`otherFunderInvoices`, une par prise en charge, avec nature et nom du financeur). Sans autre financeur, le résultat est **identique à avant**. L'écart d'un financeur facturé en trop ou en moins apparaît sur la part famille, jamais sur celle de l'État.
+* **Par financement** : seuls les versements dont le payeur est une prise en charge de l'**État** alimentent les échéances de l'État ; les versements d'une fondation ou d'une entreprise restent sur leur propre facture. Un paiement de financeur sans référence reconnue n'est jamais attribué à l'État dès qu'il existe un autre financeur actif (`unattributedPayments`, avertissement).
+* **Vérification d'un dossier** : le montant de l'État déclaré devient la **part de l'État** du cumul d'académic (`upsertEnrollmentFundingShare`), sans écraser une bourse déjà posée. Sans montant déclaré et avec un autre financement déjà présent, la vérification est **refusée** (`stateassign.enrollment_funding_refused`, code `stateassign.cumul_state_amount_required`) plutôt que d'écraser la bourse.
+* Aucune migration propre à ce module (les montants déclarés existent déjà) ; contrat `stateFundingBillingSchema` enrichi de champs additifs (`otherFunderInvoices`, `unattributedPayments`, valeurs par défaut vides).
+
 ## Arborescence
 
 ```

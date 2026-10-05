@@ -214,7 +214,8 @@ export { HigherCode, type HigherCodeValue } from "./domain/errors";
 export { isCurrentlyValid, sumCredits, validUntilFor } from "./domain/credits";
 export { buildGraph, evaluatePrerequisites, findPath, wouldCreateCycle } from "./domain/prerequisites";
 export { computeProgress, resolveRequirementStates, toEligibilityContext, MENTION_PENDING } from "./domain/diploma";
-export { formatAttestationReference, formatAuthenticityReference, formatDiplomaReference } from "./domain/numbering";
+export { formatAttestationReference, formatAuthenticityReference, formatDiplomaReference, parseNumberingPattern, formatWithPattern, DEFAULT_NUMBERING_PATTERNS } from "./domain/numbering";
+export { getNumbering, updateNumbering, advanceNumbering, allocateReference, type NumberingView } from "./application/numbering";
 export { canonicalJson, snapshotHash } from "./domain/snapshot";
 export { REQUIRED_SLOTS, slotInForce } from "./domain/signatures";
 export type {

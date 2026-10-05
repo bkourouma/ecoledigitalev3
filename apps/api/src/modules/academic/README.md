@@ -8,6 +8,15 @@ Postgres `academic`, migrations `0700-0799`. Spec : `specs/v2/004-academic-core/
 Aucune constante réglementaire : niveaux, types de périodes, grammaire du curriculum, financements et issues sont des
 **données** instanciées par `instantiatePackReferenceData` depuis `templates/<système>/<pack>.json`.
 
+## Cumul de financements d'une inscription (O-04, migration 0710)
+
+Décision du propriétaire : une inscription peut être financée par plusieurs sources à la fois (bourse + État + famille). `enrollments.funding_type` reste le type **principal** (lu tel quel par people, analytics, admissions, finance) ; la table `enrollment_fundings` porte les **parts** : pourcentage (points de base, 1 à 10 000) ou montant entier ; le reste est à la charge de la famille (« privé » n'est jamais une part).
+
+* Contrôles imposés par la base : somme des parts en pourcentage vivantes ≤ 100 %, devise unique pour les montants, une part vivante par (type, financeur, référence), parts terminées immuables, jamais de `DELETE`.
+* Cas d'usage : `setEnrollmentFundings` (remplacement atomique du cumul, historique `FUNDING`, événement `academic.enrollment.funding_changed` enrichi du champ additif `fundings`) ; `upsertEnrollmentFundingShare` (pose une part sans toucher aux autres — utilisé par `stateassign` à la vérification d'un dossier) ; `listEnrollmentFundings`. Principal : déduit de la plus grande part (ou conservé s'il est déjà non privé quand on ajoute une part). Cumul vide = famille seule.
+* Routes : `GET|PUT /enrollments/:id/fundings` (permissions existantes `academic.enrollment.read` / `academic.enrollment.funding.update`). L'ancienne route `PATCH /enrollments/:id/funding` est inchangée.
+* Audit sensible `academic.enrollment.fundings_changed` dès qu'un type exigeant une référence d'affectation est concerné.
+
 ## API publique
 
 Seul `index.ts` est importable par les autres modules. Les cas d'usage sont des fonctions

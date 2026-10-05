@@ -75,7 +75,7 @@ describeIntegration("API HTTP /api/v1/finance/* (Fastify + Postgres réel)", () 
       }
     });
     await app.register(financePlugin, {
-      deps: createFinanceDeps({ db: db.tenantDb, clock: world.clock, providers: world.providers, enrollments: world.enrollments, config: { environment: "test" } }),
+      deps: createFinanceDeps({ db: db.tenantDb, clock: world.clock, providers: world.providers, enrollments: world.enrollments, config: { environment: "test", providerRefundAutoExecution: true } }),
       requirePermission: (permission) => async (req) => {
         const ctx = (req as unknown as { ctx?: unknown }).ctx;
         if (!ctx) throw new UnauthorizedError();

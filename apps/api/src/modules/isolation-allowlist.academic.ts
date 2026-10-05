@@ -44,6 +44,7 @@ export const academicTenantTables: readonly string[] = Object.freeze([
   "academic.enrollment_courses",
   "academic.enrollment_placements",
   "academic.enrollment_history",
+  "academic.enrollment_fundings",
   "academic.registration_numbers",
   "academic.rollover_runs",
   "academic.institution_holidays",

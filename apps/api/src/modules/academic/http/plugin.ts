@@ -32,6 +32,7 @@ import * as classrooms from "../application/classrooms";
 import * as courses from "../application/courses";
 import * as curriculum from "../application/curriculum";
 import * as enrollments from "../application/enrollments";
+import * as enrollmentFundings from "../application/enrollment-fundings";
 import * as facts from "../application/facts";
 import * as holidays from "../application/holidays";
 import * as programs from "../application/programs";
@@ -581,6 +582,18 @@ export async function academicPlugin(app: FastifyInstance, options: AcademicPlug
         const ctx = ctxOf(req);
         if (b.fundingType === "STATE_ASSIGNED") await featureEnabledOrThrow(ctx, "academic.state-assigned");
         return unwrapOrThrow(await enrollments.changeEnrollmentFunding(deps, ctx, id, b));
+      });
+      // Cumul de financements (O-04) : bourse + État + famille… avec une part par financement (pourcentage ou montant).
+      scope.get("/enrollments/:id/fundings", { preHandler: perm("enrollment.read") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        return unwrapOrThrow(await enrollmentFundings.listEnrollmentFundings(deps, ctxOf(req), id));
+      });
+      scope.put("/enrollments/:id/fundings", { preHandler: perm("enrollment.funding.update") }, async (req) => {
+        const { id } = parse(c.academicIdParamsSchema, req.params);
+        const b = parse(c.academicSetFundingsBodySchema, req.body);
+        const ctx = ctxOf(req);
+        if (b.shares.some((s) => s.fundingType === "STATE_ASSIGNED")) await featureEnabledOrThrow(ctx, "academic.state-assigned");
+        return unwrapOrThrow(await enrollmentFundings.setEnrollmentFundings(deps, ctx, id, b));
       });
       scope.post("/enrollments/:id/outcome", { preHandler: perm("enrollment.outcome.record") }, async (req) => {
         const { id } = parse(c.academicIdParamsSchema, req.params);

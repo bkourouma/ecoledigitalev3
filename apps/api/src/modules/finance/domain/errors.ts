@@ -45,6 +45,8 @@ export const FinanceCode = {
   CASH_SESSION_CLOSED: "finance.cash_session_closed",
   CASH_REGISTER_NOT_FOUND: "finance.cash_register_not_found",
   FUNDING_ASSIGNMENT_MISSING: "finance.funding_assignment_missing",
+  /** Cumul de financements (O-04) : la somme des parts dépasse 100 % (parts en pourcentage) ou le total à facturer. */
+  FUNDING_SHARES_EXCEED: "finance.funding_shares_exceed",
   PROVIDER_UNKNOWN: "finance.provider_unknown",
   PROVIDER_NOT_CONFIGURED: "finance.provider_not_configured",
   PROVIDER_SANDBOX_FORBIDDEN: "finance.provider_sandbox_forbidden",

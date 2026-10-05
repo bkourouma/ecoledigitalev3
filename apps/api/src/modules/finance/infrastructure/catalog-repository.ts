@@ -12,7 +12,7 @@ import type { FeeSchedule } from "../domain/fee-schedule";
 import type { LearnerAccount } from "../domain/funding";
 import type { InstallmentPlan, PlanStep } from "../domain/installments";
 import type { Scholarship } from "../domain/scholarship";
-import type { FeeCategory, FundingType, FunderKind, ScholarshipStatus } from "../domain/types";
+import type { FeeCategory, FundingType, FunderKind, ScholarshipStatus, ShareBasis } from "../domain/types";
 import { money, moneyOrNull } from "./rows";
 
 // --- Frais -------------------------------------------------------------------
@@ -255,10 +255,11 @@ const accountOf = (r: any): LearnerAccount => ({
   learnerId: r.learner_id,
   fundingType: r.funding_type as FundingType,
   assignmentRef: r.assignment_ref,
+  additionalFundingTypes: (r.additional_funding_types ?? []) as FundingType[],
 });
 
 export async function getLearnerAccount(tx: Tx, learnerId: string): Promise<LearnerAccount | null> {
-  const row = await tx.queryOne("SELECT learner_id, funding_type, assignment_ref FROM finance.learner_accounts WHERE learner_id = $1", [learnerId]);
+  const row = await tx.queryOne("SELECT learner_id, funding_type, assignment_ref, additional_funding_types FROM finance.learner_accounts WHERE learner_id = $1", [learnerId]);
   return row ? accountOf(row) : null;
 }
 
@@ -269,18 +270,18 @@ export async function upsertLearnerAccount(
   account: LearnerAccount,
 ): Promise<LearnerAccount> {
   const row = await tx.queryOne(
-    `INSERT INTO finance.learner_accounts (id, tenant_id, learner_id, funding_type, assignment_ref)
-     VALUES ($1,$2,$3,$4,$5)
+    `INSERT INTO finance.learner_accounts (id, tenant_id, learner_id, funding_type, assignment_ref, additional_funding_types)
+     VALUES ($1,$2,$3,$4,$5,$6)
      ON CONFLICT (tenant_id, learner_id)
-     DO UPDATE SET funding_type = EXCLUDED.funding_type, assignment_ref = EXCLUDED.assignment_ref, updated_at = now()
-     RETURNING learner_id, funding_type, assignment_ref`,
-    [id, tenantId, account.learnerId, account.fundingType, account.assignmentRef],
+     DO UPDATE SET funding_type = EXCLUDED.funding_type, assignment_ref = EXCLUDED.assignment_ref, additional_funding_types = EXCLUDED.additional_funding_types, updated_at = now()
+     RETURNING learner_id, funding_type, assignment_ref, additional_funding_types`,
+    [id, tenantId, account.learnerId, account.fundingType, account.assignmentRef, [...(account.additionalFundingTypes ?? [])]],
   );
   return accountOf(row);
 }
 
 const SCHOLARSHIP_COLS = `id, learner_id, academic_year, funder_kind, funder_name, reference, coverage_kind, coverage_bps,
-  coverage_amount::text AS coverage_amount, cap_amount::text AS cap_amount, currency, categories, status, priority`;
+  coverage_amount::text AS coverage_amount, cap_amount::text AS cap_amount, currency, categories, status, priority, share_basis`;
 
 const scholarshipOf = (r: any): Scholarship => ({
   id: r.id,
@@ -297,6 +298,7 @@ const scholarshipOf = (r: any): Scholarship => ({
   categories: r.categories as FeeCategory[] | null,
   status: r.status as ScholarshipStatus,
   priority: r.priority,
+  shareBasis: r.share_basis as ShareBasis,
 });
 
 export async function insertScholarship(
@@ -308,8 +310,8 @@ export async function insertScholarship(
   const row = await tx.queryOne(
     `INSERT INTO finance.scholarships
        (id, tenant_id, learner_id, academic_year, funder_kind, funder_name, reference, coverage_kind, coverage_bps,
-        coverage_amount, cap_amount, currency, categories, priority)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING ${SCHOLARSHIP_COLS}`,
+        coverage_amount, cap_amount, currency, categories, priority, share_basis)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING ${SCHOLARSHIP_COLS}`,
     [
       s.id,
       tenantId,
@@ -325,6 +327,7 @@ export async function insertScholarship(
       currency,
       s.categories ? [...s.categories] : null,
       s.priority,
+      s.shareBasis ?? "REMAINING",
     ],
   );
   return scholarshipOf(row);

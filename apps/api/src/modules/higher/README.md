@@ -4,7 +4,7 @@ Registre de crédits (capitalisation), prérequis entre UE, rattrapage (session 
 octrois (automatique, manuel, forcé), révocation et ré-octroi exceptionnel, documents officiels (**données** immuables),
 signataires à emplacements **datés**, compteurs de numérotation sans trou, dettes d'UE.
 
-- Pack `HIGHER`, schéma Postgres `higher`, migrations **1400-1408**, préfixe d'API `/api/v1/higher`.
+- Pack `HIGHER`, schéma Postgres `higher`, migrations **1400-1409**, préfixe d'API `/api/v1/higher`.
 - `dependsOn: ["rbac", "rules"]` : `requirePermission` (rbac) et l'API d'évaluation de règles `app.rules` (rules). Curriculum,
   inscriptions, étudiants, résultats et signataires sont des **UUID sans clé étrangère**, lus par des **ports**.
 - **Aucune formule ni seuil réglementaire** : l'éligibilité au diplôme, la moyenne de cycle, la mention et l'état d'UE sont des
@@ -21,7 +21,7 @@ signataires à emplacements **datés**, compteurs de numérotation sans trou, de
 | Structure du curriculum, inscriptions, classes | `academic` (004) |
 | Frais de rattrapage | 014 (événement `higher.resit.registered`) |
 
-## Modèle de données (12 tables, toutes `tenant_id` + RLS forcée, allowlist vide)
+## Modèle de données (13 tables, toutes `tenant_id` + RLS forcée, allowlist vide)
 
 | Table | Rôle | Invariants en base |
 |---|---|---|
@@ -31,7 +31,8 @@ signataires à emplacements **datés**, compteurs de numérotation sans trou, de
 | `ue_debts` | UE non validée en état `DEBT` (levée à l'acquisition) | une dette ouverte par (étudiant, UE) |
 | `ue_prerequisites` | graphe de prérequis | déclencheur différé anti-cycle (parcours borné à 200) |
 | `resit_windows`, `resit_registrations` | fenêtres et inscriptions de rattrapage | une fenêtre ouverte par classe × période ; une inscription par (inscription, ECUE, période) |
-| `number_counters` + `higher.next_number()` | `DIPLOMA`, `AUTHENTICITY`, `ATTESTATION` par année | n'avance que de 1, jamais supprimé ; **dans la transaction de l'octroi : une annulation ne consomme pas de numéro** |
+| `number_counters` + `higher.next_number()` | `DIPLOMA`, `AUTHENTICITY`, `ATTESTATION` par année (année `0` = séquence continue d'un motif sans année) | ne recule jamais, jamais supprimé ; n'avance que de 1 **sauf si l'établissement a désactivé « sans trou »** (1409) ; **dans la transaction de l'octroi : une annulation ne consomme pas de numéro** |
+| `numbering_settings` (1409) | motif de numérotation et réglage « sans trou » par nature de document et par établissement (Q-24) | RLS ; absence de ligne = motif historique + sans trou |
 | `diploma_awards` | octrois : snapshot des exigences, sorties de règles, version de règle | un seul `OBTAINED` par (définition, étudiant) ; révocation terminale et motivée (≥ 10 car.) ; forcé motivé (≥ 20) ; contenu figé ; ré-octroi exige prédécesseur + décision écrite |
 | `official_documents` | snapshots immuables `diploma/1`, `attestation-success/1`, `attestation-authenticity/1` + SHA-256 + code de vérification | immuable hors statut / scellement (une fois) / rendu / publication / révocation ; la révocation d'un octroi révoque ses documents (déclencheur) |
 | `official_document_slots` | emplacements `DIPLOMA_LEFT`, `DIPLOMA_RIGHT`, `ATTESTATION_SUCCESS`, `AUTHENTICITY` → signataire, avec dates | `EXCLUDE` anti-chevauchement ; historique conservé (clôture, jamais de suppression) |
@@ -69,6 +70,7 @@ Un port non branché **échoue fermé** (`higher.port_unavailable`). Les implém
 | Rattrapage | `GET\|POST /resit-windows`, `GET /resit-windows/:id`, `POST /resit-windows/:id/close`, `GET /resit-candidates` | `higher.resit.manage` |
 | Étudiant / tuteur | `GET /me/credits\|pathway\|diplomas\|resits\|documents`, `GET /children/:studentId/…` | `higher.self.read` / `higher.child.read` (+ tutelle vérifiée) |
 | Réglages | `GET\|PUT /settings` | `higher.settings.manage` |
+| Numérotation libre (Q-24) | `GET /numbering`, `PUT /numbering/:counterKey` (`DIPLOMA`, `AUTHENTICITY`, `ATTESTATION`), `POST /numbering/:counterKey/advance` | `higher.settings.manage` |
 
 Features (`requireFeature`) : `higher.diplomas`, `higher.session2`, `higher.prerequisites`, `higher.attestations`.
 L'enseignant n'a **aucune** permission `higher.*` ; un document inconnu ou d'autrui répond 403 (pas d'énumération).
@@ -86,13 +88,24 @@ rejoue (R-HIG-10).
 
 `higher.award.created|forced|revoked` (sensible), `higher.document.issued|published|revoked` (sensible), `higher.slot.assigned`
 (sensible), `higher.diploma.created|updated|deleted|synced|requirements_replaced`, `higher.prerequisite.set`,
-`higher.resit_window.opened|closed|cancelled`, `higher.ledger.capitalized|expired`, `higher.settings.updated`. Mapping vers
+`higher.resit_window.opened|closed|cancelled`, `higher.ledger.capitalized|expired`, `higher.settings.updated`, `higher.numbering.updated|advanced` (sensibles). Mapping vers
 `audit.record` : `higher/infrastructure/audit-adapter.ts` (`sensitive` ⇒ sévérité `notice`).
 
 ## Jobs
 
 `higher.expire-credits` (03:20) : passe `EXPIRED` les acquisitions périmées (réglage `credit_validity_months`), épargne celles d'un
 diplôme octroyé.
+
+## Numérotation libre par établissement (Q-24)
+
+Décision du propriétaire : l'établissement choisit le **motif** de ses références (préfixe, année, séquence) ; la garantie « sans trou » devient un **réglage**.
+
+- **Motif** : texte fixe (`A-Z a-z 0-9 . _ / # -`) + au plus un jalon d'année `{YYYY}` / `{YY}` + **exactement un** jalon de séquence `{SEQ}` / `{SEQ:n}` (largeur 1 à 9). Exemples : `DIP-{YYYY}-{SEQ:6}` (défaut livré, = format historique), `UNI/{YY}-D{SEQ:4}`, `CERT{SEQ:5}`. Un motif ne peut pas se terminer par `/D<chiffres>` (suffixe des duplicata) ni être identique à celui d'une autre nature.
+- **Défaut** : sans ligne `numbering_settings`, les trois formats historiques (`DIP-AAAA-NNNNNN`, `AUTH/AAAA/NNN`, `ATT-AAAA-NNNNNN`) et la garantie sans trou s'appliquent : **aucun changement pour un établissement qui ne touche à rien**.
+- **Unicité (contrainte, pas convention)** : `UNIQUE (tenant, référence)` sur les octrois, `UNIQUE (tenant, nature, référence)` sur les documents, `UNIQUE (tenant, année, séquence)` sur les octrois ; la référence émise est immuable (1408) ; le numéro vient du compteur transactionnel (verrou de ligne jusqu'au COMMIT). Un motif **sans année** utilise une **séquence continue** (compteur d'année 0) pour ne pas repartir à 1 chaque janvier.
+- **Changer de motif** ne vaut que pour les documents **futurs** ; les références déjà émises ne bougent jamais. Réglage sensible : audit `higher.numbering.updated` (avant / après).
+- **« Sans trou » (compromis documenté)** : *activé* (défaut, y compris pour les trois natures déjà livrées) : le compteur n'avance que de 1, l'API d'avance est refusée (`higher.numbering_gapless`, 409) et le déclencheur de la base refuse tout saut. *Désactivé* : l'établissement peut **avancer** le compteur (`POST /numbering/:key/advance`, motif ≥ 10 caractères, audit sensible `higher.numbering.advanced`) pour reprendre un registre papier ou réserver des numéros ; les trous ainsi créés sont **voulus et tracés**. Dans les deux cas, un compteur ne **recule** jamais, et une transaction annulée ne consomme aucun numéro.
+- Permission : `higher.settings.manage` (existante). Aucun événement nouveau.
 
 ## Décisions de conception à connaître
 

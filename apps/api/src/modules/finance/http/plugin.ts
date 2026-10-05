@@ -442,7 +442,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         const { learnerId } = parse(financeLearnerParamsSchema, req.params);
         const b = parse(financeSetFundingBodySchema, req.body);
         if (b.fundingType === "STATE_ASSIGNED") await requireFeature(ctx, "finance.state-assigned");
-        const account = unwrapOrThrow(await setLearnerFunding(deps, ctx, { learnerId, fundingType: b.fundingType, ...(b.assignmentRef ? { assignmentRef: b.assignmentRef } : {}) }));
+        const account = unwrapOrThrow(await setLearnerFunding(deps, ctx, { learnerId, fundingType: b.fundingType, ...(b.assignmentRef ? { assignmentRef: b.assignmentRef } : {}), ...(b.additionalFundingTypes !== undefined ? { additionalFundingTypes: b.additionalFundingTypes } : {}) }));
         return { ...account };
       });
       scope.get("/learners/:learnerId/statement", { preHandler: perm("finance.invoice.read") }, async (req) => {
@@ -468,6 +468,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
             ...(b.capAmount !== undefined ? { capAmount: m(b.capAmount, cur) } : {}),
             ...(b.categories ? { categories: b.categories } : {}),
             ...(b.priority !== undefined ? { priority: b.priority } : {}),
+            ...(b.shareBasis ? { shareBasis: b.shareBasis } : {}),
           }),
         );
         return reply.status(201).send(present.scholarshipDto({ ...s, status: "ACTIVE" }));
@@ -1239,6 +1240,7 @@ export default async function financeModulePlugin(app: FastifyInstance, runtime:
       environment,
       webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null,
       ...exportMaxRowsOf(runtime.env),
+      providerRefundAutoExecution: runtime.env.FINANCE_PROVIDER_REFUND_AUTO?.trim().toLowerCase() === "true",
       reconciliation: reconciliationConfigFromEnv(runtime.env),
     },
   });

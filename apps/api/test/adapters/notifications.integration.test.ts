@@ -148,7 +148,7 @@ describeIntegration("notifications : adaptateurs réels (people, academic, rbac,
     const learnerId = school.pupils[0]!.studentId;
     const sendersBefore = ch.EMAIL.sent.length;
     const first = unwrap(await runDunning(deps, sys()));
-    expect(first).toMatchObject({ examined: 1, notified: 1 }); // 12 jours : palier J+10
+    expect(first).toMatchObject({ examined: 1, notified: 1 }); // 12 jours : palier J+7
     expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 0 });
     const rows = await adminRows<{ channel: string; status: string; skip_reason: string | null; recipient_masked: string }>(w, "SELECT channel, status, skip_reason, recipient_masked FROM notifications.deliveries WHERE source_kind = 'DUNNING' ORDER BY channel");
     // Responsable financier seul (financialFirst) : in-app, e-mail, WhatsApp ; jamais le tuteur sans compte ni l'ancien tuteur.
@@ -162,7 +162,7 @@ describeIntegration("notifications : adaptateurs réels (people, academic, rbac,
     const inApp = await adminRows<{ body: string; system_code: string }>(w, "SELECT body, system_code FROM messaging.messages WHERE system_code = 'notifications.payment_reminder'");
     expect(inApp).toHaveLength(1);
     // Facture soldée : plus aucune relance, et une relance en attente est annulée à l'envoi.
-    w.clock.advance(20 * 86_400_000); // +20 jours : palier J+30 atteint (32 jours de retard)
+    w.clock.advance(35 * 86_400_000); // +35 jours : palier J+45 atteint (47 jours de retard)
     expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ notified: 1 });
     const invoiceId = (await adminRows<{ id: string }>(w, "SELECT id FROM finance.invoices WHERE learner_id = $1", [learnerId]))[0]!.id;
     unwrap(await recordManualPayment(fin, w.director, { idempotencyKey: `pay-${newId()}`, learnerId, amount: xof(60_000), method: "TRANSFER", reference: "VIR-B", allocation: { mode: "AUTO", invoiceIds: [invoiceId] } }));
@@ -170,7 +170,7 @@ describeIntegration("notifications : adaptateurs réels (people, academic, rbac,
     expect(report.cancelled).toBeGreaterThanOrEqual(1);
     expect(unwrap(await runDunning(deps, sys()))).toMatchObject({ examined: 0, notified: 0 });
     const stages = (await adminRows<{ stage_days: number }>(w, "SELECT stage_days FROM notifications.dunning_steps ORDER BY stage_days")).map((s) => s.stage_days);
-    expect(stages).toEqual([3, 10, 30]);
+    expect(stages).toEqual([7, 21, 45]);
   });
 
   it("événement réel -> règle -> tuteurs réels : absence notifiée par le premier canal joignable (WhatsApp), numéro normalisé", async () => {
