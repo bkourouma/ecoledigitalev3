@@ -87,3 +87,65 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q6-31 | Élève voit ce que voit la famille sauf « parents seulement » (réglable) | Défaut conservé |
 | Q6-32 | Même outil de conseil pour primaire et secondaire | Défaut conservé |
 | Q6-11, Q6-12, Q6-14, Q6-29 | Dépendent des textes officiels (limites de redoublement, séries/options, catalogue de fautes, coefficients) : à fournir | En attente |
+
+## 007 — Admissions
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-A01 | Pas de frais de dossier avant admission | Défaut conservé |
+| Q-A02 | Offre valable 14 jours (réglable) | Défaut conservé |
+| Q-A03 | Liste d'attente : DÉCISION MANUELLE de la direction (pas d'ordre automatique par ancienneté) | Écart |
+| Q-A04 | Dossiers refusés : pas de purge, anonymisation sur demande motivée | Défaut conservé |
+| Q-A05 | Aucun délai de paiement des frais d'inscription, pas d'annulation automatique | Défaut conservé |
+| Q-A06 | Aucun contrôle d'âge | Défaut conservé |
+| Q-A07 | Test d'entrée/entretien facultatif | Défaut conservé |
+| Q-A08 | Acceptation par tout tuteur (lien unique) ; secrétariat avec pièce | Défaut conservé |
+| Q-A11 | Transfert entrant : même workflow, inscription marquée transfert | Défaut conservé |
+| Q-A12 | Affectés : capacité respectée, dépassement possible avec motif | Défaut conservé |
+| Q-A13 | Place libérée : proposition manuelle | Défaut conservé |
+| Q-A14 | Pas de remboursement automatique des frais d'inscription | Défaut conservé |
+| Q-A15 | Réinscription hors admissions (reconduction annuelle) | Défaut conservé |
+| Q-A16 | Fournisseur SMS = Orange (décision antérieure) | Décidé |
+| Q-A17 | Commissions d'apporteurs non reprises | Défaut conservé |
+| Q-A18 | Motif de refus : libellé neutre du motif codé | Défaut conservé |
+| Q-A09, Q-A10 | Texte de consentement et liste de pièces par niveau : à fournir par l'établissement | En attente |
+
+## 012 — Moteur de règles
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-01 | Supérieur : semestre validé si toutes les UE le sont ; pas de compensation ; passage décidé par une personne | Défaut conservé |
+| Q-02 | Rattrapage (session 2) remplace toujours la note de session 1 | Décidé 2026-10-01 |
+| Q-04 | Note < 5 éliminatoire, repassable en session 2 | Défaut conservé |
+| Q-06 | Calcul exact, arrondi à l'affichage (2 décimales ; notes saisies à 3) | Défaut conservé |
+| Q-07 | Seuils testés sur la valeur exacte | Défaut conservé |
+| Q-08 | Moyenne des devoirs simple | Défaut conservé |
+| Q-09 | Sans examen = pas de note ; sans devoir = contrôle continu 0 | Défaut conservé |
+| Q-10 | Absence justifiée ignorée, injustifiée = 0 (paramétrable) | Défaut conservé |
+| Q-11 | Deux personnes différentes par défaut ; option « tâches cumulables » tracée | Défaut conservé |
+| Q-12 | Correction après clôture avec approbation du directeur ; bulletin réédité | Défaut conservé |
+| Q-13 | Bulletin non bloqué par les impayés par défaut (option d'établissement) | Défaut conservé |
+| Q-16 | Réforme applicable à partir de la période suivante | Défaut conservé |
+| Q-17 | Établissements : paramètres bornés seulement ; formules libres sur validation plateforme | Défaut conservé |
+| Q-18 | Ex æquo : même rang, suivant saute (1, 1, 3) | Défaut conservé |
+| Q-19 | Distinctions : honneur ≥ 12, encouragements ≥ 15, félicitations ≥ 17 (réglables) | Défaut conservé |
+| Q-21 | Aucun signataire par défaut ; pas d'impression sans signataires | Défaut conservé |
+| Q-22 | Diplôme révoqué : définitif sauf décision écrite du directeur général | Défaut conservé |
+| Q-23 | Moyenne de matière simple (notes ramenées sur 20) | Défaut conservé |
+| Q-24 | Numérotation des diplômes/attestations : FORMAT LIBRE par établissement (pas de séquence imposée sans trou) | Écart |
+| Q-25 | Crédit acquis définitivement | Défaut conservé |
+| Q-26 | Prérequis satisfait par UE validée seulement | Défaut conservé |
+| Q-27 | Paie : francs entiers, calcul mois par mois | Décidé |
+| Q-28 | Pas de retenues légales pour l'instant | Défaut conservé |
+| Q-29 | Admin accède à un bulletin en attente de paiement pour la gestion | Défaut conservé |
+| Q-30 | Validation de bulletin par propriétaire ET administrateur selon droits | Défaut conservé |
+| Q-31 | Vérification publique : « Authentique », nom, nature, date, établissement, mention | Défaut conservé |
+| Q-32 | Modèle plateforme + options (logo, couleurs, rubriques, signatures) | Défaut conservé |
+| Q-33 | Français uniquement en V1 | Défaut conservé |
+| Q-34 | Date de délibération saisie ; relevé définitif après délibération | Défaut conservé |
+| Q-35 | Saisie directe des moyennes autorisée (type « moyenne saisie ») | Défaut conservé |
+| Q-36 | Heures payables : présences et séances validées au choix | Défaut conservé |
+| Q-38 | Barème libre par évaluation ramené sur 20 | Défaut conservé |
+| Q-39 | Changement de classe : un bulletin par classe | Défaut conservé |
+| Q-40 | Heures validées d'un enseignant désactivé payées | Défaut conservé |
+| Q-03, Q-37 | Couverts par O-18 (pas de compensation) et par la contrainte de non-chevauchement des périodes de paie | Défaut conservé |
