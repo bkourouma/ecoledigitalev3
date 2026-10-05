@@ -65,6 +65,8 @@ Les migrations sont rejouées par `specs/v2/018-examinations/ddl/run.mjs` (195 t
 
 Permissions ajoutées à la liste de la spec (additives) : `exam.candidate.read` (consultation par l'enseignant), `exam.result.read` (consultation des résultats et des demandes de révision).
 
+**Permissions ajoutées par les décisions métier Q-E15 / Q-E13 / Q-E18 (à attribuer dans `rbac`, rien n'est accordé par ce module)** : `exam.external.manage` (saisir, importer, modifier un candidat libre), `exam.external.read` (données personnelles restreintes d'un candidat libre : lecture auditée), `exam.external.anonymize` (**sensible**, MFA), `exam.fee.read` (barème et obligation de frais d'un candidat), `exam.fee.manage` (barème, relance de la facturation, confirmation d'un remboursement manuel) ; côté `admissions` : `admission.exam_result.read` (la MOYENNE d'examen transmise, lecture tracée).
+
 ## Candidat libre (décision métier Q-E15)
 
 Une personne qui n'est **pas élève** de l'établissement peut être inscrite à une session **officielle** (jamais à un examen blanc). Elle n'a **aucun dossier `people`** : `candidates.student_id` est nul, `candidate_kind = 'EXTERNAL'`.
