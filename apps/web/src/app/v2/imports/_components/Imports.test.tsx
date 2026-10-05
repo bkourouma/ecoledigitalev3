@@ -226,7 +226,7 @@ describe("ImportAssistant : étape Fichier", () => {
     fireEvent.click(screen.getByRole("button", { name: "Envoyer et continuer" }));
     await waitFor(() => expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(2));
     expect(screen.getByText("Choisissez le type de données à importer.")).toBeTruthy();
-    expect(screen.getByText("Choisissez un fichier .xlsx ou .csv.")).toBeTruthy();
+    expect(screen.getByText("Choisissez un fichier .xlsx, .xls, .ods ou .csv.")).toBeTruthy();
     expect(api.calls.filter((c) => c.method === "POST")).toHaveLength(0);
   });
 

@@ -7,6 +7,7 @@ import { FileRejectedError } from "../../domain/errors";
 import { openCsv } from "./csv";
 import { safeFileName, sniffFile } from "./sniff";
 import type { FileLimits, TableReader } from "./types";
+import { openLegacy } from "./legacy/open";
 import { openXlsx } from "./xlsx";
 
 export interface OpenedFile {
@@ -26,7 +27,8 @@ export async function openUploadedFile(
   }
   const sniffed = sniffFile(bytes, declared);
   const options = { limits, sheet: declared.sheet };
-  const reader = sniffed.kind === "XLSX" ? await openXlsx(bytes, options) : openCsv(bytes, options);
+  const reader =
+    sniffed.kind === "XLSX" ? await openXlsx(bytes, options) : sniffed.kind === "CSV" ? openCsv(bytes, options) : await openLegacy(bytes, sniffed.kind, options);
   return { reader, fileName: safeFileName(declared.fileName), sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length };
 }
 

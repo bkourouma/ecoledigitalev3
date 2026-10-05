@@ -27,7 +27,13 @@ export interface UploadInput {
 }
 
 const ROW_BATCH = 500;
-const EXT_OF: Record<string, string> = { XLSX: "xlsx", CSV: "csv" };
+const EXT_OF: Record<string, string> = { XLSX: "xlsx", CSV: "csv", XLS: "xls", ODS: "ods" };
+const CONTENT_TYPE_OF: Record<string, string> = {
+  XLSX: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  CSV: "text/csv",
+  XLS: "application/vnd.ms-excel",
+  ODS: "application/vnd.oasis.opendocument.spreadsheet",
+};
 
 export async function uploadImportFile(deps: ImportsDeps, ctx: RequestContext, input: UploadInput): Promise<Result<ImportUploadResult, AppError>> {
   const importer = findImporter(input.importerKey);
@@ -63,7 +69,7 @@ export async function uploadImportFile(deps: ImportsDeps, ctx: RequestContext, i
   // 3. Stockage de l'original (preuve, rejeu, audit). Aucun fichier n'est conservé sans import en base.
   const jobId = deps.newId();
   const storageKey = `imports/${ctx.tenantId}/${jobId}.${EXT_OF[reader.kind]}`;
-  await deps.ports.storage.put(storageKey, input.bytes, { contentType: reader.kind === "XLSX" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv" });
+  await deps.ports.storage.put(storageKey, input.bytes, { contentType: CONTENT_TYPE_OF[reader.kind] ?? "application/octet-stream" });
 
   let result: Result<ImportUploadResult, AppError>;
   try {

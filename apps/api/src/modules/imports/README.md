@@ -1,4 +1,4 @@
-# Module `imports` — imports Excel / CSV en sept étapes
+# Module `imports` — imports Excel / ODS / CSV en sept étapes
 
 Socle (pack `CORE`). Schéma Postgres `imports`, migrations **2400-2499** (`2400_imports_init.sql`). Spec : `specs/v2/031-imports/` (`spec.md`, `data-model.md`, `plan.md`, `parity.md`, `open-questions.md`). Conventions : `docs/architecture/module-conventions.md`. `dependsOn: []` : le module n'importe aucun autre module ; il **n'écrit jamais** dans un autre schéma.
 
@@ -26,9 +26,30 @@ Fichier : matricule de l'élève (d'origine, de la plateforme ou numéro d'inscr
 
 `grades_own` est le MÊME importeur que `grades` (mêmes colonnes, mêmes règles, mêmes clés naturelles) avec un autre périmètre de droits : `imports.import.grades_own` + `grade.enter`, jamais `assessment.manage`. Le périmètre est vérifié **côté serveur par l'affectation d'enseignement** : le port travaille sans capacité étendue, donc `assess` n'ouvre que les évaluations dont l'auteur est l'enseignant **et** encore affecté à la matière dans la classe (`assess.not_assigned` sinon), à chaque lecture (choix, mapping, validation) et à chaque écriture, sous l'identité de l'auteur (le worker rejoue sous son identité, jamais sous celle du système). Une évaluation inconnue, d'un collègue ou d'un autre tenant reçoit la **même réponse** (`imports.options_invalid`) ; un matricule d'une autre classe est indiscernable d'un matricule inconnu (pas d'énumération d'élèves). L'écran ne propose qu'un des deux importeurs de notes : « Notes » si l'utilisateur peut l'utiliser, sinon « Notes de mes classes ».
 
+## Fichiers .xls et .ods : convertisseur isolé (O-11)
+
+Cadrage du 2026-10-05 : « conversion `.xls` / `.ods` par un convertisseur isolé (processus séparé, limites de taille et de durée, sans réseau) ». Code : `infrastructure/files/legacy/` (`convert.ts` côté parent, `child-source.ts` programme de l'enfant, `open.ts` lecteur). Format interne de sortie : IDENTIQUE à `.xlsx` / `.csv` (`TableReader` : en-têtes, lignes de texte, numéros de ligne) ; le type d'origine (`XLS` / `ODS`) est conservé dans `imports.jobs.file_kind` (migration `2401`), et le fichier d'origine est stocké tel quel.
+
+| Mesure | Détail |
+|---|---|
+| Détection par le contenu | `.xls` : en-tête OLE2 (`D0CF11E0A1B11AE1`) ET flux « Workbook » / « Book » (sinon c'est un autre document Office : refusé) ; `.ods` : archive ZIP dont la partie `mimetype` est `application/vnd.oasis.opendocument.spreadsheet` (un `.odt` est refusé). Le nom et le `Content-Type` ne servent qu'à repérer une incohérence (`imports.file_type_mismatch`). L'enfant revérifie les octets magiques. |
+| Processus séparé | `child_process.spawn(process.execPath, …)` jetable par fichier. La bibliothèque `xlsx` n'est jamais chargée dans l'API ni le worker. Le fichier passe par l'entrée standard, le résultat revient en JSON sur la sortie standard : aucun fichier temporaire. |
+| Sans variables sensibles | environnement de l'enfant VIDE (`env: {}`), y compris `NODE_OPTIONS`. Sous Windows, le système y ajoute lui-même quelques variables par défaut (`PATH`, `TEMP`, `USERPROFILE`…), sans rapport avec le parent ; le test vérifie qu'aucune variable du parent n'y figure. |
+| Sans réseau | l'enfant refuse de charger `net`, `tls`, `dns`, `dgram`, `http(s)`, `http2`, `child_process`, `worker_threads`, `vm`, `inspector`, les addons natifs (`process.dlopen`), et ne contient aucun code réseau ; liens et formules ne sont jamais suivis (testé avec un serveur local : 0 requête). **Limite honnête** : Node ne sait pas couper le réseau d'un processus ; la garantie « dure » est celle du conteneur (pas de sortie réseau superflue) ou d'un espace de noms réseau dédié en production. |
+| Modèle de permissions de Node | `--permission` (ou `--experimental-permission` sur Node 20) quand disponible : aucune écriture disque, lecture limitée au dossier `node_modules`, ni processus, ni thread, ni addon. Sans ce modèle (Node trop ancien), seuls les autres garde-fous s'appliquent. |
+| Plafonds | taille du fichier (celle de l'import), lignes, colonnes, caractères par cellule (comme `.xlsx`) ; feuilles (`maxSheets` 20) ; tas de l'enfant (`maxHeapMb` 256, `--max-old-space-size`) ; sortie normalisée (`maxOutputBytes` 32 Mio) ; **délai** (`timeoutMs` 15 s, `SIGKILL`) ; 2 conversions simultanées par processus (`maxConcurrent`). Surchargeables par `FileLimits.legacy`. Une seule feuille est lue, plafonnée en lignes (`sheetRows`). |
+| Bombe de décompression (`.ods`) | archive inspectée AVANT l'enfant avec les contrôles du `.xlsx` (entrées, noms, tailles déclarées, rapport de compression) PUIS décompression réellement comptée de chaque entrée (une taille déclarée peut mentir) : `imports.file_unsafe`. |
+| Rien n'est exécuté | formules : valeur enregistrée lue, jamais recalculée (signalées : `imports.formulas_ignored`) ; liens : ignorés et comptés (`imports.links_ignored`) ; macros (`Basic/`, `Scripts/`, projet VBA) : signalées (`imports.macros_ignored`), jamais lues ; entités XML externes : jamais résolues. |
+| Erreurs claires | `imports.file_type_unsupported` / `file_type_mismatch` (type), `file_corrupt` (illisible, protégé par mot de passe), `file_unsafe` (bombe, délai, mémoire, sortie), `too_many_rows` / `too_many_columns`, `sheet_unknown`. Un convertisseur impossible à démarrer donne `imports.conversion_unavailable` (erreur de service, 500), pas un refus du fichier. |
+| Isolation entre tenants | le convertisseur est sans état (aucun disque, aucun cache) : un enfant par fichier, jamais réutilisé ; le reste du parcours est celui du cadre (RLS, 404 hors tenant), éprouvé par les tests A/B. |
+
+Dépendance : `xlsx` `^0.18.5`, déjà présente dans le dépôt (`apps/web`, même version dans `pnpm-lock.yaml`) ; ajoutée à `apps/api/package.json` car l'API (et non le worker, dont l'image ne contient que `dist/`) la charge dans l'enfant. Aucun téléchargement : lockfile identique pour cette version. Ses avis publics connus (pollution de prototype, ReDoS, voir `docs/architecture/security-review-v2.md`) sans version corrigée sont la raison de l'isolation ; l'enfant est lancé avec `--disable-proto=delete`. Paquet **non chargé** hors de l'enfant.
+
+Tests : `test/unit/legacy.test.ts` (sans base : lecture, parité avec `.xlsx`, faux `.xls`, `.ods` piégés, bombe, liens, XXE, délai, mémoire, sortie, environnement, permissions, conversions simultanées) et `test/integration/http.integration.test.ts` (parcours HTTP `.xls` / `.ods`, isolation A/B, refus 400).
+
 ## Parcours
 
-1. **Upload** `POST /jobs?importer=…&fileName=…` (corps BRUT) : type réel (octets), taille, ZIP inspecté puis décompression comptée, DTD refusées, plafonds de lignes / colonnes / cellule, stockage (`StoragePort`), lignes brutes mises en table par lots (flux), empreinte SHA-256, proposition de mapping (modèle enregistré >= 80 % sinon détection par en-têtes).
+1. **Upload** `POST /jobs?importer=…&fileName=…` (corps BRUT) : type réel (octets : `.xlsx`, `.csv`, `.xls`, `.ods`), taille, ZIP inspecté puis décompression comptée, DTD refusées, plafonds de lignes / colonnes / cellule, stockage (`StoragePort`), lignes brutes mises en table par lots (flux), empreinte SHA-256, proposition de mapping (modèle enregistré >= 80 % sinon détection par en-têtes).
 2. **Mapping** `PUT /jobs/:id/mapping` : champs <-> colonnes, options de l'importeur, politique « existant » (`SKIP` / `UPDATE`).
 3. **Validation** `POST /jobs/:id/validate` -> événement -> abonné `imports.validate` (worker) : mapping + coercion + Zod + règles + clé naturelle ; doublons dans le fichier ; **plan** contre l'existant par le port (transaction TOUJOURS annulée).
 4. **Erreurs** `GET /jobs/:id/rows?onlyProblems=…&column=…&code=…` ; rapport téléchargeable `GET /jobs/:id/report?format=csv|xlsx&kind=errors|full` (valeurs neutralisées).
@@ -44,7 +65,7 @@ Autres routes : `GET /importers` (descripteurs + `canUse` / `canRun` selon les d
 
 ## Sécurité des fichiers (INV-S1 à S8, `spec.md` §4.1)
 
-Type réel sur les octets (`.xls`, PDF, images, exécutables, archives non XLSX refusés ; incohérence nom / contenu / type annoncé refusée) ; zip-bomb (nombre d'entrées, taille déclarée, rapport de compression, **comptage de la décompression réelle**) ; XML en flux sans DTD ni entité ; formules lues par leur valeur en cache (jamais évaluées), macros ignorées ; plafonds ; **injection de formule neutralisée** dans les CSV / XLSX de rapport (apostrophe, cellules XLSX en texte) ; aucune donnée de ligne dans les événements ni les journaux ; valeurs brutes purgées après `retention_days`. Quotas par tenant (imports actifs, par 24 h), limiteur de débit par utilisateur.
+Type réel sur les octets (PDF, images, exécutables, archives non tableur, documents OLE2 non Excel refusés ; incohérence nom / contenu / type annoncé refusée) ; zip-bomb (nombre d'entrées, taille déclarée, rapport de compression, **comptage de la décompression réelle**) ; XML en flux sans DTD ni entité ; formules lues par leur valeur en cache (jamais évaluées), macros ignorées ; plafonds ; **injection de formule neutralisée** dans les CSV / XLSX de rapport (apostrophe, cellules XLSX en texte) ; aucune donnée de ligne dans les événements ni les journaux ; valeurs brutes purgées après `retention_days`. Quotas par tenant (imports actifs, par 24 h), limiteur de débit par utilisateur.
 
 ## Événements et jobs
 
@@ -81,4 +102,4 @@ Fichiers d'exemple FICTIFS : `test/support/files.ts` (aucune donnée réelle) ; 
 
 ## Limites connues
 
-Voir `specs/v2/031-imports/open-questions.md` (O-01 à O-15) : transaction unique du mode « tout ou rien » (verrous des modules cibles), notes réservées à `assessment.manage`, tuteurs sans `externalRef` (idempotence par table de références), débit borné par les cas d'usage des modules cibles, `.xls` / `.ods` non pris en charge.
+Voir `specs/v2/031-imports/open-questions.md` (O-01 à O-15) : transaction unique du mode « tout ou rien » (verrous des modules cibles), notes réservées à `assessment.manage`, tuteurs sans `externalRef` (idempotence par table de références), débit borné par les cas d'usage des modules cibles, `.xlsb` et `.fods` non pris en charge ; `.xls` / `.ods` pris en charge par le convertisseur isolé (O-11, ci-dessous).

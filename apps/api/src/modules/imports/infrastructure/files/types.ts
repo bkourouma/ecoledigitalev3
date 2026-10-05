@@ -19,7 +19,31 @@ export interface FileLimits {
   readonly maxZipUncompressedBytes: number;
   /** XLSX : rapport taille décompressée / compressée maximal d'une entrée volumineuse. */
   readonly maxZipRatio: number;
+  /** .xls / .ods : limites du convertisseur isolé (valeurs par défaut : `DEFAULT_LEGACY_LIMITS`). */
+  readonly legacy?: Partial<LegacyLimits>;
 }
+
+/** Limites du convertisseur isolé (processus enfant) des formats .xls et .ods. */
+export interface LegacyLimits {
+  /** Délai maximal de conversion ; au-delà le processus enfant est tué. */
+  readonly timeoutMs: number;
+  /** Plafond du tas V8 de l'enfant (`--max-old-space-size`). */
+  readonly maxHeapMb: number;
+  /** Feuilles du classeur. */
+  readonly maxSheets: number;
+  /** Taille maximale de la sortie normalisée (octets) ; au-delà l'enfant est tué. */
+  readonly maxOutputBytes: number;
+  /** Conversions simultanées dans ce processus (les autres attendent). */
+  readonly maxConcurrent: number;
+}
+
+export const DEFAULT_LEGACY_LIMITS: LegacyLimits = {
+  timeoutMs: 15_000,
+  maxHeapMb: 256,
+  maxSheets: 20,
+  maxOutputBytes: 32 * MIB,
+  maxConcurrent: 2,
+};
 
 export const DEFAULT_FILE_LIMITS: FileLimits = {
   maxBytes: 5 * MIB,

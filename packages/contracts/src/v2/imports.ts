@@ -23,7 +23,8 @@ export const IMPORTER_KEYS = ["students", "guardians", "staff", "classrooms", "c
 export const importerKeySchema = z.enum(IMPORTER_KEYS);
 export type ImporterKey = z.infer<typeof importerKeySchema>;
 
-export const IMPORT_FILE_KINDS = ["XLSX", "CSV"] as const;
+/** `XLS` (Excel 97-2003) et `ODS` (OpenDocument) sont lus par un convertisseur isolé (processus séparé), puis normalisés comme les autres. */
+export const IMPORT_FILE_KINDS = ["XLSX", "CSV", "XLS", "ODS"] as const;
 export const importFileKindSchema = z.enum(IMPORT_FILE_KINDS);
 export type ImportFileKind = z.infer<typeof importFileKindSchema>;
 

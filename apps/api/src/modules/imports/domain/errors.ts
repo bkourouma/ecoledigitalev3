@@ -30,6 +30,9 @@ export const portUnavailable = (port: string): InternalError =>
     details: { port },
   });
 
+/** Convertisseur .xls / .ods indisponible (démarrage impossible) : erreur de service, pas un défaut du fichier. */
+export const conversionUnavailable = (message: string): InternalError => new InternalError(message, { code: "imports.conversion_unavailable" });
+
 /** Fichier refusé (type, taille, structure) : 400 avec un code précis et un message actionnable. */
 export class FileRejectedError extends ValidationError {
   constructor(code: ImportErrorCode, message: string, details?: Record<string, unknown>) {

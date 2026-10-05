@@ -3,7 +3,7 @@
  * Une fonction par requête, SQL paramétré, `Tx` reçu en paramètre (RLS : aucune requête n'a besoin de `tenant_id`).
  */
 import type { Tx } from "@ecoledigitale/database";
-import type { ImportJobStatus, ImporterKey } from "@ecoledigitale/contracts/src/v2/imports";
+import type { ImportFileKind, ImportJobStatus, ImporterKey } from "@ecoledigitale/contracts/src/v2/imports";
 import { DEFAULT_SETTINGS, type JobRecord, type SettingsRecord, type TemplateRecord } from "../domain/records";
 
 const JOB_COLUMNS = `
@@ -26,7 +26,7 @@ export interface NewJob {
   tenantId: string;
   importerKey: ImporterKey;
   fileName: string;
-  fileKind: "XLSX" | "CSV";
+  fileKind: ImportFileKind;
   fileSize: number;
   fileSha256: string;
   storageKey: string | null;

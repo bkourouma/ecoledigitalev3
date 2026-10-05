@@ -32,12 +32,12 @@ const MAX_SHARED_STRINGS = 2_000_000;
 const MAX_CELL_SOURCE_CHARS = 200_000;
 const MAX_SCAN_COLUMN = 16_384;
 
-interface EntrySizes {
+export interface EntrySizes {
   readonly uncompressedSize: number;
   readonly compressedSize: number;
 }
 
-const sizesOf = (file: JSZip.JSZipObject): EntrySizes => {
+export const sizesOf = (file: JSZip.JSZipObject): EntrySizes => {
   const data = (file as unknown as { _data?: Partial<EntrySizes> })._data;
   if (!data || typeof data.uncompressedSize !== "number" || typeof data.compressedSize !== "number" || data.uncompressedSize < 0 || data.compressedSize < 0) {
     throw corrupt("Archive du classeur illisible (tailles d'entrées absentes).");
@@ -69,7 +69,7 @@ export function inspectZip(zip: JSZip, limits: FileLimits): { totalDeclared: num
 }
 
 /** Budget partagé de décompression (compté sur les octets RÉELLEMENT produits). */
-class Budget {
+export class Budget {
   private used = 0;
   constructor(private readonly max: number) {}
   take(n: number): void {
@@ -92,7 +92,7 @@ interface JsZipStream {
  * fois. À l'arrêt (plafond dépassé, erreur ou sortie anticipée du consommateur), le flux est mis en pause et abandonné :
  * la décompression ne se poursuit pas.
  */
-async function* streamPart(zip: JSZip, name: string, partCap: number, budget: Budget): AsyncGenerator<Uint8Array, void, void> {
+export async function* streamPart(zip: JSZip, name: string, partCap: number, budget: Budget): AsyncGenerator<Uint8Array, void, void> {
   const file = zip.file(name);
   if (!file) throw corrupt(`Partie « ${name} » absente du classeur.`);
   const stream = (file as unknown as { internalStream(type: "uint8array"): JsZipStream }).internalStream("uint8array");

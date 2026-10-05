@@ -21,7 +21,7 @@
 
 ### Inclus
 
-- Fichiers `.xlsx` et `.csv` (UTF-8 avec ou sans BOM, windows-1252 ; séparateurs `,` `;` tabulation détectés). Première feuille par défaut (la feuille se choisit à l'upload) ; première ligne non vide = en-têtes.
+- Fichiers `.xlsx` et `.csv`, ainsi que `.xls` (Excel 97-2003) et `.ods` (OpenDocument) lus par un convertisseur isolé (O-11) (UTF-8 avec ou sans BOM, windows-1252 ; séparateurs `,` `;` tabulation détectés). Première feuille par défaut (la feuille se choisit à l'upload) ; première ligne non vide = en-têtes.
 - Sept importeurs enregistrés : `students`, `guardians`, `staff`, `classrooms`, `curriculum`, `grades`, `opening_balances` (§5). Modèle de fichier téléchargeable (CSV et XLSX) pour chacun.
 - Mapping de colonnes : détection automatique par en-têtes (sans accents, fr / en), **modèles de mapping enregistrés par tenant**, correction manuelle, colonnes ignorées.
 - Validation : schéma Zod par importeur, règles métier par ligne, doublons **dans le fichier** et **contre les données existantes** (par le module cible), références résolues par le module cible (classe, programme, évaluation, élève...).
@@ -41,7 +41,8 @@
 | Calcul de moyennes, de rangs, de décisions à partir des notes importées | 012 / 013 : l'import **ne calcule rien** |
 | Inscription de masse sans fichier (`enrollStudentsBulk` par API) | 004 |
 | Import de photos, de pièces jointes, de justificatifs | hors V1 |
-| `.xls` (OLE2), `.xlsm` exécuté, `.ods` | refusés (le type réel est contrôlé) |
+| `.xlsm` exécuté, `.xlsb`, `.fods`, document OLE2 qui n'est pas un classeur Excel | refusés (le type réel est contrôlé) |
+| `.xls` (OLE2 avec flux Workbook), `.ods` (ZIP `mimetype` tableur) | acceptés, lus par le convertisseur isolé (processus enfant) |
 | Planification d'imports récurrents, import par URL / SFTP | hors V1 |
 
 ## 3. Parcours en sept étapes
@@ -62,7 +63,7 @@
 
 ### 4.1 Sécurité des fichiers (INV-S)
 
-- **S1 Type réel** : `.xlsx` = archive ZIP (`PK\x03\x04`) contenant `[Content_Types].xml` et `xl/workbook.xml` ; `.csv` = texte (aucun octet NUL, décodage valide). Le nom, l'extension et le `Content-Type` annoncés ne font jamais foi ; une incohérence est refusée (`imports.file_type_mismatch`). `.xls` (OLE2), `.xlsb`, PDF, exécutables, etc. : refusés.
+- **S1 Type réel** : `.xlsx` = archive ZIP (`PK\x03\x04`) contenant `[Content_Types].xml` et `xl/workbook.xml` ; `.csv` = texte (aucun octet NUL, décodage valide). Le nom, l'extension et le `Content-Type` annoncés ne font jamais foi ; une incohérence est refusée (`imports.file_type_mismatch`). `.xlsb`, PDF, exécutables, document OLE2 non Excel, etc. : refusés. `.xls` (conteneur OLE2 avec flux « Workbook ») et `.ods` (partie `mimetype` tableur) sont reconnus sur les octets et lus par le convertisseur isolé (O-11), jamais dans le processus de l'API.
 - **S2 Taille** : plafond configurable (5 Mio par défaut, 20 Mio maximum), vérifié avant tout traitement (corps de requête borné par Fastify).
 - **S3 Zip-bomb** : avant toute décompression, l'annuaire du ZIP est lu : nombre d'entrées (<= 500), taille déclarée décompressée par entrée et totale (<= 50 Mio par défaut), ratio de compression (<= 100). La décompression est ensuite **comptée octet par octet** (les tailles déclarées peuvent mentir) et interrompue au plafond. Aucune entrée avec chemin absolu ou `..` n'est lue ; seules les parties nécessaires (`workbook.xml`, `sharedStrings.xml`, la feuille choisie) sont décompressées.
 - **S4 XML** : lecteur XML linéaire maison, en flux ; `<!DOCTYPE` et `<!ENTITY` refusés (expansion d'entités impossible) ; profondeur et longueur de jeton bornées.

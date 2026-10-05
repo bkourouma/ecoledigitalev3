@@ -13,6 +13,7 @@ import { processRun } from "../../application/run";
 import { processValidation } from "../../application/validate";
 import { describeIntegration } from "../support/db";
 import { csvOf, enc, STUDENT_HEADERS, studentRows, handmadeXlsx, xlsxOf } from "../support/files";
+import { corruptXls, handmadeOds, odsOf, xlsOf } from "../support/legacy-files";
 import { createWorld, DemoStudentsPort, MemoryStorage, type World } from "../support/world";
 
 const FULL = ["imports.read", "imports.create", "imports.cancel", "imports.template.manage", "imports.import.students", "student.create"];
@@ -158,7 +159,10 @@ describeIntegration("module imports : HTTP sur base réelle", () => {
     const jobsBefore = Number((await w.db.admin.query(`SELECT count(*)::int AS n FROM imports.jobs`)).rows[0].n);
     const cases: Array<[string, Uint8Array, string, string]> = [
       ["PDF déguisé en CSV", enc("%PDF-1.7\n1 0 obj\n"), "notes.csv", "imports.file_type_unsupported"],
-      ["classeur .xls ancien", new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0]), "eleves.xlsx", "imports.file_type_unsupported"],
+      ["document OLE2 qui n'est pas un classeur Excel", new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0]), "eleves.xlsx", "imports.file_type_unsupported"],
+      ["faux .xls (texte)", enc("a;b\n1;2\n"), "eleves.xls", "imports.file_type_mismatch"],
+      ["faux .xls (bruit sous signature Excel)", corruptXls(), "eleves.xls", "imports.file_corrupt"],
+      ["classeur .xls nommé .xlsx", xlsOf([STUDENT_HEADERS, ...studentRows(2, "Q")]), "eleves.xlsx", "imports.file_type_mismatch"],
       ["texte nommé .xlsx", enc("a;b\n1;2\n"), "eleves.xlsx", "imports.file_type_mismatch"],
       ["extension .exe", enc("a;b\n1;2\n"), "setup.exe", "imports.file_type_unsupported"],
       ["fichier vide", new Uint8Array(0), "vide.csv", "imports.file_empty"],
@@ -226,6 +230,52 @@ describeIntegration("module imports : HTTP sur base réelle", () => {
     // l'autre tenant ne voit aucun import dans sa liste
     const list = await app.inject({ method: "GET", url: `/jobs`, headers: headers(["*"], {}, w.tenantB) });
     expect(list.json().items).toEqual([]);
+  });
+
+  it("O-11 : un .xls et un .ods suivent le même parcours que le .xlsx ; type d'origine conservé ; invisibles de l'autre tenant ; bombe .ods refusée", async () => {
+    const table = [STUDENT_HEADERS, ...studentRows(6, "L")];
+    for (const [kind, bytes, name, contentType, ext] of [
+      ["XLS", xlsOf(table), "eleves.xls", "application/vnd.ms-excel", "xls"],
+      ["ODS", odsOf(table), "eleves.ods", "application/vnd.oasis.opendocument.spreadsheet", "ods"],
+    ] as const) {
+      const res = await upload(bytes, name, contentType);
+      expect(res.statusCode, kind).toBe(201);
+      const uploaded = res.json();
+      expect(uploaded.job).toMatchObject({ fileKind: kind, totalRows: 6, fileName: name });
+      expect(uploaded.job.headers).toEqual(STUDENT_HEADERS);
+      const id = uploaded.job.id as string;
+      const row = (await w.db.admin.query(`SELECT file_kind, storage_key FROM imports.jobs WHERE id = $1`, [id])).rows[0];
+      expect(row.file_kind).toBe(kind);
+      expect(row.storage_key.endsWith(`.${ext}`)).toBe(true);
+      expect(row.storage_key).toContain(w.tenantA);
+
+      const mapped = await app.inject({ method: "PUT", url: `/jobs/${id}/mapping`, headers: headers(), payload: { mapping: uploaded.suggestedMapping, runMode: "VALID_ONLY", onExisting: "SKIP" } });
+      expect(mapped.statusCode).toBe(200);
+      await app.inject({ method: "POST", url: `/jobs/${id}/validate`, headers: headers() });
+      await processValidation(w.deps(port()), w.tenantA, id, { workerId: `legacy-${ext}` });
+      const preview = await app.inject({ method: "GET", url: `/jobs/${id}/preview`, headers: headers(["imports.read"]) });
+      expect(preview.json()).toMatchObject({ validRows: 6, invalidRows: 0, canRun: true });
+
+      // isolation entre tenants conservée : l'autre établissement ne voit ni le travail ni ses lignes
+      for (const url of [`/jobs/${id}`, `/jobs/${id}/preview`, `/jobs/${id}/rows`]) {
+        expect((await app.inject({ method: "GET", url, headers: headers(["*"], {}, w.tenantB) })).statusCode, `${kind} ${url}`).toBe(404);
+      }
+      await app.inject({ method: "POST", url: `/jobs/${id}/cancel`, headers: headers(), payload: {} });
+    }
+    expect((await app.inject({ method: "GET", url: `/jobs`, headers: headers(["*"], {}, w.tenantB) })).json().items).toEqual([]);
+
+    // bombe .ods : refusée en 400 avant toute conversion, rien n'est stocké
+    const bomb = new JSZip();
+    bomb.file("mimetype", "application/vnd.oasis.opendocument.spreadsheet", { compression: "STORE" });
+    bomb.file("content.xml", "<x>" + "<a/>".repeat(30_000_000) + "</x>", { compression: "DEFLATE" });
+    const bomber = await bomb.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 9 } });
+    const refused = await upload(bomber, "bombe.ods", "application/octet-stream");
+    expect(refused.statusCode).toBe(400);
+    expect(refused.json().code).toBe("imports.file_unsafe");
+    expect(w.storage instanceof MemoryStorage && [...w.storage.objects.keys()].filter((k) => k.includes("bombe")).length).toBe(0);
+    // un .odt nommé .ods : refusé
+    const odt = await handmadeOds({ mimetype: "application/vnd.oasis.opendocument.text" });
+    expect((await upload(odt, "lettre.ods", "application/octet-stream")).json().code).toBe("imports.file_type_mismatch");
   });
 
   it("modèles de mapping et paramètres : permissions dédiées, validation des plafonds absolus", async () => {

@@ -228,7 +228,7 @@ describe("type réel du fichier (INV-S1)", () => {
   const ole = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
   const exe = new Uint8Array([0x4d, 0x5a, 0x90, 0x00, 0x03, 0, 0, 0]);
 
-  it("refuse PDF, image, .xls, exécutable, même déguisés en .csv ou .xlsx", () => {
+  it("refuse PDF, image, document OLE2 non Excel (sans flux Workbook), exécutable, même déguisés en .csv ou .xlsx", () => {
     for (const [bytes, name] of [[pdf, "notes.csv"], [png, "eleves.xlsx"], [ole, "eleves.xlsx"], [ole, "eleves.xls"], [exe, "setup.csv"]] as const) {
       expect(() => sniffFile(bytes, { fileName: name }), name).toThrowError(FileRejectedError);
     }

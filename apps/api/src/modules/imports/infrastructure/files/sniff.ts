@@ -3,7 +3,10 @@
  * client ne sont que des déclarations : ils servent à repérer une incohérence (refusée), jamais à décider.
  *
  *   XLSX : archive ZIP (`PK\x03\x04`) ;   CSV : texte sans octet NUL, décodable, imprimable à plus de 95 %.
- *   Refusés avec un message précis : OLE2 (`.xls`), PDF, images, exécutables, archives non ZIP, HTML / XML.
+ *   XLS  : conteneur OLE2 (`D0 CF 11 E0 A1 B1 1A E1`) avec un flux « Workbook » ;
+ *   ODS  : archive ZIP dont la partie `mimetype` (première entrée, ou extension `.ods`) est un tableur OpenDocument.
+ *   Les .xls et .ods ne sont jamais lus ici : ils passent par le convertisseur isolé (`legacy/`).
+ *   Refusés avec un message précis : documents OLE2 non Excel, PDF, images, exécutables, archives non ZIP, HTML / XML.
  */
 import type { ImportFileKind } from "@ecoledigitale/contracts/src/v2/imports";
 import { FileRejectedError } from "../../domain/errors";
@@ -17,7 +20,6 @@ interface Signature {
 
 /** Formats reconnus que l'on REFUSE explicitement (message adapté). */
 const FORBIDDEN_SIGNATURES: readonly Signature[] = [
-  { name: "un classeur Excel ancien (.xls) : enregistrez-le au format .xlsx ou .csv", magic: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
   { name: "un PDF", magic: [0x25, 0x50, 0x44, 0x46, 0x2d] },
   { name: "une image PNG", magic: [0x89, 0x50, 0x4e, 0x47] },
   { name: "une image JPEG", magic: [0xff, 0xd8, 0xff] },
@@ -29,9 +31,20 @@ const FORBIDDEN_SIGNATURES: readonly Signature[] = [
   { name: "une archive GZIP", magic: [0x1f, 0x8b] },
 ];
 
+/** Un classeur .xls contient un flux « Workbook » (BIFF8) ou « Book » (BIFF5) dans son répertoire OLE2 (UTF-16LE). */
+export function hasExcelWorkbookStream(bytes: Uint8Array): boolean {
+  const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return buf.includes(Buffer.from("Workbook", "utf16le")) || buf.includes(Buffer.from("Book", "utf16le"));
+}
+
 export const ZIP_MAGIC: readonly number[] = [0x50, 0x4b, 0x03, 0x04];
 
+const OLE2_MAGIC: readonly number[] = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const XLSX_EXTENSIONS = new Set(["xlsx", "xlsm"]);
+const XLS_EXTENSIONS = new Set(["xls"]);
+const ODS_EXTENSIONS = new Set(["ods"]);
+/** Première entrée d'une archive OpenDocument : `mimetype` non compressé, juste après l'en-tête local (offset 30 / 38). */
+const ODS_FIRST_ENTRY = Buffer.concat([Buffer.from("mimetype", "latin1"), Buffer.from("application/vnd.oasis.opendocument.spreadsheet", "latin1")]);
 const CSV_EXTENSIONS = new Set(["csv", "tsv", "txt"]);
 
 export function extensionOf(fileName: string): string {
@@ -68,16 +81,34 @@ export function sniffFile(bytes: Uint8Array, declared: { fileName: string; conte
   const mime = (declared.contentType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
 
   for (const sig of FORBIDDEN_SIGNATURES) {
-    if (startsWith(bytes, sig.magic)) throw new FileRejectedError("imports.file_type_unsupported", `Ce fichier est ${sig.name}. Seuls les fichiers .xlsx et .csv sont acceptés.`);
+    if (startsWith(bytes, sig.magic)) throw new FileRejectedError("imports.file_type_unsupported", `Ce fichier est ${sig.name}. Seuls les fichiers .xlsx, .xls, .ods et .csv sont acceptés.`);
   }
-  if (ext !== "" && !XLSX_EXTENSIONS.has(ext) && !CSV_EXTENSIONS.has(ext)) {
-    throw new FileRejectedError("imports.file_type_unsupported", `L'extension « .${ext} » n'est pas prise en charge. Utilisez un fichier .xlsx ou .csv.`);
+  if (ext !== "" && !XLSX_EXTENSIONS.has(ext) && !XLS_EXTENSIONS.has(ext) && !ODS_EXTENSIONS.has(ext) && !CSV_EXTENSIONS.has(ext)) {
+    throw new FileRejectedError("imports.file_type_unsupported", `L'extension « .${ext} » n'est pas prise en charge. Utilisez un fichier .xlsx, .xls, .ods ou .csv.`);
   }
   if (mime !== "" && MIME_CONFLICTS.test(mime)) {
     throw new FileRejectedError("imports.file_type_mismatch", "Le type de contenu annoncé ne correspond pas à un fichier Excel ou CSV.");
   }
 
+  if (startsWith(bytes, OLE2_MAGIC)) {
+    if (!hasExcelWorkbookStream(bytes)) {
+      throw new FileRejectedError("imports.file_type_unsupported", "Ce fichier est un document Office ancien mais pas un classeur Excel (.xls) : il ne peut pas être importé. Utilisez un fichier .xlsx, .xls, .ods ou .csv.");
+    }
+    if (ext !== "" && !XLS_EXTENSIONS.has(ext)) {
+      throw new FileRejectedError("imports.file_type_mismatch", `Le contenu est un classeur Excel ancien (.xls) mais le fichier se nomme « .${ext} ».`);
+    }
+    return { kind: "XLS", extension: ext };
+  }
+
   if (startsWith(bytes, ZIP_MAGIC)) {
+    const odsFirstEntry = ODS_FIRST_ENTRY.every((b, i) => bytes[30 + i] === b);
+    if (odsFirstEntry || ODS_EXTENSIONS.has(ext)) {
+      if (ext !== "" && !ODS_EXTENSIONS.has(ext)) {
+        throw new FileRejectedError("imports.file_type_mismatch", `Le contenu est un classeur OpenDocument (.ods) mais le fichier se nomme « .${ext} ».`);
+      }
+      // Le convertisseur vérifie la partie `mimetype` (archives dont elle n'est pas la première entrée comprises).
+      return { kind: "ODS", extension: ext };
+    }
     if (ext !== "" && !XLSX_EXTENSIONS.has(ext)) {
       throw new FileRejectedError("imports.file_type_mismatch", `Le contenu est une archive ZIP (classeur Excel) mais le fichier se nomme « .${ext} ».`);
     }
@@ -100,9 +131,9 @@ export function sniffFile(bytes: Uint8Array, declared: { fileName: string; conte
   }
   const head = new TextDecoder("utf-8", { fatal: false }).decode(sample.subarray(0, 256)).trimStart().toLowerCase();
   if (head.startsWith("<?xml") || head.startsWith("<html") || head.startsWith("<!doctype") || head.startsWith("<script")) {
-    throw new FileRejectedError("imports.file_type_unsupported", "Ce fichier est du XML ou du HTML, pas un tableau. Utilisez un fichier .xlsx ou .csv.");
+    throw new FileRejectedError("imports.file_type_unsupported", "Ce fichier est du XML ou du HTML, pas un tableau. Utilisez un fichier .xlsx, .xls, .ods ou .csv.");
   }
-  if (XLSX_EXTENSIONS.has(ext)) {
+  if (XLSX_EXTENSIONS.has(ext) || XLS_EXTENSIONS.has(ext) || ODS_EXTENSIONS.has(ext)) {
     throw new FileRejectedError("imports.file_type_mismatch", `Le fichier se nomme « .${ext} » mais son contenu est du texte, pas un classeur Excel.`);
   }
   return { kind: "CSV", extension: ext };

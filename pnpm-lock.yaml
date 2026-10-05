@@ -244,6 +244,9 @@ importers:
       web-push:
         specifier: ^3
         version: 3.6.7
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
       zod:
         specifier: ^3.22.4
         version: 3.25.76
