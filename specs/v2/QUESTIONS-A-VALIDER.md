@@ -45,8 +45,8 @@
 | Q-P01 | Échelle de notation des élèves du primaire | Sur 20 (barème par défaut, modifiable par type d'évaluation) | Notes incomparables ou moyennes fausses | Propriétaire + textes officiels |
 | Q-P02 | Périodes dans l'année (primaire) | 3 trimestres proposés (plan `THREE_TERMS`) ; l'établissement peut choisir 2 semestres ou autre | Calendrier incohérent ou calculs faux | Propriétaire du produit |
 | Q-P03 | Poids des périodes dans la moyenne annuelle | Poids égaux (1-1-1), modifiables dans le plan | Moyenne annuelle fausse | Propriétaire + textes officiels |
-| Q-P04 | Rangs sur le bulletin du primaire et égalité | Rang calculé (compétition), affichage désactivé par défaut | Confusion des élèves ou invaleur | Direction des études |
-| Q-P05 | Mentions ou appréciations chiffrées (primaire) | Non : règles fictives et inactives ; appréciations rédigées par l'instituteur | Appréciations manquantes ou impersonnelles | Propriétaire du produit |
+| Q-P04 | Rangs sur le bulletin du primaire et égalité | **Réponse du 2026-10-05 : rang AFFICHÉ par défaut** (compétition 1, 1, 3), désactivable | Confusion des élèves ou invaleur | Direction des études |
+| Q-P05 | Mentions ou appréciations chiffrées (primaire) | **Réponse du 2026-10-05 : mentions automatiques par seuils de moyenne**, réglables et non officiels (valeurs de départ fictives) | Appréciations manquantes ou impersonnelles | Propriétaire du produit |
 | Q-P06 | Qui décide du passage : règle ou conseil ? | Règle propose, conseil confirme (tracé et justification obligatoire en cas d'écart) | Passage injustifié ou non documenté | Propriétaire + textes officiels |
 | Q-P07 | Contenu du bilan annuel / livret cumulatif | Année en cours : résultat d'année, synthèse des compétences, assiduité, décision | Historique perdu ou cumul manquant | Propriétaire du produit |
 | Q-P08 | Évaluation de la maternelle | Sans note, par compétences à 4 niveaux de démonstration (modifiable) ; pas de rang | Notes inappropriées ou confusion avec CP1 | Propriétaire + textes officiels |
@@ -58,7 +58,7 @@
 | Q-P14 | Quorum du conseil des maîtres | Aucun quorum bloquant ; présence comptée ; règle fictive sans effet | Conseil incomplet ou invalide | Propriétaire + textes officiels |
 | Q-P15 | Nombre maximal de redoublements par cycle | Aucun plafond ; le nombre est une entrée de règle, signalé au conseil | Redoublement excessif non décelé | Propriétaire + textes officiels |
 | Q-P16 | Élèves affectés par l'État au primaire | Non activé (feature pour SECONDARY) ; activable si besoin | Affectations ignorées | Propriétaire du produit |
-| Q-P17 | Appel par demi-journée ? | Appel journalier unique ; demi-journée = évolution (politique d'appel) | Comptage d'absences faux | Propriétaire du produit |
+| Q-P17 | Appel par demi-journée ? | **Réponse du 2026-10-05 : matin ET après-midi dès la V1** (politique d'appel par demi-journée) | Comptage d'absences faux | Propriétaire du produit |
 | Q-P18 | Visibilité des rangs et compétences aux parents | Après publication du bulletin ; rangs visibles seulement si affichage activé | Divulgation prématurée ou opacité | Direction des études |
 | Q-P19 | Disciplines, coefficients et matières transversales | Curriculum vide (fictif) ; coefficients neutres (1) ; chaque établissement saisit | Règles de calcul invalides | Propriétaire + textes officiels |
 | Q-P20 | Conduite : notation et poids dans la moyenne | Matière transversale non comptée (`is_transversal`) ; modifiable par nœud | Moyenne fausse ou conduite ignorée | Propriétaire + textes officiels |

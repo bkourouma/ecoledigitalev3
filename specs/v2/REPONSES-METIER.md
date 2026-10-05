@@ -49,7 +49,7 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-P14 | Conseil des maîtres : aucun quorum bloquant, présence comptée | Défaut conservé |
 | Q-P15 | Aucun plafond de redoublements, signalé au conseil | Défaut conservé |
 | Q-P16 | Affectés par l'État : non activé au primaire (activable) | Défaut conservé |
-| Q-P17 | Appel matin ET après-midi dès la V1 (politique d'appel par demi-journée) | Écart |
+| Q-P17 | Appel matin ET après-midi dès la V1 (politique d'appel par demi-journée) | Implémenté (2026-10-05) : migration `attendance` 0905, `dailyCallMode = HALF_DAYS` par cycle, modèle de pack PRIMARY (maternelle inchangée) |
 | Q-P18 | Rangs et compétences visibles des parents IMMÉDIATEMENT après saisie (risque : avant validation/publication — à cadrer) | Écart à risque |
 | Q-P20 | Conduite = matière transversale non comptée dans la moyenne, modifiable par nœud | Défaut conservé |
 | Q-P12, Q-P19 | Dépendent des textes officiels (états à transmettre, programmes/coefficients) : à fournir | En attente |
