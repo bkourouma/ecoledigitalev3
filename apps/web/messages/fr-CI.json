@@ -3446,7 +3446,7 @@
       "rejected": "Le remboursement est refusé.",
       "pendingHint": "Envoyé au fournisseur : le grand livre n'est écrit qu'à sa confirmation. Le rapprochement automatique conclut ; s'il ne le peut pas, le remboursement apparaît dans « À rapprocher ».",
       "executedManually": "Le remboursement manuel est enregistré.",
-      "manualNeeded": "Ce remboursement ne peut pas être exécuté par le fournisseur (pas d'API de remboursement, remboursement partiel refusé ou fournisseur indisponible).",
+      "manualNeeded": "Les remboursements de paiements en ligne se font à la main chez le fournisseur (réglage par défaut de l'établissement) : effectuez-le sur le portail du fournisseur puis confirmez-le ici avec sa référence de preuve.",
       "manualAction": "Confirmer un remboursement manuel",
       "manualDialog": {
         "title": "Confirmer un remboursement fait à la main",

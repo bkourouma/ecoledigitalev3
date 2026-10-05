@@ -233,7 +233,7 @@ describe("RefundsScreen : remboursement chez le fournisseur et repli manuel", ()
     });
     renderWithProviders(<RefundsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: /Exécuter/ }));
-    expect((await screen.findAllByText(/Ce remboursement ne peut pas être exécuté par le fournisseur/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/se font à la main chez le fournisseur/)).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: /Confirmer un remboursement manuel/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Confirmer le remboursement" }));
@@ -256,7 +256,7 @@ describe("RefundsScreen : remboursement chez le fournisseur et repli manuel", ()
     fireEvent.click(await screen.findByRole("button", { name: /Approuver/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Approuver" }));
-    expect((await screen.findAllByText(/Ce remboursement ne peut pas être exécuté par le fournisseur/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/se font à la main chez le fournisseur/)).length).toBeGreaterThan(0);
     expect(screen.queryByText("Le remboursement est approuvé et exécuté.")).toBeNull();
   });
 });

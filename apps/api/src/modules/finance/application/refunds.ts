@@ -13,7 +13,9 @@
  *   - `LEDGER`   : paiement saisi à la main (espèces, chèque, virement…) — l'argent est rendu hors module ; écriture comptable.
  *   - `PROVIDER` : paiement en ligne dont le fournisseur sait rembourser (Wave total, MTN, TresorPay, sandbox) — le
  *                  remboursement est ENVOYÉ au fournisseur ; le grand livre n'est écrit que quand il confirme.
- *   - `MANUAL`   : fournisseur sans API (Orange Money, CinetPay), refus du partiel (Wave), fournisseur indisponible ou
+ *                  DÉSACTIVÉ PAR DÉFAUT (Q-PAY-32, `config.providerRefundAutoExecution`) : sans ce réglage, tout paiement en
+ *                  ligne suit la route `MANUAL` (raison `auto_refund_disabled`).
+ *   - `MANUAL`  : fournisseur sans API (Orange Money, CinetPay), refus du partiel (Wave), fournisseur indisponible ou
  *                  référence absente — repli EXPLICITE : l'exécutant atteste avoir remboursé à la main (référence de
  *                  preuve obligatoire), journalisé `finance.refund.completed_manually`. Jamais implicite.
  *
@@ -222,7 +224,7 @@ export async function rejectRefund(
 // Route d'exécution
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type ManualReason = "no_refund_api" | "partial_not_supported" | "provider_unavailable" | "missing_provider_ref";
+export type ManualReason = "auto_refund_disabled" | "no_refund_api" | "partial_not_supported" | "provider_unavailable" | "missing_provider_ref";
 
 export type RefundRoute =
   | { kind: "LEDGER" }
@@ -236,6 +238,8 @@ export type RefundRoute =
  */
 export async function planRefundRoute(deps: FinanceDeps, ctx: RequestContext, refund: RefundRecord, payment: PaymentRecord): Promise<RefundRoute> {
   if (payment.method !== "ONLINE" || !payment.provider) return { kind: "LEDGER" };
+  // Q-PAY-32 : l'exécution chez le fournisseur est désactivée par défaut (réglage `providerRefundAutoExecution`).
+  if (!deps.config.providerRefundAutoExecution) return { kind: "MANUAL_REQUIRED", reason: "auto_refund_disabled" };
   const resolved = await deps.providers.resolve(ctx.tenantId, payment.provider);
   if (!resolved.ok) return { kind: "MANUAL_REQUIRED", reason: "provider_unavailable" };
   const provider = resolved.value;

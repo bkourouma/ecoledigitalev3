@@ -127,7 +127,7 @@ const deps = createFinanceDeps({
   audit,                              // AuditPort — no-op par défaut
   providers,                          // ProviderRegistry — défaut : environnement "production" (aucune simulation)
   learners, enrollments,              // annuaires (défaut : passe-plat / aucune inscription)
-  config: { environment, allocationOrder, maxDiscountBps, refundSelfApproval, cashVarianceTolerance, webhookBaseUrl },
+  config: { environment, allocationOrder, maxDiscountBps, refundSelfApproval, providerRefundAutoExecution, cashVarianceTolerance, webhookBaseUrl },
 });
 ```
 
@@ -360,8 +360,13 @@ un tenant en échec n'arrête pas les autres (le job échoue APRÈS les avoir to
 
 ### Remboursement réel
 
+> **Q-PAY-32 : remboursement chez le fournisseur TOUJOURS MANUEL par défaut.** `config.providerRefundAutoExecution` (variable `FINANCE_PROVIDER_REFUND_AUTO=true`
+> pour l'activer, défaut `false`) : sans lui, aucun appel de remboursement n'est émis vers un fournisseur ; tout paiement en ligne suit le repli manuel (raison
+> `auto_refund_disabled`) avec preuve obligatoire et audit sensible `finance.refund.completed_manually`. Un remboursement déjà `REFUND_PENDING` reste conclu par le
+> rapprochement. Tests : `test/integration/refunds-manual-default.integration.test.ts`.
+
 `approveRefund` / `completeRefund` décident de la route SANS appel réseau (`planRefundRoute`) : `LEDGER` (paiement manuel), `PROVIDER` (fournisseur
-capable) ou `MANUAL_REQUIRED` (pas d'API, partiel refusé par Wave, fournisseur indisponible, référence inconnue). Route `PROVIDER` en trois temps :
+capable, **seulement si `providerRefundAutoExecution = true`**) ou `MANUAL_REQUIRED` (**réglage désactivé : `auto_refund_disabled`, défaut**, pas d'API, partiel refusé par Wave, fournisseur indisponible, référence inconnue). Route `PROVIDER` en trois temps :
 **Tx1** `APPROVED → REFUND_PENDING` (intention durable, montant réservé) ; appel `provider.refund({ refundId })` hors transaction (référence d'idempotence
 = identifiant du remboursement) ; **Tx2** `SUCCEEDED` → écritures inverses + `COMPLETED`, refus définitif → `REFUND_FAILED` (rien n'est parti), réponse
 ambiguë (délai, 5xx) → reste `REFUND_PENDING`, le job conclut. **Le grand livre n'est écrit qu'à `COMPLETED`.** Jamais de double remboursement :

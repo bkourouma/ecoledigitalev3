@@ -109,7 +109,7 @@ function makeDepsOn(
     enrollments: new InMemoryEnrollmentDirectory(),
     alerts: alertPort,
     metrics,
-    config: { environment: "test", webhookBaseUrl: "https://api.test.local", reconciliation: { ...FAST_RECONCILIATION, ...o.reconciliation }, ...o.config },
+    config: { environment: "test", providerRefundAutoExecution: true, webhookBaseUrl: "https://api.test.local", reconciliation: { ...FAST_RECONCILIATION, ...o.reconciliation }, ...o.config },
   });
   return { deps, clock, audit, alerts, counters };
 }

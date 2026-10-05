@@ -1239,6 +1239,7 @@ export default async function financeModulePlugin(app: FastifyInstance, runtime:
       environment,
       webhookBaseUrl: runtime.env.FINANCE_WEBHOOK_BASE_URL?.trim() || null,
       ...exportMaxRowsOf(runtime.env),
+      providerRefundAutoExecution: runtime.env.FINANCE_PROVIDER_REFUND_AUTO?.trim().toLowerCase() === "true",
       reconciliation: reconciliationConfigFromEnv(runtime.env),
     },
   });
