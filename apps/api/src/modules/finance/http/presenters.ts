@@ -107,6 +107,7 @@ export const scholarshipDto = (s: Scholarship) => ({
   categories: s.categories ? [...s.categories] : null,
   status: s.status,
   priority: s.priority,
+  shareBasis: s.shareBasis ?? ("REMAINING" as const),
 });
 
 export const learnerFundingDto = (v: { account: LearnerAccount; scholarships: Scholarship[] }) => ({

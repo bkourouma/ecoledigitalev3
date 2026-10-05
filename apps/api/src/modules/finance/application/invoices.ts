@@ -183,7 +183,7 @@ async function planInvoices(deps: FinanceDeps, ctx: RequestContext, tx: Tx, spec
   if (spec.applyFunding) {
     scholarships = await listScholarships(tx, { learnerId: spec.learnerId, academicYear: spec.academicYear });
     if (!spec.ignoreFunding) {
-      const consistent = checkFundingConsistency({ fundingType }, scholarships, spec.academicYear);
+      const consistent = checkFundingConsistency({ fundingType, additionalFundingTypes: account?.additionalFundingTypes ?? [] }, scholarships, spec.academicYear);
       if (!consistent.ok) return consistent;
     }
   }
@@ -192,6 +192,17 @@ async function planInvoices(deps: FinanceDeps, ctx: RequestContext, tx: Tx, spec
     spec.applyFunding ? scholarships : [],
   );
   if (!split.ok) return split;
+  // O-04 : un cumul dont les parts (base TOTAL) dépassent le total à facturer est refusé, jamais tronqué en silence.
+  if (!spec.ignoreFunding && split.value.overcommitted.length > 0) {
+    const first = split.value.overcommitted[0]!;
+    return err(
+      conflict(FinanceCode.FUNDING_SHARES_EXCEED, "La somme des prises en charge dépasse le montant à facturer : corrigez les parts de financement avant d'émettre.", {
+        funder: first.funderName,
+        requested: first.requested.amount,
+        applicable: first.applied.amount,
+      }),
+    );
+  }
   const fundedByLine = new Map(split.value.fundedPerLine.map((p) => [p.lineId, p.amount]));
 
   const adjusted = applyAdjustments(lines.value, discountByLine, fundedByLine);

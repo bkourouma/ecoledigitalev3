@@ -98,6 +98,15 @@ export type PayerKind = (typeof PAYER_KINDS)[number];
 export const FUNDER_KINDS = ["STATE", "COMPANY", "INSTITUTION", "FOUNDATION", "OTHER"] as const;
 export type FunderKind = (typeof FUNDER_KINDS)[number];
 
+/**
+ * Base de calcul d'une part de financement (O-04, cumul) :
+ *  - `REMAINING` (historique, défaut) : le pourcentage porte sur le RESTE après remises et bourses de priorité inférieure ;
+ *  - `TOTAL` : le pourcentage porte sur le TOTAL NET à facturer (remises déduites) ; la somme des parts `TOTAL` en pourcentage d'une
+ *    même année ne dépasse jamais 100 % (déclencheur 0508) et une part que le reste ne peut pas couvrir est une ERREUR, pas une troncature.
+ */
+export const SHARE_BASES = ["REMAINING", "TOTAL"] as const;
+export type ShareBasis = (typeof SHARE_BASES)[number];
+
 export const SCHOLARSHIP_STATUSES = ["ACTIVE", "SUSPENDED", "ENDED"] as const;
 export type ScholarshipStatus = (typeof SCHOLARSHIP_STATUSES)[number];
 
