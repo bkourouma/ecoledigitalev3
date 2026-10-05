@@ -23,6 +23,7 @@ export const settingsView = (s: MessagingSettings): MessagingSettingsDto => ({
   maxBroadcastParticipants: s.maxBroadcastParticipants,
   messageMaxLength: s.messageMaxLength,
   notificationRetentionDays: s.notificationRetentionDays,
+  previousYearWindowDays: s.previousYearWindowDays,
 });
 
 export async function getMessagingSettings(deps: MessagingDeps, ctx: RequestContext): Promise<Result<MessagingSettingsDto, AppError>> {
@@ -46,6 +47,7 @@ export async function updateMessagingSettings(deps: MessagingDeps, ctx: RequestC
       ...(patch.maxBroadcastParticipants !== undefined ? { maxBroadcastParticipants: patch.maxBroadcastParticipants } : {}),
       ...(patch.messageMaxLength !== undefined ? { messageMaxLength: patch.messageMaxLength } : {}),
       ...(patch.notificationRetentionDays !== undefined ? { notificationRetentionDays: patch.notificationRetentionDays } : {}),
+      ...(patch.previousYearWindowDays !== undefined ? { previousYearWindowDays: patch.previousYearWindowDays } : {}),
     };
     if (next.maxGroupParticipants > next.maxBroadcastParticipants) {
       return err(validation(MessagingCode.INVALID_INPUT, "Le plafond d'un groupe ne peut pas dépasser celui d'une diffusion.", "maxGroupParticipants"));

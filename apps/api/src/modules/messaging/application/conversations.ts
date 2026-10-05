@@ -94,7 +94,7 @@ async function resolveRecipients(
         // Un compte inconnu, inactif ou d'un autre tenant : même refus qu'un destinataire interdit (pas d'énumération de comptes).
         return err(caps.sendAny ? notFound(MessagingCode.RECIPIENT_NOT_FOUND, "Destinataire", id) : denied("NOT_LINKED", null, true));
       }
-      const decision = evaluateRecipient({ caps, actor, target, settings, adminContacts });
+      const decision = evaluateRecipient({ caps, actor, target, settings, adminContacts, now: deps.clock.now() });
       if (!decision.allowed) return err(denied(decision.reason, id, !caps.sendAny));
       out.set(id, target.displayName ?? UNKNOWN_NAME);
     }

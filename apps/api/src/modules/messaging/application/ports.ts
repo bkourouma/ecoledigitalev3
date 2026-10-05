@@ -28,8 +28,12 @@ export interface PeopleDirectory {
    * (un identifiant inconnu, d'un autre tenant ou suspendu est ABSENT du résultat).
    */
   getProfiles(ctx: RequestContext, userIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, ActorProfile>>;
-  /** Personnes joignables d'une classe : élèves, tuteurs (avec leur enfant), enseignants affectés aujourd'hui. */
-  listClassroomContacts(ctx: RequestContext, classroomId: Uuid, include: readonly MessagingClassInclude[]): Promise<ClassroomContacts>;
+  /**
+   * Personnes joignables d'une classe : élèves, tuteurs (avec leur enfant), enseignants affectés aujourd'hui.
+   * `options.previousYear` (Q-05) : la classe est celle d'une année PRÉCÉDENTE ; les enseignants sont ceux qui y ont été affectés
+   * (affectations terminées comprises) et seuls les enseignants sont restitués.
+   */
+  listClassroomContacts(ctx: RequestContext, classroomId: Uuid, include: readonly MessagingClassInclude[], options?: { readonly previousYear?: boolean }): Promise<ClassroomContacts>;
   /** Recherche par nom parmi les comptes actifs (administration : sélecteur global). */
   searchUsers(ctx: RequestContext, query: string, limit: number): Promise<readonly DirectoryContact[]>;
   /** Titulaires (actifs, aujourd'hui) de ces rôles : contacts de l'administration, cibles `ROLE`. */

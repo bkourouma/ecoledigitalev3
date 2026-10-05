@@ -77,7 +77,7 @@ describe("messages fr-CI : messagerie et annonces", () => {
       ["v2MessagingModeration.tabs", ["reports", "restrictions", "supervision"]],
       ["v2MessagingSettings.policies", MESSAGING_STUDENT_POLICIES],
       ["v2MessagingSettings.mime", ["application_pdf", "image_jpeg", "image_png", "image_webp"]],
-      ["v2MessagingSettings.numbers", ["maxMessagesPerHour", "maxNewConversationsPerDay", "maxGroupParticipants", "maxBroadcastParticipants", "messageMaxLength", "attachmentMaxPerItem", "notificationRetentionDays"]],
+      ["v2MessagingSettings.numbers", ["maxMessagesPerHour", "maxNewConversationsPerDay", "maxGroupParticipants", "maxBroadcastParticipants", "messageMaxLength", "attachmentMaxPerItem", "notificationRetentionDays", "previousYearWindowDays"]],
       ["v2MessagingSettings.templates.names", ["attendance.absence", "attendance.late"]],
     ];
     const missing: string[] = [];

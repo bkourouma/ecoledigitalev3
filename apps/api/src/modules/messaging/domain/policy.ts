@@ -6,7 +6,8 @@
  *
  *   R1  `messaging.send.any`            administration : tout utilisateur actif, toute classe, toute audience
  *   R2  `messaging.send` + personnel    le personnel ; les élèves et tuteurs de SES classes ; l'administration
- *   R3  `messaging.child.send` + tuteur le personnel affecté à une classe de SES enfants ; l'administration
+ *   R3  `messaging.child.send` + tuteur le personnel affecté à une classe de SES enfants ; l'administration ; (Q-05) les enseignants
+ *                                      de l'ANNÉE PRÉCÉDENTE de ses enfants pendant la fenêtre `previousYearWindowDays`
  *   R4  `messaging.self.send` + élève   selon la politique de l'établissement
  *
  * Les règles se CUMULENT (un enseignant qui est aussi parent) : un destinataire est autorisé si une règle applicable
@@ -34,6 +35,21 @@ const intersects = (a: readonly Uuid[], b: readonly Uuid[]): boolean => {
   return a.some((x) => set.has(x));
 };
 
+const DAY_MS = 86_400_000;
+
+/**
+ * Q-05 : la fenêtre « année précédente » est-elle ouverte ? Elle court de `previousYearWindowAnchorOn` (début de l'année suivante, ou fin
+ * de l'année précédente tant qu'elle n'existe pas) jusqu'à `previousYearWindowDays` jours plus tard, bornes incluses. Sans date
+ * d'ancrage, sans horloge ou à 0 jour : fermée (échec fermé).
+ */
+export function previousYearOpen(actor: Pick<ActorProfile, "previousYearWindowAnchorOn">, settings: Pick<MessagingSettings, "previousYearWindowDays">, now: Date | undefined): boolean {
+  const anchor = actor.previousYearWindowAnchorOn;
+  if (!anchor || !now || !(settings.previousYearWindowDays > 0)) return false;
+  const start = Date.parse(`${anchor}T00:00:00Z`);
+  if (!Number.isFinite(start)) return false;
+  return now.getTime() < start + (settings.previousYearWindowDays + 1) * DAY_MS;
+}
+
 /** Règles ouvertes par les capacités ET le profil de l'acteur (un droit sans profil correspondant n'ouvre rien). */
 export function applicableRules(caps: CallerCaps, actor: ActorProfile, settings: Pick<MessagingSettings, "studentPolicy">): SendRule[] {
   const rules: SendRule[] = [];
@@ -56,14 +72,16 @@ export interface RecipientCheckInput {
   readonly caps: CallerCaps;
   readonly actor: ActorProfile;
   readonly target: ActorProfile;
-  readonly settings: Pick<MessagingSettings, "studentPolicy">;
+  readonly settings: Pick<MessagingSettings, "studentPolicy"> & Partial<Pick<MessagingSettings, "previousYearWindowDays">>;
+  /** Instant courant (Q-05) : sans lui, la fenêtre « année précédente » reste fermée. */
+  readonly now?: Date | undefined;
   /** Utilisateurs « contacts de l'administration » (titulaires des rôles de `adminContactRoles`). */
   readonly adminContacts: ReadonlySet<Uuid>;
 }
 
 /** Le destinataire `target` est-il autorisé pour `actor` ? */
 export function evaluateRecipient(input: RecipientCheckInput): Decision {
-  const { caps, actor, target, settings, adminContacts } = input;
+  const { caps, actor, target, settings, adminContacts, now } = input;
   if (!hasAnySendCap(caps)) return { allowed: false, reason: "NO_PERMISSION" };
   if (target.userId === actor.userId) return { allowed: false, reason: "SELF" };
   const rules = applicableRules(caps, actor, settings);
@@ -78,6 +96,14 @@ export function evaluateRecipient(input: RecipientCheckInput): Decision {
   if (rules.includes("R3")) {
     if (target.staffId && intersects(target.teachingClassroomIds, actor.childClassroomIds)) return { allowed: true, via: "R3" };
     if (adminContacts.has(target.userId)) return { allowed: true, via: "R3" };
+    // Q-05 : enseignant de l'année précédente d'un de SES enfants, pendant la fenêtre configurée.
+    if (
+      target.staffId &&
+      previousYearOpen(actor, { previousYearWindowDays: settings.previousYearWindowDays ?? 0 }, now) &&
+      intersects(target.pastTeachingClassroomIds ?? [], actor.childPreviousYearClassroomIds ?? [])
+    ) {
+      return { allowed: true, via: "R3" };
+    }
   }
   if (rules.includes("R4")) {
     if (target.staffId && intersects(target.teachingClassroomIds, actor.studentClassroomIds)) return { allowed: true, via: "R4" };

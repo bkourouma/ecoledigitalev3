@@ -169,7 +169,7 @@ describe("liste d'attente : ordre = rang décidé par la direction (Q-A03), jama
       { applicationId: "y", priorityRank: null, enteredAt: "2026-01-01T00:00:00Z" },
     ]);
     expect(out.map((r) => r.applicationId)).toEqual(["y", "z"]);
-    expect(out.every((r) => (r.manualRank ?? null) === null)).toBe(true);
+    expect(out.map((r) => r.queuePosition)).toEqual([1, 2]);
   });
 
   it("à date identique, l'identifiant départage (ordre total, stable)", () => {

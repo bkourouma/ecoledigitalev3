@@ -7,20 +7,27 @@ Spec : `specs/v2/016-communications/` (`spec.md`, `data-model.md`, `plan.md`, `p
 | Domaine | Fonctions |
 |---|---|
 | Conversations | directes (1-1), de groupe (fil partagé), **diffusions** (un fil privé par destinataire), fil système d'alertes ; lecture par participant (`last_read_seq`), archivage / sourdine / favori par utilisateur, départ d'un groupe, retrait de son message, recherche, pagination par curseur |
-| Autorisation | permissions RBAC **et** liens : un parent n'écrit qu'aux personnes liées à SES enfants et à l'administration ; un enseignant à ses classes ; un élève selon `student_policy` ; l'administration à tous (`domain/policy.ts`, pur) |
+| Autorisation | permissions RBAC **et** liens : un parent n'écrit qu'aux personnes liées à SES enfants et à l'administration — **et, pendant une fenêtre configurable (Q-05), aux enseignants de l'ANNÉE PRÉCÉDENTE de ses enfants** (voir « Année précédente ») ; un enseignant à ses classes ; un élève selon `student_policy` ; l'administration à tous (`domain/policy.ts`, pur) |
 | Annonces | brouillon -> programmée -> publiée -> retirée ; cibles établissement / établissement scolaire / campus / niveau / classe / rôle ; audiences élèves / tuteurs / personnel ; expiration dérivée, épinglage, priorité, pièces ; destinataires figés ; accusés de lecture et de réception ; job de publication |
 | Pièces jointes | `StoragePort` ; type RÉEL sur les octets (PDF, JPEG, PNG, WebP), taille et types paramétrables, SHA-256, URL signée courte, purge des non liées |
 | Notifications | in-app avec compteur d'occurrences par fil, préférences appliquées, `GET /me/unread` (cloche), purge |
 | Modération | signalement, décision (retrait / restriction), lecture de contexte et supervision **motivées et auditées** |
 | Messages système | gabarits par tenant ; `attendance.absence.recorded` -> tous les tuteurs joignables ; `late` désactivé par défaut |
-| Garde-fous | quotas en base (envois / heure, conversations / jour, plafonds de participants), limiteur HTTP, aucune donnée de message dans événements / audit / notifications |
+| Garde-fous | quotas en base (envois / heure — **120 par défaut** depuis Q-06, conversations / jour, plafonds de participants), limiteur HTTP, aucune donnée de message dans événements / audit / notifications |
+
+## Année précédente (Q-05) et plafond d'envois (Q-06)
+
+* **Fenêtre** : `settings.previous_year_window_days` (0 à 366, **défaut 90**, 0 = fermée). Choix le plus simple : une durée en jours, sans lecture de l'état de clôture. Elle court de la date d'ancrage — le **début de l'année qui suit l'année précédente** ou, tant que celle-ci n'est pas créée, la **fin de l'année précédente** — jusqu'à N jours plus tard (bornes incluses). Les « 3 premiers mois de l'année suivante » = 90 jours.
+* **Qui** : règle R3 seulement (tuteurs, `messaging.child.send`). Il faut que l'enfant ait suivi une classe de l'année précédente (inscription `ACTIVE` ou `COMPLETED`) ET que l'enseignant y ait été affecté (affectation terminée comprise). Rien pour le personnel ni les élèves ; répondre dans un fil existant n'a jamais exigé de lien.
+* **Échec fermé** : sans année précédente connue, sans horloge ou à 0 jour, la fenêtre est fermée. L'ancrage est calculé par l'adaptateur `platform/adapters/people-messaging.ts` (academic + people), jamais fourni par le client ; le sélecteur de destinataires (recherche, classe de l'an dernier, contacts naturels) applique la même règle (`previousYearOpen`).
+* **Q-06** : `max_messages_per_hour` vaut **120** par défaut (code et colonne SQL) ; les lignes de réglages qui portaient encore l'ancien défaut (60) sont passées à 120 par la migration 1701, un autre choix de l'établissement n'est pas modifié. Autres plafonds inchangés.
 
 ## Arborescence
 
 ```
 manifest.ts          permissions, menus, événements publiés / consommés
 index.ts             API publique (seul point d'import pour les autres modules)
-migrations/          1700_messaging_init.sql
+migrations/          1700_messaging_init.sql, 1701_messaging_previous_year_and_rate.sql
 domain/              policy (autorisation), announcements, text, magic-bytes, system-templates, errors, events, types — purs
 application/         conversations, announcements, attachments, notifications, moderation, recipients, settings, consumers (cas d'usage)
                      ports.ts, port-registry.ts, deps.ts (transaction, outbox, audit), views.ts, support.ts

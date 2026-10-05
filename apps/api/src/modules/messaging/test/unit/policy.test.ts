@@ -71,6 +71,36 @@ describe("règles d'envoi : parent", () => {
   });
 });
 
+describe("Q-05 : fenêtre « année précédente » d'un parent", () => {
+  const FORMER_STAFF = "0192f0a4-7b1e-7c3a-8d2e-000000000408";
+  const parent: ActorProfile = { ...profile(IDS.parent1), childPreviousYearClassroomIds: [IDS.C5A], previousYearWindowAnchorOn: "2026-09-01" };
+  const former: ActorProfile = { ...profile(IDS.teacher6B), staffId: FORMER_STAFF, teachingClassroomIds: [], pastTeachingClassroomIds: [IDS.C5A] };
+  const check = (now: string | undefined, patch: Partial<MessagingSettings> = {}, actor: ActorProfile = parent, target: ActorProfile = former) =>
+    evaluateRecipient({ caps: capsOf(IDS.parent1), actor, target, settings: settings(patch), adminContacts: admins, now: now ? new Date(now) : undefined }).allowed;
+
+  it("ouverte du jour d'ancrage jusqu'à la durée configurée incluse (90 jours par défaut), fermée avant l'ancrage n'existe pas (l'année précédente est déjà terminée)", () => {
+    expect(DEFAULT_MESSAGING_SETTINGS.previousYearWindowDays).toBe(90);
+    expect(check("2026-09-01T00:00:00Z")).toBe(true);
+    expect(check("2026-11-30T23:59:59Z")).toBe(true); // 1er septembre + 90 jours = 30 novembre
+    expect(check("2026-12-01T00:00:00Z")).toBe(false);
+  });
+  it("durée configurable ; 0 = fermée ; sans horloge ou sans ancrage : fermée (échec fermé)", () => {
+    expect(check("2026-09-20T00:00:00Z", { previousYearWindowDays: 10 })).toBe(false);
+    expect(check("2026-09-20T00:00:00Z", { previousYearWindowDays: 30 })).toBe(true);
+    expect(check("2026-09-02T00:00:00Z", { previousYearWindowDays: 0 })).toBe(false);
+    expect(check(undefined)).toBe(false);
+    expect(check("2026-09-02T00:00:00Z", {}, { ...parent, previousYearWindowAnchorOn: null })).toBe(false);
+  });
+  it("exige l'ANCIENNE classe de l'enfant ET l'ancienne affectation de l'enseignant ; ne s'applique qu'aux tuteurs (R3)", () => {
+    expect(check("2026-09-02T00:00:00Z", {}, { ...parent, childPreviousYearClassroomIds: [IDS.C6B] })).toBe(false);
+    expect(check("2026-09-02T00:00:00Z", {}, parent, { ...former, pastTeachingClassroomIds: [IDS.C6B] })).toBe(false);
+    expect(check("2026-09-02T00:00:00Z", {}, parent, { ...former, staffId: null })).toBe(false);
+    // Un enseignant ou un élève n'obtient rien de cette fenêtre.
+    const student: ActorProfile = { ...profile(IDS.student1), childPreviousYearClassroomIds: [IDS.C5A], previousYearWindowAnchorOn: "2026-09-01" };
+    expect(evaluateRecipient({ caps: capsOf(IDS.student1), actor: student, target: former, settings: settings(), adminContacts: admins, now: new Date("2026-09-02T00:00:00Z") }).allowed).toBe(false);
+  });
+});
+
 describe("règles d'envoi : enseignant", () => {
   it("écrit aux élèves et aux tuteurs de SES classes", () => {
     expect(can(IDS.teacher6A, IDS.student1)).toBe(true);

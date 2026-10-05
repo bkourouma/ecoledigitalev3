@@ -10074,7 +10074,8 @@
       "maxBroadcastParticipants": "Destinataires d'une diffusion ou d'une annonce",
       "messageMaxLength": "Longueur maximale d'un message (caractères)",
       "attachmentMaxPerItem": "Pièces jointes par message",
-      "notificationRetentionDays": "Conservation des notifications lues (jours)"
+      "notificationRetentionDays": "Conservation des notifications lues (jours)",
+      "previousYearWindowDays": "Parents : écrire aux enseignants de l'année précédente pendant (jours, 0 = fermé)"
     },
     "range": "Entre {min} et {max}.",
     "sizeInvalid": "La taille maximale doit être comprise entre 0,001 et 25 Mo.",
