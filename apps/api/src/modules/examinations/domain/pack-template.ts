@@ -20,6 +20,8 @@ export interface PackExamType {
   gradeLevelCode: string | null;
   resultContractId: string;
   candidateNumberPattern: string;
+  /** Q-E18 : le résultat et la moyenne partent vers les admissions (CEPE -> 6e). Décision métier, modifiable par l'établissement. */
+  transmitsToAdmission: boolean;
   sourceKind: SourceKind;
   tracks: Array<{ code: string; label: string; sourceKind: SourceKind }>;
   papers: Array<{ trackCode: string | null; code: string; label: string; coefficient: string; scaleMax: string; isOptional: boolean; ordinal: number; sourceKind: SourceKind }>;
@@ -68,6 +70,7 @@ export const PRIMARY_PACK: PackTemplate = {
       gradeLevelCode: "CM2",
       resultContractId: "exam-national@1",
       candidateNumberPattern: "{TYPE}{YEAR}-{SEQ:5}",
+      transmitsToAdmission: true,
       sourceKind: P,
       tracks: [],
       papers: [

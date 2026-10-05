@@ -201,12 +201,12 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-E07 | Session de rattrapage prévue au modèle, aucune règle d'accès | Défaut conservé |
 | Q-E08 | Taux de réussite = admis ÷ présents, 2 décimales | Défaut conservé |
 | Q-E10 | Résultats reçus par import CSV ou saisie manuelle | Défaut conservé |
-| Q-E13 | Frais d'examen INTÉGRÉS à l'inscription du candidat (facture générée à l'inscription) | Écart |
+| Q-E13 | Frais d'examen INTÉGRÉS à l'inscription du candidat (facture générée à l'inscription) | Écart — IMPLÉMENTÉ (examinations 2006 : barème vide par défaut, port finance, remboursement manuel ; limite : le candidat libre sans compte famille attend une facture établie à la main, `finance` ne facturant que des apprenants) |
 | Q-E14 | Examens blancs libres, jamais officiels | Défaut conservé |
-| Q-E15 | CANDIDAT LIBRE (non élève de l'établissement) géré dès la V1 | Écart (chantier : candidat sans dossier élève) |
+| Q-E15 | CANDIDAT LIBRE (non élève de l'établissement) géré dès la V1 | Écart — IMPLÉMENTÉ (examinations 2005 : candidat sans dossier élève, profil restreint, anonymisation) |
 | Q-E16 | Listes et résultats conservés sans limite | Défaut conservé |
 | Q-E17 | Correction d'un résultat transmis : révision approuvée par un autre, motif 10+ caractères | Défaut conservé |
-| Q-E18 | Du CEPE vers l'admission en 6e : résultat ET MOYENNE transmis (pas seulement admis/non admis) | Écart (minimisation des données moindre) |
+| Q-E18 | Du CEPE vers l'admission en 6e : résultat ET MOYENNE transmis (pas seulement admis/non admis) | Écart — IMPLÉMENTÉ (examinations 2007 + admissions 1904 : événement dédié, moyenne réservée au personnel habilité, lecture tracée) |
 | Q-E01, E02, E06, E09, E11, E12 | Dépendent des textes officiels (épreuves, éligibilité, seuil, mentions, formats, modèles) : à fournir | En attente |
 
 ## 024 — Documents

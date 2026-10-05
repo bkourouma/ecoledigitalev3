@@ -23,6 +23,8 @@ import {
   useSetIdentifier,
   useWithdrawCandidate,
 } from "@/platform/v2/examinations";
+import { useAnonymizeCandidate, useExternalProfile } from "@/platform/v2/examinations-external";
+import { CandidateFeeSection } from "./CandidateFeeSection";
 import { DemoBanner, eligibilityTone, outcomeTone, registrationTone, StatusPill, useExamLabels } from "./shared";
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -86,6 +88,42 @@ function SubmitPieceDialog({ candidateId, piece, onClose }: { candidateId: strin
   );
 }
 
+/** Données personnelles RESTREINTES d'un candidat libre : lecture auditée côté API, numéro de pièce masqué tant qu'on ne le demande pas. */
+function ExternalProfileSection({ candidateId, anonymized }: { candidateId: string; anonymized: boolean }) {
+  const t = useTranslations("v2ExaminationsExternal.profile");
+  const [reveal, setReveal] = useState(false);
+  const query = useExternalProfile(candidateId, reveal, true);
+  return (
+    <Section id="external-profile" title={t("title")}>
+      <p className="text-sm text-muted-foreground">{anonymized ? t("anonymized") : t("restricted")}</p>
+      {query.isPending ? <LoadingBlock /> : query.isError ? <ErrorBlock error={query.error} onRetry={() => void query.refetch()} /> : (
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(
+            [
+              ["contactPhone", query.data.contactPhone],
+              ["contactEmail", query.data.contactEmail],
+              ["addressLine", query.data.addressLine],
+              ["idPieceKind", query.data.idPieceKind],
+              ["idPieceNumber", query.data.idPieceNumber],
+              ["guardianName", query.data.guardianName],
+              ["guardianRelation", query.data.guardianRelation],
+              ["guardianPhone", query.data.guardianPhone],
+              ["guardianEmail", query.data.guardianEmail],
+              ["declaredInExamGrade", query.data.declaredInExamGrade ? t("yes") : t("no")],
+              ["declaredPriorAttempts", String(query.data.declaredPriorAttempts)],
+              ["dataSource", t(`source.${query.data.dataSource}` as never)],
+            ] as const
+          ).map(([key, value]) => (
+            <div key={key}><dt className="text-xs text-muted-foreground">{t(`fields.${key}` as never)}</dt><dd className="font-medium">{value ?? "—"}</dd></div>
+          ))}
+        </dl>
+      )}
+      {!anonymized && !reveal && query.data?.idPieceNumber ? <button type="button" className={buttonClass.secondary} onClick={() => setReveal(true)}>{t("reveal")}</button> : null}
+      {reveal ? <p className="text-xs text-muted-foreground">{t("revealAudited")}</p> : null}
+    </Section>
+  );
+}
+
 function Detail({ data }: { data: ExamCandidateDetailDto }) {
   const t = useTranslations("v2Examinations.candidateDetail");
   const labels = useExamLabels();
@@ -98,6 +136,10 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
   const withdraw = useWithdrawCandidate();
   const piece = useCandidatePieceAction();
   const identifier = useSetIdentifier();
+  const anonymize = useAnonymizeCandidate();
+  const tExt = useTranslations("v2ExaminationsExternal.detail");
+  const external = c.candidateKind === "EXTERNAL";
+  const [anonymizing, setAnonymizing] = useState(false);
   const issue = useIssueDocument();
   const [manual, setManual] = useState(false);
   const [override, setOverride] = useState(false);
@@ -107,7 +149,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
   const [idKind, setIdKind] = useState("CEPE_CODE");
   const [idValue, setIdValue] = useState("");
   const papers = new Map((session.data?.papers ?? []).map((p) => [p.id, p]));
-  const name = c.displayName ?? c.studentId;
+  const name = c.displayName ?? c.id;
   const latest = data.eligibilityChecks[0] ?? null;
 
   async function evaluate() {
@@ -142,6 +184,8 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
         <StatusPill label={labels.registration(c.registrationStatus)} tone={registrationTone(c.registrationStatus)} />
         <StatusPill label={labels.eligibility(c.eligibilityStatus)} tone={eligibilityTone(c.eligibilityStatus)} />
         <StatusPill label={labels.outcome(c.outcome)} tone={outcomeTone(c.outcome)} />
+        {external ? <StatusPill label={tExt("badge")} tone="info" /> : null}
+        {c.anonymized ? <StatusPill label={tExt("anonymized")} tone="neutral" /> : null}
       </div>
 
       <Can permission="exam.candidate.manage">
@@ -172,6 +216,15 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
           ))}
         </dl>
       </Section>
+
+      {external ? <Can permission="exam.external.read"><ExternalProfileSection candidateId={c.id} anonymized={c.anonymized} /></Can> : null}
+      {external && !c.anonymized ? (
+        <Can permission="exam.external.anonymize">
+          <div><button type="button" className={buttonClass.danger} onClick={() => setAnonymizing(true)}>{tExt("anonymize")}</button></div>
+        </Can>
+      ) : null}
+
+      {session.data?.sessionKind === "OFFICIAL" && (c.registrationStatus === "REGISTERED" || c.registrationStatus === "WITHDRAWN") ? <Can permission="exam.fee.read"><CandidateFeeSection candidateId={c.id} /></Can> : null}
 
       <Section id="eligibility" title={t("eligibility.title")}>
         <Can permission="exam.eligibility.evaluate">
@@ -207,11 +260,15 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
               <li key={p.requirementId} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{p.label}{p.required ? <span className="ml-2 text-xs text-muted-foreground">({t("pieces.required")})</span> : null}</p>
-                  <p className="text-sm text-muted-foreground">{labels.piece(p.status)}{p.rejectionReason ? ` — ${p.rejectionReason}` : ""}</p>
+                  <p className="text-sm text-muted-foreground">{labels.piece(p.status)}{p.presentationKind === "SIGHTED" ? ` (${tExt("sighted")})` : ""}{p.rejectionReason ? ` — ${p.rejectionReason}` : ""}</p>
                 </div>
                 <Can permission="exam.candidate.manage">
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className={buttonClass.secondary} onClick={() => setSubmitting(p)}>{t("pieces.submitAction")}</button>
+                    {external ? (
+                      <button type="button" className={buttonClass.secondary} disabled={piece.isPending || c.anonymized} onClick={() => piece.mutate({ candidateId: c.id, requirementId: p.requirementId, body: { action: "SIGHT" } })}>{tExt("sight")}</button>
+                    ) : (
+                      <button type="button" className={buttonClass.secondary} onClick={() => setSubmitting(p)}>{t("pieces.submitAction")}</button>
+                    )}
                     {p.status === "SUBMITTED" ? (
                       <>
                         <button type="button" className={buttonClass.secondary} disabled={piece.isPending} onClick={() => piece.mutate({ candidateId: c.id, requirementId: p.requirementId, body: { action: "ACCEPT" } })}>{t("pieces.accept")}</button>
@@ -358,6 +415,26 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
         }}
       />
       <SubmitPieceDialog candidateId={c.id} piece={submitting} onClose={() => setSubmitting(null)} />
+      <ReasonDialog
+        open={anonymizing}
+        onOpenChange={setAnonymizing}
+        title={tExt("anonymizeDialog.title")}
+        description={tExt("anonymizeDialog.description")}
+        reasonLabel={tExt("anonymizeDialog.reason")}
+        confirmLabel={tExt("anonymizeDialog.confirm")}
+        minLength={10}
+        destructive
+        isPending={anonymize.isPending}
+        error={anonymize.error}
+        onConfirm={async (reason) => {
+          try {
+            await anonymize.mutateAsync({ id: c.id, reason });
+            setAnonymizing(false);
+          } catch {
+            /* erreur affichée dans la fenêtre */
+          }
+        }}
+      />
     </div>
   );
 }

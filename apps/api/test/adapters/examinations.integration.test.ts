@@ -36,7 +36,7 @@ describeIntegration("adaptateurs d'examinations sur les vrais modules", () => {
   const deps = () => createExaminationsDeps({ db: w.tenantDb, audit: noopAudit, ports: w.ports.examinations });
 
   it("branche tous les ports (sauf le stockage sans bucket) ; le stockage absent échoue fermé", () => {
-    expect(Object.keys(w.ports.examinations).sort()).toEqual(["assess", "eligibility", "family", "institutions", "officialDocuments", "pieces", "rules", "students"]);
+    expect(Object.keys(w.ports.examinations).sort()).toEqual(["assess", "eligibility", "family", "fees", "institutions", "officialDocuments", "pieces", "rules", "students"]);
   });
 
   it("élèves : inscription, établissement, niveau de la classe, état civil complet depuis people", async () => {

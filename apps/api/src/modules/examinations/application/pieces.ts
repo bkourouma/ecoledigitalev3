@@ -35,8 +35,11 @@ export async function actOnPiece(deps: ExaminationsDeps, ctx: RequestContext, ca
   const candidate = probe.value;
   if (candidate.registrationStatus === "WITHDRAWN") return err(conflict(ExamCode.CANDIDATE_WITHDRAWN, "Un candidat retiré ne change plus."));
   // La pièce déposée doit exister dans `documents` et appartenir à l'élève (lecture avant la transaction d'écriture).
+  if (body.action === "SUBMIT" && candidate.candidateKind === "EXTERNAL") return err(validation(ExamCode.PIECE_MODE_MISMATCH, "Un candidat libre n'a pas de dossier de documents : la pièce se déclare « vue sur place » (action SIGHT).", "action"));
+  if (body.action === "SIGHT" && candidate.candidateKind !== "EXTERNAL") return err(validation(ExamCode.PIECE_MODE_MISMATCH, "Une pièce « vue sur place » ne concerne que les candidats libres : un élève dépose un document de son dossier.", "action"));
+  if (candidate.anonymizedAt) return err(conflict(ExamCode.CANDIDATE_ANONYMIZED, "Un candidat anonymisé ne change plus."));
   if (body.action === "SUBMIT") {
-    const known = await deps.ports.pieces.verify(ctx, { documentId: body.documentRef, studentId: candidate.studentId });
+    const known = await deps.ports.pieces.verify(ctx, { documentId: body.documentRef, studentId: candidate.studentId as string });
     if (!known) return err(validation(ExamCode.PIECE_DOCUMENT_UNKNOWN, "Le document désigné est introuvable ou n'appartient pas à cet élève.", "documentRef"));
   }
   return inTx(deps, ctx, async (tx) => {
@@ -46,6 +49,8 @@ export async function actOnPiece(deps: ExaminationsDeps, ctx: RequestContext, ca
     const events = new EventBuffer(deps, ctx);
     if (body.action === "SUBMIT") {
       await cand.submitPiece(tx, ctx.tenantId, { id: deps.newId(), candidateId, requirementId, documentRef: body.documentRef });
+    } else if (body.action === "SIGHT") {
+      await cand.submitSightedPiece(tx, ctx.tenantId, { id: deps.newId(), candidateId, requirementId, note: body.note?.trim() || null });
     } else {
       if (piece.status !== "SUBMITTED") return err(conflict(ExamCode.PIECE_REVIEW_INVALID, "Seule une pièce déposée se relit (acceptée ou refusée)."));
       await cand.reviewPiece(tx, candidateId, requirementId, { status: body.action === "ACCEPT" ? "ACCEPTED" : "REJECTED", rejectionReason: body.action === "REJECT" ? body.rejectionReason.trim() : null, reviewedBy: actor });

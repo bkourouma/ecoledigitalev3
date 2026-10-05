@@ -60,6 +60,16 @@ export const ExamCode = {
   ENROLLMENT_MISMATCH: "examinations.enrollment_mismatch",
   TRACK_UNKNOWN: "examinations.track_unknown",
   IDENTIFIER_TAKEN: "examinations.identifier_taken",
+  // Candidat libre (Q-E15)
+  EXTERNAL_ONLY: "examinations.external_only",
+  EXTERNAL_OFFICIAL_ONLY: "examinations.external_official_only",
+  CANDIDATE_ANONYMIZED: "examinations.candidate_anonymized",
+  PIECE_MODE_MISMATCH: "examinations.piece_mode_mismatch",
+  EXTERNAL_PROFILE_INCOMPLETE: "examinations.external_profile_incomplete",
+  // Frais d'examen (Q-E13)
+  FEE_NOT_FOUND: "examinations.fee_not_found",
+  FEE_STATE: "examinations.fee_state",
+  FEE_ITEM_INVALID: "examinations.fee_item_invalid",
   // Éligibilité
   NO_RULE_VERSION: "examinations.no_rule_version",
   RULE_EVALUATION_FAILED: "examinations.rule_evaluation_failed",
@@ -200,6 +210,8 @@ function dbMessage(error: unknown): string {
 /** Contraintes d'unicité -> codes. Les noms par défaut de Postgres sont `<table>_<colonnes>_key` ; les index portent leur nom. */
 const UNIQUE_CODES: ReadonlyArray<readonly [RegExp, ExamCodeValue, string]> = [
   [/candidates_one_live_per_student/, ExamCode.CANDIDATE_DUPLICATE, "Cet élève est déjà candidat de la session."],
+  [/candidates_one_live_external/, ExamCode.CANDIDATE_DUPLICATE, "Ce candidat libre (même nom, mêmes prénoms, même naissance) est déjà inscrit dans la session."],
+  [/external_candidate_profiles_piece/, ExamCode.CANDIDATE_DUPLICATE, "Cette pièce d'identité désigne déjà un autre candidat libre de la session."],
   [/candidate_identifiers_tenant_id_session_id_kind_value_key/, ExamCode.IDENTIFIER_TAKEN, "Cet identifiant désigne déjà un autre candidat de la session."],
   [/candidate_identifiers_tenant_id_candidate_id_kind_key/, ExamCode.IDENTIFIER_TAKEN, "Ce candidat a déjà un identifiant de cette nature."],
   [/seat_assignments_tenant_id_session_id_room_id_seat_number_key/, ExamCode.SEAT_TAKEN, "Cette place est déjà attribuée."],

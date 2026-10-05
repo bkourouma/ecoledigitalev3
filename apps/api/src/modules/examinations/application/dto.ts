@@ -8,6 +8,7 @@ import type {
   ExamCandidateDto,
   ExamCenterDto,
   ExamEligibilityCheckDto,
+  ExamExternalProfileDto,
   ExamExportFormatDto,
   ExamExportRunDto,
   ExamHistoryDto,
@@ -36,6 +37,7 @@ import type {
   DocumentRequirementRow,
   EligibilityCheckRow,
   ExamPaperRow,
+  ExternalProfileRow,
   ExamTrackRow,
   ExamTypeRow,
   ExportFormatRow,
@@ -58,7 +60,7 @@ export const isPlaceholder = (...kinds: Array<string | null | undefined>): boole
 
 export const toTypeDto = (t: ExamTypeRow): ExamTypeDto => ({
   id: t.id, code: t.code, label: t.label, educationLevelCode: t.educationLevelCode, gradeLevelCode: t.gradeLevelCode, resultContractId: t.resultContractId,
-  candidateNumberPattern: t.candidateNumberPattern, sourceKind: t.sourceKind, sourceReference: t.sourceReference, status: t.status, placeholder: t.sourceKind === "placeholder",
+  candidateNumberPattern: t.candidateNumberPattern, transmitsToAdmission: t.transmitsToAdmission, sourceKind: t.sourceKind, sourceReference: t.sourceReference, status: t.status, placeholder: t.sourceKind === "placeholder",
 });
 export const toTrackDto = (t: ExamTrackRow): ExamTrackDto => ({ id: t.id, code: t.code, label: t.label, sourceKind: t.sourceKind, active: t.active });
 export const toPaperDto = (p: ExamPaperRow): ExamPaperDto => ({
@@ -86,7 +88,7 @@ export const displayNameOf = (c: Pick<CandidateRow, "lastName" | "firstName">, f
 
 export function toCandidateDto(c: CandidateRow, extra: { officialNumber?: string | null; missingPieces?: string[]; fallbackName?: string | null } = {}): ExamCandidateDto {
   return {
-    id: c.id, sessionId: c.sessionId, studentId: c.studentId, enrollmentId: c.enrollmentId, gradeLevelCode: c.gradeLevelCode, trackCode: c.trackCode, lastName: c.lastName, firstName: c.firstName,
+    id: c.id, sessionId: c.sessionId, studentId: c.studentId, candidateKind: c.candidateKind, anonymized: c.anonymizedAt !== null, enrollmentId: c.enrollmentId, gradeLevelCode: c.gradeLevelCode, trackCode: c.trackCode, lastName: c.lastName, firstName: c.firstName,
     birthDate: c.birthDate, birthPlace: c.birthPlace, sex: c.sex, registrationStatus: c.registrationStatus, eligibilityStatus: c.eligibilityStatus, outcome: c.outcome, candidateNumber: c.candidateNumber,
     officialNumber: extra.officialNumber ?? null, registeredAt: iso(c.registeredAt), withdrawnReason: c.withdrawnReason, missingPieces: extra.missingPieces ?? [],
     displayName: displayNameOf(c, extra.fallbackName ?? null), rowVersion: c.rowVersion,
@@ -96,7 +98,17 @@ export function toCandidateDto(c: CandidateRow, extra: { officialNumber?: string
 export const toCheckDto = (c: EligibilityCheckRow): ExamEligibilityCheckDto => ({
   id: c.id, result: c.result, reasons: c.reasons, ruleVersionRef: c.ruleVersionRef, evaluatedBy: c.evaluatedBy, evaluatedAt: c.evaluatedAt.toISOString(), overridden: c.overriddenBy !== null, overrideReason: c.overrideReason,
 });
-export const toPieceDto = (p: CandidatePieceRow): ExamPieceDto => ({ requirementId: p.requirementId, code: p.requirementCode, label: p.requirementLabel, required: p.required, status: p.status, documentRef: p.documentRef, rejectionReason: p.rejectionReason, reviewedAt: iso(p.reviewedAt) });
+export const toPieceDto = (p: CandidatePieceRow): ExamPieceDto => ({ requirementId: p.requirementId, code: p.requirementCode, label: p.requirementLabel, required: p.required, status: p.status, documentRef: p.documentRef, presentationKind: p.presentationKind, sightedNote: p.sightedNote, rejectionReason: p.rejectionReason, reviewedAt: iso(p.reviewedAt) });
+
+/** Profil restreint d'un candidat libre. Le numéro de la pièce d'identité n'est rendu entier qu'à `reveal` (sinon masqué : 3 derniers caractères). */
+export function toExternalProfileDto(p: ExternalProfileRow, options: { reveal: boolean }): ExamExternalProfileDto {
+  const masked = (v: string | null): string | null => (v === null || options.reveal ? v : v.length <= 3 ? "***" : `${"*".repeat(v.length - 3)}${v.slice(-3)}`);
+  return {
+    candidateId: p.candidateId, contactPhone: p.contactPhone, contactEmail: p.contactEmail, addressLine: p.addressLine, idPieceKind: p.idPieceKind, idPieceNumber: masked(p.idPieceNumber),
+    guardianName: p.guardianName, guardianRelation: p.guardianRelation, guardianPhone: p.guardianPhone, guardianEmail: p.guardianEmail, declaredInExamGrade: p.declaredInExamGrade,
+    declaredPriorAttempts: p.declaredPriorAttempts, dataSource: p.dataSource, anonymizedAt: iso(p.anonymizedAt),
+  };
+}
 export const toIdentifierDto = (i: IdentifierRow): ExamIdentifierDto => ({ id: i.id, kind: i.kind, value: i.value, source: i.source });
 export const toHistoryDto = (h: HistoryRow): ExamHistoryDto => ({ id: h.id, kind: h.kind, fromValue: h.fromValue, toValue: h.toValue, reason: h.reason, actorId: h.actorId, occurredAt: h.occurredAt.toISOString() });
 export const toScoreDto = (s: ScoreRow): ExamScoreDto => ({ id: s.id, candidateId: s.candidateId, paperId: s.paperId, status: s.status, score: dec(s.score), source: s.source });

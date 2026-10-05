@@ -66,6 +66,11 @@ export default defineModule({
     },
     { key: "admission.export", label: "Exporter le dossier d'un candidat (droit d'accès)" },
     { key: "admission.report.read", label: "Consulter les tableaux de bord de recrutement" },
+    {
+      key: "admission.exam_result.read",
+      label: "Lire la MOYENNE d'examen transmise pour un dossier (CEPE vers l'admission en 6e)",
+      description: "Donnée personnelle d'un enfant : réservée au personnel d'admission habilité, lecture tracée. Sans elle, seul « admis / non admis » est visible.",
+    },
   ],
   features: [
     { key: "admissions.core", label: "Admissions : candidatures, workflow, décisions, offres, inscription", packs: ["PRIMARY", "SECONDARY", "HIGHER", "VIRTUAL"] },
@@ -85,6 +90,6 @@ export default defineModule({
   ],
   events: {
     publishes: [...ALL_ADMISSIONS_EVENT_TYPES],
-    consumes: [ConsumedEvents.ENROLLMENT_CONFIRMED, ConsumedEvents.ENROLLMENT_CANCELLED, ConsumedEvents.ENROLLMENT_WITHDRAWN, ConsumedEvents.INSTITUTION_CREATED],
+    consumes: [ConsumedEvents.ENROLLMENT_CONFIRMED, ConsumedEvents.ENROLLMENT_CANCELLED, ConsumedEvents.ENROLLMENT_WITHDRAWN, ConsumedEvents.INSTITUTION_CREATED, ConsumedEvents.EXAM_RESULT_TRANSMITTED],
   },
 });

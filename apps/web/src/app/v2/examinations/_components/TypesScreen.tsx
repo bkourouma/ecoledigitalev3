@@ -11,6 +11,8 @@ import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platfo
 import { showDecimal } from "@/platform/ui/format";
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
 import { useCreateExamType, useCreatePaper, useCreateTrack, useExamType, useExamTypes, useInstantiatePack } from "@/platform/v2/examinations";
+import { ExamAdmissionTransfer } from "./ExamAdmissionTransfer";
+import { ExamFeeItemsPanel } from "./ExamFeeItemsPanel";
 import { DemoBanner, StatusPill, useExamLabels } from "./shared";
 
 const SOURCES = ["regulation", "institution", "platform", "placeholder"] as const;
@@ -189,6 +191,8 @@ function TypeDetail({ id }: { id: string }) {
           <ul className="list-disc pl-5 text-sm">{d.requirements.map((r) => <li key={r.id}>{r.label}{r.required ? "" : ` (${t("optional")})`}</li>)}</ul>
         )}
       </section>
+      <ExamAdmissionTransfer typeId={d.id} enabled={d.transmitsToAdmission} />
+      <Can permission="exam.fee.read"><ExamFeeItemsPanel typeId={d.id} /></Can>
       <AddTrackDialog typeId={d.id} open={track} onOpenChange={setTrack} />
       <AddPaperDialog type={d} open={paper} onOpenChange={setPaper} />
     </div>

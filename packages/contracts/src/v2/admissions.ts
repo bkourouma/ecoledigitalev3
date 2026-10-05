@@ -1159,6 +1159,45 @@ export const admissionsEventPayloadSchemas = {
 // Événements CONSOMMÉS (charge utile minimale lue par les abonnés ; tout champ inconnu est ignoré)
 export const admissionsConsumedEnrollmentEventSchema = z.object({ enrollmentId: admissionsUuidSchema, studentId: admissionsUuidSchema.optional(), status: z.string().optional() }).passthrough();
 export const admissionsConsumedInstitutionCreatedSchema = z.object({ institutionId: admissionsUuidSchema }).passthrough();
+/**
+ * Résultat d'examen transmis par `examinations` (Q-E18 : « admis / non admis » ET MOYENNE, CEPE -> admission en 6e). Produit seulement pour
+ * les types d'examen qui le demandent ; aucun nom ni date de naissance. `revision` ordonne une correction approuvée après transmission.
+ */
+export const admissionsConsumedExamResultSchema = z
+  .object({
+    sessionId: admissionsUuidSchema,
+    candidateId: admissionsUuidSchema,
+    resultId: admissionsUuidSchema,
+    studentId: admissionsUuidSchema,
+    institutionId: admissionsUuidSchema,
+    // Lecture TOLÉRANTE (convention des charges consommées) : la validité des codes, de l'issue et de la moyenne est contrôlée par le cas
+    // d'usage (`recordTransmittedResult`), qui ignore avec un avertissement une charge hors contrat au lieu de la rejouer sans fin.
+    examTypeCode: z.string().min(1),
+    sessionYear: z.number().int(),
+    outcome: z.string().min(1),
+    admitted: z.boolean(),
+    average: z.string().nullable(),
+    revision: z.number().int().min(1),
+  })
+  .passthrough();
+export type AdmissionsConsumedExamResult = z.infer<typeof admissionsConsumedExamResultSchema>;
+
+/** Résultats d'examen d'un dossier. La MOYENNE n'est rendue qu'avec `admission.exam_result.read` (lecture tracée) ; sinon masquée. */
+export const admissionsExamResultDtoSchema = z.object({
+  id: admissionsUuidSchema,
+  examTypeCode: z.string(),
+  sessionYear: z.number().int(),
+  outcome: z.enum(["ADMITTED", "FAILED", "ABSENT", "EXCLUDED", "DEFERRED"]),
+  admitted: z.boolean(),
+  average: z.string().nullable(),
+  /** Une moyenne existe mais l'appelant n'est pas habilité à la lire. */
+  averageHidden: z.boolean(),
+  /** Lien avec le dossier : l'élève du dossier, ou un rapprochement confirmé par une personne. */
+  matchedBy: z.enum(["STUDENT", "CONFIRMED_DUPLICATE"]),
+  receivedAt: z.string(),
+});
+export const admissionsExamResultsDtoSchema = z.object({ canSeeAverage: z.boolean(), items: z.array(admissionsExamResultDtoSchema) });
+export type AdmissionsExamResultsDto = z.infer<typeof admissionsExamResultsDtoSchema>;
 
 // ---------------------------------------------------------------------------
 // Codes d'erreur stables (liste du contrat ; les déclencheurs SQL lèvent les mêmes codes)

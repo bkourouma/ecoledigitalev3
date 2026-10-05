@@ -88,7 +88,7 @@ describeIntegration("examinations : parcours officiel (CEPE fictif)", () => {
       const pieces = unwrap(await listPieces(env.deps(), env.ctxA(), c.id));
       const req = pieces.pieces[0]!;
       const documentId = newId();
-      env.world.pieces.set(documentId, c.studentId);
+      env.world.pieces.set(documentId, c.studentId as string);
       unwrap(await actOnPiece(env.deps(), env.ctxA(), c.id, req.requirementId, { action: "SUBMIT", documentRef: documentId }));
       unwrap(await actOnPiece(env.deps(), env.ctxA(), c.id, req.requirementId, { action: "ACCEPT" }));
     }
@@ -182,7 +182,7 @@ describeIntegration("examinations : parcours officiel (CEPE fictif)", () => {
     const ev = await env.db.admin.query("SELECT payload FROM kernel.domain_events WHERE type = 'examinations.result.published' AND tenant_id = $1", [env.tenantA]);
     expect(ev.rows).toHaveLength(pupilsCount);
     for (const row of ev.rows) {
-      expect(Object.keys(row.payload).sort()).toEqual(["candidateId", "examTypeCode", "institutionId", "outcome", "sessionId", "sessionYear", "studentId", "v"]);
+      expect(Object.keys(row.payload).sort()).toEqual(["candidateId", "candidateKind", "examTypeCode", "institutionId", "outcome", "sessionId", "sessionYear", "studentId", "v"]);
     }
     const list = unwrap(await listResults(env.deps(), env.ctxA(), sessionId, { page: 1, pageSize: 50 }));
     const admitted = list.items.filter((r) => r.resultCode === "ADMITTED");

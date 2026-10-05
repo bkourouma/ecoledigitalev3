@@ -20,15 +20,15 @@ import type {
 
 // ------------------------------------------------------------------ types d'examens
 
-const TYPE_COLS = `id, code, label, education_level_code, grade_level_code, result_contract_id, candidate_number_pattern, source_kind, source_reference, status, created_at, updated_at`;
+const TYPE_COLS = `id, code, label, education_level_code, grade_level_code, result_contract_id, candidate_number_pattern, transmits_to_admission, source_kind, source_reference, status, created_at, updated_at`;
 
 interface TypeSql {
   id: string; code: string; label: string; education_level_code: string; grade_level_code: string | null; result_contract_id: string;
-  candidate_number_pattern: string; source_kind: SourceKind; source_reference: string | null; status: "ACTIVE" | "ARCHIVED"; created_at: Date; updated_at: Date;
+  candidate_number_pattern: string; transmits_to_admission: boolean; source_kind: SourceKind; source_reference: string | null; status: "ACTIVE" | "ARCHIVED"; created_at: Date; updated_at: Date;
 }
 const toType = (r: TypeSql): ExamTypeRow => ({
   id: r.id, code: r.code, label: r.label, educationLevelCode: r.education_level_code, gradeLevelCode: r.grade_level_code, resultContractId: r.result_contract_id,
-  candidateNumberPattern: r.candidate_number_pattern, sourceKind: r.source_kind, sourceReference: r.source_reference, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
+  candidateNumberPattern: r.candidate_number_pattern, transmitsToAdmission: r.transmits_to_admission, sourceKind: r.source_kind, sourceReference: r.source_reference, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 export async function listTypes(tx: Tx, filter: { status?: "ACTIVE" | "ARCHIVED" } = {}): Promise<ExamTypeRow[]> {
@@ -46,18 +46,19 @@ export async function getTypeByCode(tx: Tx, code: string): Promise<ExamTypeRow |
   return r ? toType(r) : null;
 }
 
-export async function insertType(tx: Tx, tenantId: string, t: Omit<ExamTypeRow, "createdAt" | "updatedAt" | "status"> & { status?: "ACTIVE" | "ARCHIVED" }): Promise<ExamTypeRow> {
+export async function insertType(tx: Tx, tenantId: string, t: Omit<ExamTypeRow, "createdAt" | "updatedAt" | "status" | "transmitsToAdmission"> & { status?: "ACTIVE" | "ARCHIVED"; transmitsToAdmission?: boolean }): Promise<ExamTypeRow> {
   const r = await tx.queryOne<TypeSql>(
-    `INSERT INTO examinations.exam_types (id, tenant_id, code, label, education_level_code, grade_level_code, result_contract_id, candidate_number_pattern, source_kind, source_reference, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING ${TYPE_COLS}`,
-    [t.id, tenantId, t.code, t.label, t.educationLevelCode, t.gradeLevelCode, t.resultContractId, t.candidateNumberPattern, t.sourceKind, t.sourceReference, t.status ?? "ACTIVE"],
+    `INSERT INTO examinations.exam_types (id, tenant_id, code, label, education_level_code, grade_level_code, result_contract_id, candidate_number_pattern, source_kind, source_reference, status, transmits_to_admission)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING ${TYPE_COLS}`,
+    [t.id, tenantId, t.code, t.label, t.educationLevelCode, t.gradeLevelCode, t.resultContractId, t.candidateNumberPattern, t.sourceKind, t.sourceReference, t.status ?? "ACTIVE", t.transmitsToAdmission ?? false],
   );
   return toType(r as TypeSql);
 }
 
-export async function updateType(tx: Tx, id: string, patch: { label?: string; gradeLevelCode?: string | null; candidateNumberPattern?: string; sourceReference?: string | null; status?: "ACTIVE" | "ARCHIVED" }): Promise<ExamTypeRow | null> {
+export async function updateType(tx: Tx, id: string, patch: { label?: string; gradeLevelCode?: string | null; candidateNumberPattern?: string; sourceReference?: string | null; status?: "ACTIVE" | "ARCHIVED"; transmitsToAdmission?: boolean }): Promise<ExamTypeRow | null> {
   const r = await tx.queryOne<TypeSql>(
     `UPDATE examinations.exam_types SET
+       transmits_to_admission = COALESCE($9::boolean, transmits_to_admission),
        label = COALESCE($2, label),
        grade_level_code = CASE WHEN $3::boolean THEN $4 ELSE grade_level_code END,
        candidate_number_pattern = COALESCE($5, candidate_number_pattern),
@@ -65,7 +66,7 @@ export async function updateType(tx: Tx, id: string, patch: { label?: string; gr
        status = COALESCE($8, status),
        updated_at = now()
      WHERE id = $1 RETURNING ${TYPE_COLS}`,
-    [id, patch.label ?? null, "gradeLevelCode" in patch, patch.gradeLevelCode ?? null, patch.candidateNumberPattern ?? null, "sourceReference" in patch, patch.sourceReference ?? null, patch.status ?? null],
+    [id, patch.label ?? null, "gradeLevelCode" in patch, patch.gradeLevelCode ?? null, patch.candidateNumberPattern ?? null, "sourceReference" in patch, patch.sourceReference ?? null, patch.status ?? null, patch.transmitsToAdmission ?? null],
   );
   return r ? toType(r) : null;
 }

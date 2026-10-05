@@ -17,8 +17,10 @@ import { ExamCode, conflict, forbidden, notFound, validation } from "../domain/e
 import type { ResultCode, ScoreStatus, SessionRow } from "../domain/types";
 import * as cand from "../infrastructure/candidates-repo";
 import * as out from "../infrastructure/outputs-repo";
+import * as ref from "../infrastructure/reference-repo";
 import * as res from "../infrastructure/results-repo";
 import * as sess from "../infrastructure/sessions-repo";
+import { addTransmission, transmittedPayload } from "./admission-transfer";
 import { toRevisionRequestDto } from "./dto";
 import { EventBuffer, inTx, type ExaminationsDeps } from "./deps";
 
@@ -125,7 +127,13 @@ export async function approveRevision(deps: ExaminationsDeps, ctx: RequestContex
       const toAverage = (q.proposed.toAverage as string | null | undefined) ?? null;
       // La révision précède la correction ; les deux dans la même transaction (xid).
       await res.insertResultRevision(tx, ctx.tenantId, { id: revisionId, resultId: r.id, fromCode: r.resultCode, toCode, fromAverage: r.average, toAverage, reason: q.reason, requestedBy: q.requestedBy, approvedBy: approver });
-      await res.applyResultCorrection(tx, r.id, { resultCode: toCode, average: toAverage });
+      const corrected = await res.applyResultCorrection(tx, r.id, { resultCode: toCode, average: toAverage });
+      // Q-E18 : une correction approuvée retransmet « admis / non admis » ET la moyenne corrigés aux admissions (version plus grande).
+      if (corrected) {
+        const owner = await cand.getCandidate(tx, r.candidateId);
+        const transfer = owner ? transmittedPayload(session, await ref.getType(tx, session.examTypeId), owner, corrected) : null;
+        if (transfer) addTransmission(events, transfer, "REVISION");
+      }
       if (session.sessionKind === "OFFICIAL") {
         events.add(ExaminationsEvents.RESULT_REVISED, { v: 1, sessionId: q.sessionId, candidateId: r.candidateId, resultId: r.id, fromOutcome: r.resultCode, toOutcome: toCode }, { type: "examinations.result", id: r.id });
       }

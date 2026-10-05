@@ -13,9 +13,10 @@
  * échoue FERMÉ et l'événement est rejoué (jamais de passage à `ENROLLED` sans activer l'élève).
  */
 import { defineSubscriber, idempotent } from "@ecoledigitale/worker/sdk";
-import { admissionsConsumedEnrollmentEventSchema, admissionsConsumedInstitutionCreatedSchema } from "@ecoledigitale/contracts/src/v2/admissions";
+import { admissionsConsumedEnrollmentEventSchema, admissionsConsumedExamResultSchema, admissionsConsumedInstitutionCreatedSchema } from "@ecoledigitale/contracts/src/v2/admissions";
 import { ensureInstitutionDefaults } from "./application/defaults";
 import { handleEnrollmentConfirmed, handleEnrollmentEnded } from "./application/enrollment-events";
+import { recordTransmittedResult } from "./application/exam-results";
 import { ConsumedEvents } from "./domain/events";
 import { workerDeps } from "./worker";
 
@@ -58,6 +59,35 @@ export default [
       if (!parsed.success) return;
       const r = await handleEnrollmentEnded(workerDeps({ tenantDb: ctx.tenantDb, systemDb: ctx.systemDb, logger: ctx.logger }), ctx.db.ctx, { enrollmentId: parsed.data.enrollmentId });
       if (!r.ok) throw r.error;
+    }),
+  }),
+  defineSubscriber({
+    name: "admissions.record-exam-result",
+    pattern: ConsumedEvents.EXAM_RESULT_TRANSMITTED,
+    retry: RETRY,
+    handler: idempotent("admissions.record-exam-result", async (event, ctx) => {
+      // Q-E18 : « admis / non admis » ET moyenne d'un élève (CEPE -> 6e). Charge lue minimale ; jamais journalisée (contient la moyenne).
+      const parsed = admissionsConsumedExamResultSchema.safeParse(event.payload);
+      if (!parsed.success) {
+        ctx.logger.warn({ eventId: event.id }, "admissions : charge utile examinations.result.transmitted illisible, ignorée");
+        return;
+      }
+      const p = parsed.data;
+      const r = await recordTransmittedResult(
+        workerDeps({ tenantDb: ctx.tenantDb, systemDb: ctx.systemDb, logger: ctx.logger }),
+        ctx.db.ctx,
+        { sessionId: p.sessionId, candidateId: p.candidateId, resultId: p.resultId, studentId: p.studentId, institutionId: p.institutionId, examTypeCode: p.examTypeCode, sessionYear: p.sessionYear, outcome: p.outcome, admitted: p.admitted, average: p.average, revision: p.revision },
+        event.id,
+      );
+      if (!r.ok) {
+        // Charge hors contrat : ignorée avec un avertissement (un rejeu n'y changerait rien) ; toute autre erreur est rejouée.
+        if (r.error.code === "admissions.invalid_input") {
+          ctx.logger.warn({ eventId: event.id, resultId: p.resultId, code: r.error.code }, "admissions : résultat d'examen hors contrat, ignoré");
+          return;
+        }
+        throw r.error;
+      }
+      ctx.logger.info({ resultId: p.resultId, stored: r.value.stored }, "admissions : résultat d'examen reçu");
     }),
   }),
   defineSubscriber({

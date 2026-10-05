@@ -9,7 +9,8 @@
  *    vérifiées par les ports du module.
  *  - NOMBRES EXACTS (coefficient, barème, note, moyenne, total) : CHAÎNES décimales (`"14.5"`), jamais de flottant.
  *  - DATES calendaires `AAAA-MM-JJ` ; INSTANTS ISO 8601 avec fuseau.
- *  - AUCUNE note, moyenne ni identité d'élève dans un événement. Messages utilisateur en français ; codes d'erreur stables
+ *  - AUCUNE note, moyenne ni identité d'élève dans un événement, à l'exception de la moyenne de `examinations.result.transmitted`
+ *    (décision Q-E18 : résultat ET moyenne transmis aux admissions, jamais de nom). Messages utilisateur en français ; codes d'erreur stables
  *    `examinations.*` (`EXAMINATIONS_ERROR_CODES`).
  *  - Les formats d'export et d'import ne citent que des champs d'une LISTE BLANCHE (aucune expression libre).
  */
@@ -158,6 +159,7 @@ export const examCreateTypeBodySchema = z
     gradeLevelCode: z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/).nullable().optional(),
     resultContractId: z.string().regex(/^[a-z][a-z0-9-]*@[0-9]+$/).optional(),
     candidateNumberPattern: z.string().min(3).max(60).optional(),
+    transmitsToAdmission: z.boolean().optional(),
     sourceKind: examSourceKindSchema.default("institution"),
     sourceReference: optText(500),
   })
@@ -169,6 +171,7 @@ export const examUpdateTypeBodySchema = z
     label: text(200).optional(),
     gradeLevelCode: z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,39}$/).nullable().optional(),
     candidateNumberPattern: z.string().min(3).max(60).optional(),
+    transmitsToAdmission: z.boolean().optional(),
     sourceReference: optText(500),
     status: z.enum(["ACTIVE", "ARCHIVED"]).optional(),
   })
@@ -306,10 +309,80 @@ export type ExamEligibilityBody = z.infer<typeof examEligibilityBodySchema>;
 
 export const examPieceActionBodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("SUBMIT"), documentRef: examUuidSchema }).strict(),
+  /** Candidat LIBRE seulement (Q-E15) : pièce présentée et vue sur place (aucun document de la GED d'un élève) ; reste à relire. */
+  z.object({ action: z.literal("SIGHT"), note: z.string().trim().min(1).max(300).optional() }).strict(),
   z.object({ action: z.literal("ACCEPT") }).strict(),
   z.object({ action: z.literal("REJECT"), rejectionReason: z.string().trim().min(3).max(500) }).strict(),
 ]);
 export type ExamPieceActionBody = z.infer<typeof examPieceActionBodySchema>;
+
+// --- Candidat libre (Q-E15) : identité saisie ou importée, sans dossier élève ---------------------------------------------------
+
+const phoneSchema = z.string().trim().min(4).max(40).regex(/^[0-9+()\-. ]+$/, "Numéro de téléphone invalide.");
+const emailSchema = z.string().trim().min(3).max(200).email();
+const personNameSchema = z.string().trim().min(1).max(120).regex(/^[^\u0000-\u001f]+$/, "Caractères de contrôle interdits.");
+
+/** Identité figée à l'inscription : nom, prénoms, naissance, sexe (comme l'état civil d'un élève). */
+export const examExternalIdentitySchema = z
+  .object({
+    lastName: personNameSchema,
+    firstName: personNameSchema,
+    birthDate: examDateSchema,
+    birthPlace: z.string().trim().min(1).max(120).nullable().optional(),
+    sex: z.enum(["F", "M"]),
+  })
+  .strict();
+
+/** Données restreintes du candidat libre + faits d'éligibilité fournis par saisie (la règle les consomme telles quelles). */
+export const examExternalProfileInputSchema = z
+  .object({
+    contactPhone: phoneSchema.nullable().optional(),
+    contactEmail: emailSchema.nullable().optional(),
+    addressLine: z.string().trim().min(1).max(300).nullable().optional(),
+    idPieceKind: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/).nullable().optional(),
+    idPieceNumber: z.string().trim().min(1).max(60).regex(/^[^\u0000-\u001f]+$/).nullable().optional(),
+    guardianName: personNameSchema.nullable().optional(),
+    guardianRelation: z.string().trim().min(1).max(60).nullable().optional(),
+    guardianPhone: phoneSchema.nullable().optional(),
+    guardianEmail: emailSchema.nullable().optional(),
+    /** L'établissement ne connaît pas sa scolarité : « est-il dans la classe d'examen ? » est une déclaration. */
+    declaredInExamGrade: z.boolean(),
+    declaredPriorAttempts: z.number().int().min(0).max(50).default(0),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (Boolean(v.idPieceKind) !== Boolean(v.idPieceNumber)) ctx.addIssue({ code: "custom", path: ["idPieceNumber"], message: "Type et numéro de la pièce d'identité vont ensemble." });
+    if (!v.contactPhone && !v.contactEmail && !v.guardianPhone && !v.guardianEmail) ctx.addIssue({ code: "custom", path: ["contactPhone"], message: "Au moins un moyen de contact (candidat ou tuteur) est requis." });
+  });
+
+export const examCreateExternalCandidateBodySchema = z
+  .object({ identity: examExternalIdentitySchema, profile: examExternalProfileInputSchema, trackCode: z.string().regex(/^[A-Z0-9][A-Z0-9_]{0,19}$/).nullable().optional() })
+  .strict();
+/** Import (saisie en lot, p. ex. d'un fichier de l'autorité ou de l'établissement) : une transaction par ligne, un refus n'annule pas les autres. */
+export const examExternalBatchBodySchema = z
+  .object({ source: z.enum(["ENTERED", "IMPORTED"]).default("IMPORTED"), items: z.array(examCreateExternalCandidateBodySchema).min(1).max(500) })
+  .strict();
+export const examUpdateExternalCandidateBodySchema = z
+  .object({ identity: examExternalIdentitySchema.optional(), profile: examExternalProfileInputSchema })
+  .strict();
+export const examAnonymizeBodySchema = z.object({ reason: z.string().trim().min(10).max(500) }).strict();
+
+// --- Frais d'examen intégrés à l'inscription (Q-E13) : barème de l'établissement, obligation du candidat -----------------------------
+
+export const EXAM_FEE_APPLIES_TO = ["ALL", "STUDENT", "EXTERNAL"] as const;
+export const examFeeAppliesToSchema = z.enum(EXAM_FEE_APPLIES_TO);
+export type ExamFeeAppliesTo = z.infer<typeof examFeeAppliesToSchema>;
+export const EXAM_FEE_STATUSES = ["NOT_APPLICABLE", "PENDING_INVOICE", "INVOICED", "AWAITING_MANUAL_INVOICE", "CANCELLED", "REFUND_DUE", "REFUND_DONE"] as const;
+export const examFeeStatusSchema = z.enum(EXAM_FEE_STATUSES);
+export type ExamFeeStatus = z.infer<typeof examFeeStatusSchema>;
+export const EXAM_FEE_PAYMENT_STATUSES = ["NONE", "UNPAID", "PARTIAL", "PAID", "CANCELLED", "CREDITED", "UNKNOWN"] as const;
+export const examFeePaymentStatusSchema = z.enum(EXAM_FEE_PAYMENT_STATUSES);
+
+/** Barème de frais d'examen d'un type : les frais du catalogue de `finance` qui s'appliquent. VIDE par défaut ; aucun montant ici. */
+export const examSetFeeItemsBodySchema = z
+  .object({ items: z.array(z.object({ feeId: z.string().uuid(), appliesTo: examFeeAppliesToSchema.default("ALL"), active: z.boolean().default(true) }).strict()).max(50) })
+  .strict();
+export const examRefundDoneBodySchema = z.object({ note: z.string().trim().min(5).max(500) }).strict();
 
 export const examIdentifierBodySchema = z
   .object({ kind: z.string().regex(/^[A-Z][A-Z0-9_]{1,39}$/), value: z.string().trim().min(1).max(60).regex(/^[^\u0000-\u001f]+$/, "Caractères de contrôle interdits.") })
@@ -494,6 +567,8 @@ export const examTypeDtoSchema = z.object({
   gradeLevelCode: nullableStr,
   resultContractId: z.string(),
   candidateNumberPattern: z.string(),
+  /** Q-E18 : le résultat (admis / non admis) ET la moyenne des candidats-élèves sont transmis aux admissions (désactivé par défaut). */
+  transmitsToAdmission: z.boolean().default(false),
   sourceKind: examSourceKindSchema,
   sourceReference: nullableStr,
   status: z.enum(["ACTIVE", "ARCHIVED"]),
@@ -578,7 +653,11 @@ export type ExamSessionDetailDto = z.infer<typeof examSessionDetailDtoSchema>;
 export const examCandidateDtoSchema = z.object({
   id: examUuidSchema,
   sessionId: examUuidSchema,
-  studentId: examUuidSchema,
+  /** `null` pour un candidat LIBRE (sans dossier élève, Q-E15). */
+  studentId: examUuidSchema.nullable(),
+  candidateKind: z.enum(["STUDENT", "EXTERNAL"]).default("STUDENT"),
+  /** Identité du candidat libre anonymisée (droit à l'effacement) : nom neutre, année de naissance seule. */
+  anonymized: z.boolean().default(false),
   enrollmentId: examUuidSchema.nullable(),
   gradeLevelCode: nullableStr,
   trackCode: nullableStr,
@@ -601,6 +680,28 @@ export const examCandidateDtoSchema = z.object({
   rowVersion: z.number().int(),
 });
 export type ExamCandidateDto = z.infer<typeof examCandidateDtoSchema>;
+/** Profil RESTREINT d'un candidat libre (permission `exam.external.read`, lecture auditée). */
+export const examExternalProfileDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  contactPhone: nullableStr,
+  contactEmail: nullableStr,
+  addressLine: nullableStr,
+  idPieceKind: nullableStr,
+  idPieceNumber: nullableStr,
+  guardianName: nullableStr,
+  guardianRelation: nullableStr,
+  guardianPhone: nullableStr,
+  guardianEmail: nullableStr,
+  declaredInExamGrade: z.boolean(),
+  declaredPriorAttempts: z.number().int(),
+  dataSource: z.enum(["ENTERED", "IMPORTED"]),
+  anonymizedAt: nullableStr,
+});
+export type ExamExternalProfileDto = z.infer<typeof examExternalProfileDtoSchema>;
+export const examExternalBatchReportSchema = z.object({
+  created: z.array(z.object({ index: z.number().int(), candidateId: examUuidSchema })),
+  failed: z.array(z.object({ index: z.number().int(), code: z.string(), message: z.string() })),
+});
 export const examEligibilityCheckDtoSchema = z.object({
   id: examUuidSchema,
   result: z.enum(["ELIGIBLE", "INELIGIBLE", "NEEDS_REVIEW"]),
@@ -612,7 +713,29 @@ export const examEligibilityCheckDtoSchema = z.object({
   overrideReason: nullableStr,
 });
 export type ExamEligibilityCheckDto = z.infer<typeof examEligibilityCheckDtoSchema>;
-export const examPieceDtoSchema = z.object({ requirementId: examUuidSchema, code: z.string(), label: z.string(), required: z.boolean(), status: examPieceStatusSchema, documentRef: examUuidSchema.nullable(), rejectionReason: nullableStr, reviewedAt: nullableStr });
+export const examFeeItemDtoSchema = z.object({ id: examUuidSchema, feeId: examUuidSchema, appliesTo: examFeeAppliesToSchema, active: z.boolean(), label: z.string().nullable(), currency: z.string().nullable() });
+export type ExamFeeItemDto = z.infer<typeof examFeeItemDtoSchema>;
+export const examFeeCatalogEntryDtoSchema = z.object({ feeId: examUuidSchema, code: z.string(), label: z.string(), currency: z.string(), active: z.boolean() });
+export type ExamFeeCatalogEntryDto = z.infer<typeof examFeeCatalogEntryDtoSchema>;
+/** Obligation d'un candidat : état de la facturation (stocké) + état du paiement relu EN DIRECT auprès de `finance`. */
+export const examCandidateFeeDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  status: examFeeStatusSchema,
+  payerKind: z.enum(["STUDENT", "EXTERNAL"]),
+  currency: z.string().nullable(),
+  /** Unités mineures de la devise (entier) ; `null` tant que non facturé : aucun tarif n'est inventé. */
+  totalMinor: z.number().int().nullable(),
+  lines: z.array(z.object({ feeId: examUuidSchema, label: z.string().nullable(), amountMinor: z.number().int().nullable() })),
+  invoiceId: examUuidSchema.nullable(),
+  invoiceNumber: z.string().nullable(),
+  payment: z.object({ status: examFeePaymentStatusSchema, paidMinor: z.number().int().nullable() }),
+  lastErrorCode: z.string().nullable(),
+  note: z.string().nullable(),
+  refundConfirmedAt: z.string().nullable(),
+});
+export type ExamCandidateFeeDto = z.infer<typeof examCandidateFeeDtoSchema>;
+export const examFeeSyncReportSchema = z.object({ settled: z.number().int(), stillPending: z.number().int(), failed: z.array(z.object({ candidateId: examUuidSchema, code: z.string(), message: z.string() })) });
+export const examPieceDtoSchema = z.object({ requirementId: examUuidSchema, code: z.string(), label: z.string(), required: z.boolean(), status: examPieceStatusSchema, documentRef: examUuidSchema.nullable(), presentationKind: z.enum(["DOCUMENT", "SIGHTED"]).default("DOCUMENT"), sightedNote: nullableStr.default(null), rejectionReason: nullableStr, reviewedAt: nullableStr });
 export type ExamPieceDto = z.infer<typeof examPieceDtoSchema>;
 export const examPiecesDtoSchema = z.object({ pieces: z.array(examPieceDtoSchema), missing: z.array(z.string()) });
 export const examIdentifierDtoSchema = z.object({ id: examUuidSchema, kind: z.string(), value: z.string(), source: z.enum(["MANUAL", "IMPORT", "MIGRATION"]) });
@@ -887,13 +1010,16 @@ export const EXAMINATIONS_ERROR_CODES = [
   "examinations.convocation_requires_assignment", "examinations.document_revoked", "examinations.document_issued",
   "examinations.document_already_live", "examinations.revoke_reason_required", "examinations.mock_no_official_document",
   "examinations.group_unknown", "examinations.rate_limited",
+  "examinations.external_only", "examinations.external_official_only", "examinations.candidate_anonymized", "examinations.piece_mode_mismatch",
+  "examinations.external_profile_incomplete", "examinations.fee_not_found", "examinations.fee_state", "examinations.fee_item_invalid",
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Événements publiés (charge utile : AUCUNE note, moyenne ni identité)
+// Événements publiés (charge utile : AUCUNE note, moyenne ni identité — sauf la moyenne de `examinations.result.transmitted`, Q-E18)
 // ---------------------------------------------------------------------------
 
 const v1 = z.literal(1);
+const candidateKindSchema = z.enum(["STUDENT", "EXTERNAL"]);
 const sessionRef = { v: v1, sessionId: examUuidSchema, institutionId: examUuidSchema, examTypeCode: z.string() };
 
 export const examinationsEventPayloadSchemas = {
@@ -901,16 +1027,39 @@ export const examinationsEventPayloadSchemas = {
   "examinations.session.registration_closed": z.object({ ...sessionRef, registeredCount: z.number().int().min(0) }).strict(),
   "examinations.session.results_published": z.object({ ...sessionRef, sessionKind: examSessionKindSchema, publishedCount: z.number().int().min(0) }).strict(),
   "examinations.session.archived": z.object({ ...sessionRef }).strict(),
-  "examinations.candidate.registered": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema, institutionId: examUuidSchema, candidateNumber: z.string() }).strict(),
-  "examinations.candidate.withdrawn": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema, reasonCode: z.enum(["MANUAL", "ENROLLMENT_WITHDRAWN"]) }).strict(),
+  /** `studentId` est `null` pour un candidat LIBRE (Q-E15) : aucune identité (nom, naissance, contact) ne figure jamais dans l'événement. */
+  "examinations.candidate.registered": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, institutionId: examUuidSchema, candidateNumber: z.string() }).strict(),
+  "examinations.candidate.withdrawn": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, reasonCode: z.enum(["MANUAL", "ENROLLMENT_WITHDRAWN"]) }).strict(),
   "examinations.eligibility.evaluated": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, result: z.enum(["ELIGIBLE", "INELIGIBLE", "NEEDS_REVIEW"]), reasonCodes: z.array(z.string()), mode: z.enum(["RULE", "MANUAL", "OVERRIDE"]) }).strict(),
-  /** Issue seule (Q-E18) : ni note, ni moyenne, ni rang. Consommé par 006/007 pour l'admission en 6e. */
-  "examinations.result.published": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema, institutionId: examUuidSchema, examTypeCode: z.string(), sessionYear: z.number().int(), outcome: examResultCodeSchema }).strict(),
+  /** Issue seule : ni note, ni moyenne, ni rang. (La moyenne destinée à l'admission en 6e voyage dans `examinations.result.transmitted`, Q-E18.) */
+  "examinations.result.published": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, institutionId: examUuidSchema, examTypeCode: z.string(), sessionYear: z.number().int(), outcome: examResultCodeSchema }).strict(),
+  /**
+   * Q-E18 — transmission aux ADMISSIONS (seules abonnées) : « admis / non admis » ET la MOYENNE d'un candidat-élève d'une session
+   * officielle, pour les types d'examen qui le demandent. Minimisation : identifiants et codes, aucun nom ni date de naissance ;
+   * `revision` (version du résultat) ordonne une correction approuvée après transmission. Le web n'affiche la moyenne qu'au
+   * personnel d'admission habilité (permission dédiée d'`admissions`), lecture tracée.
+   */
+  "examinations.result.transmitted": z
+    .object({
+      v: v1,
+      sessionId: examUuidSchema,
+      candidateId: examUuidSchema,
+      resultId: examUuidSchema,
+      studentId: examUuidSchema,
+      institutionId: examUuidSchema,
+      examTypeCode: z.string(),
+      sessionYear: z.number().int(),
+      outcome: examResultCodeSchema,
+      admitted: z.boolean(),
+      average: examDecimalSchema.nullable(),
+      revision: z.number().int().min(1),
+    })
+    .strict(),
   "examinations.result.revised": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, resultId: examUuidSchema, fromOutcome: examResultCodeSchema, toOutcome: examResultCodeSchema }).strict(),
   "examinations.revision.requested": z.object({ v: v1, sessionId: examUuidSchema, requestId: examUuidSchema, targetKind: z.enum(["SCORE", "RESULT"]) }).strict(),
   "examinations.revision.rejected": z.object({ v: v1, sessionId: examUuidSchema, requestId: examUuidSchema, targetKind: z.enum(["SCORE", "RESULT"]) }).strict(),
   "examinations.import.applied": z.object({ v: v1, sessionId: examUuidSchema, batchId: examUuidSchema, kind: examBatchKindSchema, rowCount: z.number().int().min(0), sha256: z.string() }).strict(),
-  "examinations.document.issued": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema, documentId: examUuidSchema, kind: examDocumentKindSchema, version: z.number().int().min(1) }).strict(),
+  "examinations.document.issued": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, studentId: examUuidSchema.nullable(), candidateKind: candidateKindSchema, documentId: examUuidSchema, kind: examDocumentKindSchema, version: z.number().int().min(1) }).strict(),
   "examinations.document.revoked": z.object({ v: v1, sessionId: examUuidSchema, candidateId: examUuidSchema, documentId: examUuidSchema, kind: examDocumentKindSchema, version: z.number().int().min(1) }).strict(),
   "examinations.export.completed": z.object({ v: v1, sessionId: examUuidSchema, exportId: examUuidSchema, formatCode: z.string(), rowCount: z.number().int().min(0), sha256: z.string() }).strict(),
 } as const;

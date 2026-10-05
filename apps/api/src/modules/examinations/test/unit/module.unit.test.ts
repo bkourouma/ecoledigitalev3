@@ -34,7 +34,7 @@ describe("module examinations : manifeste", () => {
   });
   it("marque SENSIBLES la publication, l'application d'un import, la révision et la dérogation ; les menus visent des permissions et features du module", () => {
     const sensitive = manifest.permissions.filter((p) => p.sensitive).map((p) => p.key).sort();
-    expect(sensitive).toEqual(["exam.eligibility.override", "exam.result.publish", "exam.result.release", "exam.result.revise"]);
+    expect(sensitive).toEqual(["exam.eligibility.override", "exam.external.anonymize", "exam.result.publish", "exam.result.release", "exam.result.revise"]);
     const perms = new Set(manifest.permissions.map((p) => p.key));
     const features = new Set(manifest.features.map((f) => f.key));
     expect([...features].sort()).toEqual(["examinations.core", "examinations.exports", "examinations.mock"]);
@@ -54,8 +54,12 @@ describe("module examinations : contrats partagés", () => {
     expect(Object.keys(examinationsEventPayloadSchemas).sort()).toEqual([...ALL_EXAMINATIONS_EVENT_TYPES].sort());
     for (const [type, schema] of Object.entries(examinationsEventPayloadSchemas)) {
       const keys = Object.keys((schema as unknown as { shape: Record<string, unknown> }).shape);
-      for (const forbidden of ["lastName", "firstName", "birthDate", "average", "score", "totalPoints", "rank", "mention", "name"]) expect(keys, `${type}.${forbidden}`).not.toContain(forbidden);
+      // Q-E18 : UNE seule exception, décidée par le métier — la moyenne de l'événement destiné aux admissions (jamais de nom ni de naissance).
+      const forbiddenKeys = ["lastName", "firstName", "birthDate", "average", "score", "totalPoints", "rank", "mention", "name"].filter((k) => !(type === "examinations.result.transmitted" && k === "average"));
+      for (const forbidden of forbiddenKeys) expect(keys, `${type}.${forbidden}`).not.toContain(forbidden);
     }
+    const withAverage = Object.entries(examinationsEventPayloadSchemas).filter(([, s]) => Object.keys((s as unknown as { shape: Record<string, unknown> }).shape).includes("average")).map(([t]) => t);
+    expect(withAverage).toEqual(["examinations.result.transmitted"]);
   });
 });
 

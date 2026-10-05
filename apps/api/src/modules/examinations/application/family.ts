@@ -99,7 +99,8 @@ export async function listChildExamDocuments(deps: ExaminationsDeps, ctx: Reques
 /** Autorisation d'un document : l'élève lui-même, ou un tuteur lié (relu à chaque requête). */
 export function familyAccess(deps: ExaminationsDeps, ctx: RequestContext): (c: CandidateRow) => Promise<boolean> {
   return async (c) => {
-    if (!ctx.userId) return false;
+    // Un candidat LIBRE n'a ni dossier élève ni tuteur lié : aucun accès famille (Q-E15).
+    if (!ctx.userId || !c.studentId) return false;
     const mine = await deps.ports.family.studentIdForUser(ctx, ctx.userId);
     if (mine && mine === c.studentId) return true;
     return deps.ports.family.isGuardianOf(ctx, ctx.userId, c.studentId);

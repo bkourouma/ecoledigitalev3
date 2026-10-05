@@ -17,6 +17,7 @@ import * as cand from "../infrastructure/candidates-repo";
 import * as ref from "../infrastructure/reference-repo";
 import * as res from "../infrastructure/results-repo";
 import * as sess from "../infrastructure/sessions-repo";
+import { addTransmission, transmittedPayload } from "./admission-transfer";
 import { toResultDto } from "./dto";
 import { attempt, EventBuffer, inTx, type ExaminationsDeps } from "./deps";
 
@@ -109,10 +110,13 @@ export async function publishResult(deps: ExaminationsDeps, ctx: RequestContext,
     if (session.sessionKind === "OFFICIAL" && candidate) {
       events.add(
         ExaminationsEvents.RESULT_PUBLISHED,
-        { v: 1, sessionId: session.id, candidateId: published.candidateId, studentId: candidate.studentId, institutionId: session.institutionId, examTypeCode: type?.code ?? "", sessionYear: session.sessionYear, outcome: published.resultCode },
+        { v: 1, sessionId: session.id, candidateId: published.candidateId, studentId: candidate.studentId, candidateKind: candidate.candidateKind, institutionId: session.institutionId, examTypeCode: type?.code ?? "", sessionYear: session.sessionYear, outcome: published.resultCode },
         { type: "examinations.result", id: published.id },
       );
     }
+    // Q-E18 : résultat ET moyenne vers les admissions, pour les seuls types qui le demandent (événement dédié, jamais `result.published`).
+    const transfer = candidate ? transmittedPayload(session, type, candidate, published) : null;
+    if (transfer) addTransmission(events, transfer, "PUBLISH");
     events.audit({ action: "examinations.result.publish", resourceType: "result", resourceId: resultId, sensitive: true, metadata: { sessionId: session.id, outcome: published.resultCode, source: published.source } });
     await events.flush(tx);
     return ok(toResultDto(published, candidate ?? undefined));

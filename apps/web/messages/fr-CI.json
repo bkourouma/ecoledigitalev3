@@ -8265,6 +8265,9 @@
     "movable": "Fête mobile : date à saisir chaque année",
     "movableHint": "Ajoutez la date de l'année dans le calendrier de l'établissement.",
     "months": {
+      "10": "octobre",
+      "11": "novembre",
+      "12": "décembre",
       "01": "janvier",
       "02": "février",
       "03": "mars",
@@ -8273,10 +8276,7 @@
       "06": "juin",
       "07": "juillet",
       "08": "août",
-      "09": "septembre",
-      "10": "octobre",
-      "11": "novembre",
-      "12": "décembre"
+      "09": "septembre"
     }
   },
   "v2HigherExemptions": {
@@ -17319,5 +17319,196 @@
       },
       "retryHint": "Les pièces en échec n'empêchent pas les autres. Vous pouvez relancer le rattachement : les pièces déjà présentes ne sont pas dupliquées."
     }
+  },
+  "v2ExaminationsExternal": {
+    "panel": {
+      "title": "Candidat libre (sans dossier élève)",
+      "hint": "Inscrire à cette session une personne qui n'est pas élève de l'établissement : identité saisie ou importée, contact, pièce d'identité, tuteur éventuel. Les données personnelles sont restreintes et leur lecture est tracée.",
+      "add": "Saisir un candidat libre",
+      "import": "Importer un fichier CSV",
+      "officialOnly": "Les candidats libres ne concernent que les sessions officielles."
+    },
+    "list": {
+      "badge": "Candidat libre"
+    },
+    "form": {
+      "title": "Nouveau candidat libre",
+      "description": "L'éligibilité est évaluée par la règle de l'examen à partir des faits saisis ci-dessous (aucune donnée scolaire n'est lue).",
+      "submit": "Enregistrer le candidat",
+      "identity": "Identité (figée à l'inscription)",
+      "lastName": "Nom",
+      "firstName": "Prénoms",
+      "birthDate": "Date de naissance",
+      "birthPlace": "Lieu de naissance",
+      "sex": "Sexe",
+      "sexF": "Féminin",
+      "sexM": "Masculin",
+      "choose": "Choisir",
+      "contact": "Contact",
+      "contactHint": "Au moins un moyen de contact (le candidat ou son tuteur) est requis pour la convocation.",
+      "phone": "Téléphone",
+      "email": "Adresse e-mail",
+      "address": "Adresse",
+      "piece": "Pièce d'identité",
+      "pieceKind": "Type de pièce",
+      "pieceKindHint": "Par exemple CNI, PASSEPORT, EXTRAIT_NAISSANCE.",
+      "pieceNumber": "Numéro de la pièce",
+      "guardian": "Tuteur (facultatif)",
+      "guardianName": "Nom du tuteur",
+      "guardianRelation": "Lien avec le candidat",
+      "guardianPhone": "Téléphone du tuteur",
+      "guardianEmail": "E-mail du tuteur",
+      "facts": "Faits d'éligibilité déclarés",
+      "factsHint": "Ces faits sont saisis (pas lus dans un dossier scolaire) ; la règle de l'examen les évalue.",
+      "inExamGrade": "Le candidat est dans la classe de l'examen",
+      "priorAttempts": "Nombre de tentatives antérieures à cet examen",
+      "errors": {
+        "required": "Ce champ est obligatoire.",
+        "birthDate": "Date attendue au format AAAA-MM-JJ.",
+        "contact": "Indiquer au moins un téléphone ou une adresse e-mail (candidat ou tuteur).",
+        "piece": "Le type et le numéro de la pièce vont ensemble."
+      }
+    },
+    "import": {
+      "hint": "Fichier CSV avec en-tête (séparateur ; ou ,). Colonnes : nom, prenoms, naissance (AAAA-MM-JJ), lieu, sexe (F ou M), telephone, email, adresse, piece_type, piece_numero, tuteur, lien_tuteur, tel_tuteur, email_tuteur, classe_examen (oui ou non), tentatives.",
+      "file": "Fichier CSV des candidats libres",
+      "missingHeaders": "Colonnes obligatoires absentes : {columns}.",
+      "unknownHeaders": "Colonnes ignorées : {columns}.",
+      "summary": "{file} : {valid} ligne(s) valide(s), {invalid} ligne(s) à corriger.",
+      "lineError": "Ligne {line} : {reason} ({field})",
+      "reasons": {
+        "missingField": "champ obligatoire absent",
+        "badDate": "date invalide",
+        "badSex": "sexe invalide (F ou M)",
+        "badBoolean": "valeur oui ou non attendue",
+        "badNumber": "nombre invalide",
+        "noContact": "aucun moyen de contact"
+      },
+      "send": "Importer {count} candidat(s)",
+      "report": "{created} candidat(s) libre(s) enregistré(s)."
+    },
+    "profile": {
+      "title": "Données personnelles restreintes",
+      "restricted": "Accès restreint : chaque consultation est tracée. Ces données ne figurent ni dans les listes, ni dans les exports, ni dans les événements.",
+      "anonymized": "Ce candidat a été anonymisé : ces données ont été effacées.",
+      "reveal": "Afficher le numéro de pièce en entier",
+      "revealAudited": "L'affichage complet du numéro de pièce a été tracé.",
+      "yes": "Oui",
+      "no": "Non",
+      "source": {
+        "ENTERED": "Saisi",
+        "IMPORTED": "Importé"
+      },
+      "fields": {
+        "contactPhone": "Téléphone",
+        "contactEmail": "E-mail",
+        "addressLine": "Adresse",
+        "idPieceKind": "Type de pièce",
+        "idPieceNumber": "Numéro de pièce",
+        "guardianName": "Tuteur",
+        "guardianRelation": "Lien",
+        "guardianPhone": "Téléphone du tuteur",
+        "guardianEmail": "E-mail du tuteur",
+        "declaredInExamGrade": "Dans la classe de l'examen (déclaré)",
+        "declaredPriorAttempts": "Tentatives antérieures (déclarées)",
+        "dataSource": "Origine de la saisie"
+      }
+    },
+    "detail": {
+      "badge": "Candidat libre",
+      "anonymized": "Anonymisé",
+      "sight": "Pièce vue sur place",
+      "sighted": "vue sur place",
+      "anonymize": "Anonymiser le candidat",
+      "anonymizeDialog": {
+        "title": "Anonymiser le candidat libre",
+        "description": "Irréversible : contact, pièce d'identité et tuteur sont effacés, l'identité devient neutre. Le numéro de candidat, le résultat et l'historique sont conservés.",
+        "reason": "Motif (demande de la personne, obligation légale…)",
+        "confirm": "Anonymiser"
+      }
+    }
+  },
+  "v2ExaminationsFees": {
+    "items": {
+      "title": "Frais d'examen (barème)",
+      "hint": "Les frais du catalogue « examens » de la comptabilité qui s'appliquent aux candidats de ce type. Les montants restent dans la comptabilité ; sans barème, l'inscription ne génère aucune facture.",
+      "empty": "Aucun frais d'examen : les inscriptions ne sont pas facturées.",
+      "appliesToLabel": "S'applique à",
+      "appliesTo": {
+        "ALL": "Tous les candidats",
+        "STUDENT": "Élèves de l'établissement",
+        "EXTERNAL": "Candidats libres"
+      },
+      "active": "Actif",
+      "inactive": "inactif",
+      "add": "Ajouter un frais du catalogue",
+      "choose": "Choisir un frais",
+      "addAction": "Ajouter au barème",
+      "save": "Enregistrer le barème",
+      "catalogUnavailable": "Catalogue indisponible",
+      "catalogUnavailableHint": "Le catalogue des frais d'examen de la comptabilité est indisponible : le barème ne peut pas être modifié pour l'instant."
+    },
+    "candidate": {
+      "title": "Frais d'examen",
+      "none": "Aucun frais d'examen pour ce candidat.",
+      "status": {
+        "NOT_APPLICABLE": "Aucun frais",
+        "PENDING_INVOICE": "Facture à établir",
+        "INVOICED": "Facturé",
+        "AWAITING_MANUAL_INVOICE": "Facture à établir à la main",
+        "CANCELLED": "Annulé",
+        "REFUND_DUE": "Remboursement dû",
+        "REFUND_DONE": "Remboursé"
+      },
+      "payment": {
+        "UNPAID": "Impayé",
+        "PARTIAL": "Payé en partie",
+        "PAID": "Payé",
+        "CANCELLED": "Facture annulée",
+        "CREDITED": "Facture créditée",
+        "UNKNOWN": "Paiement inconnu",
+        "NONE": "Aucune facture"
+      },
+      "invoice": "Facture {number}",
+      "amountPending": "montant à la facturation",
+      "total": "Total : {amount}",
+      "paid": "(encaissé : {amount})",
+      "manualInvoice": "Candidat libre sans compte famille : la comptabilité établit la facture à son nom ou à celui de son tuteur.",
+      "refundDue": "Le candidat a payé puis s'est désinscrit : le remboursement se fait manuellement dans la comptabilité, puis se confirme ici.",
+      "lastError": "La facturation n'a pas abouti ({code}) : elle peut être relancée sans risque de doublon.",
+      "retry": "Relancer la facturation",
+      "refundDone": "Confirmer le remboursement",
+      "refundDialog": {
+        "title": "Confirmer le remboursement",
+        "description": "À faire après le remboursement effectué dans la comptabilité. L'action est tracée.",
+        "note": "Note (mode, référence du remboursement)",
+        "confirm": "Confirmer"
+      }
+    }
+  },
+  "v2AdmissionsExamResults": {
+    "title": "Résultat d'examen (CEPE vers l'admission en 6e)",
+    "hint": "Transmis par la plateforme d'examens. Il éclaire l'étude du dossier ; l'admission est prononcée par les personnes habilitées.",
+    "exam": "{code} {year}",
+    "admitted": "Admis",
+    "notAdmitted": "Non admis",
+    "outcome": {
+      "ABSENT": "absent",
+      "EXCLUDED": "exclu",
+      "DEFERRED": "ajourné"
+    },
+    "average": "Moyenne : {average}",
+    "averageHidden": "Moyenne réservée au personnel d'admission habilité",
+    "viaDuplicate": "rapprochement confirmé",
+    "tracedNotice": "L'affichage des moyennes est tracé.",
+    "unavailable": "Résultat d'examen indisponible pour l'instant."
+  },
+  "v2ExaminationsAdmission": {
+    "title": "Transmission aux admissions",
+    "hint": "Pour un examen qui conditionne l'admission (CEPE vers la 6e) : le résultat « admis / non admis » ET la moyenne des élèves de l'établissement sont transmis aux admissions à la publication. La moyenne n'est lisible que du personnel d'admission habilité ; aucun nom ne circule dans la transmission.",
+    "enabled": "Transmettre le résultat et la moyenne aux admissions",
+    "saved": "Paramètre enregistré.",
+    "on": "Transmission aux admissions activée",
+    "off": "Aucune transmission aux admissions"
   }
 }

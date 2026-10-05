@@ -35,6 +35,13 @@ export {
   type EligibilityFactsInput,
   type EligibilityFactsPort,
   type EnrollmentFacts,
+  type ExamFeeCatalogEntry,
+  type ExamFeePayer,
+  type ExamFeesPort,
+  type ExamInvoiceLine,
+  type ExamInvoiceState,
+  type ExamInvoiceStatus,
+  type ExamIssueOutcome,
   type ExamOfficialKind,
   type ExaminationsConfig,
   type ExaminationsPorts,
@@ -61,11 +68,12 @@ export { InMemoryStorage, InMemoryWorld, deterministicUuid, inMemoryPorts, unava
 
 // Domaine (types et règles pures, réutilisables par les adaptateurs et les tests)
 export { ALL_EXAMINATIONS_EVENT_TYPES, ConsumedEvents as ExaminationsConsumedEvents, ExaminationsEvents } from "./domain/events";
-export { ExamCode, HTTP_STATUS_BY_EXAM_CODE, fromDbError } from "./domain/errors";
+export { ExamCode, HTTP_STATUS_BY_EXAM_CODE, fromDbError, portUnavailable } from "./domain/errors";
 export { formatCandidateNumber, validateNumberPattern } from "./domain/number-pattern";
 export { EXPORT_SOURCES, EXPORT_TRANSFORMS, validateExportColumns, validateImportColumns } from "./domain/export-spec";
 export { MOCK_ASSESSMENT_TYPE_CODE } from "./domain/mock";
 export { PACK_TEMPLATES, PRIMARY_PACK } from "./domain/pack-template";
+export { feeIdempotencyKey, FEE_STATUSES, type FeeStatus } from "./domain/fees";
 
 // Cas d'usage (lectures utiles aux autres modules et aux tests d'assemblage)
 export { instantiatePack } from "./application/reference";

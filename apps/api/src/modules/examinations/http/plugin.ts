@@ -17,6 +17,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerAsyncHook
 import { ZodError, z, type ZodTypeAny } from "zod";
 import { ForbiddenError, UnauthorizedError, ValidationError, toAppError, toErrorBody, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import {
+  examAnonymizeBodySchema,
   examAssignBodySchema,
   examAutoAssignBodySchema,
   examBulkResultsBodySchema,
@@ -24,6 +25,7 @@ import {
   examCandidateListQuerySchema,
   examCreateCandidateBodySchema,
   examCreateCenterBodySchema,
+  examCreateExternalCandidateBodySchema,
   examCreateExportFormatBodySchema,
   examCreateImportBodySchema,
   examCreateImportFormatBodySchema,
@@ -34,6 +36,9 @@ import {
   examCreateTrackBodySchema,
   examCreateTypeBodySchema,
   examEligibilityBodySchema,
+  examExternalBatchBodySchema,
+  examRefundDoneBodySchema,
+  examSetFeeItemsBodySchema,
   examFromClassroomBodySchema,
   examIdentifierBodySchema,
   examImportRowsQuerySchema,
@@ -58,6 +63,7 @@ import {
   examUpdateCandidateBodySchema,
   examUpdateCenterBodySchema,
   examUpdateExportFormatBodySchema,
+  examUpdateExternalCandidateBodySchema,
   examUpdateImportFormatBodySchema,
   examUpdatePaperBodySchema,
   examUpdateRequirementBodySchema,
@@ -72,6 +78,8 @@ import type { ModuleRuntime } from "../../../platform/runtime";
 import { getRequestCtx } from "../../rbac";
 import { actOnPiece, listPieces } from "../application/pieces";
 import { autoAssign, assignCandidate, getAssignmentsOverview, setSessionCenters, unassignCandidate } from "../application/assignments";
+import { confirmRefund, getCandidateFee, listFeeCatalog, listFeeItems, setFeeItems, syncCandidateFee, syncSessionFees } from "../application/fees";
+import { anonymizeExternalCandidate, createExternalBatch, createExternalCandidate, getExternalProfile, updateExternalCandidate } from "../application/external-candidates";
 import { createCandidate, createFromClassroom, getCandidateDetail, listCandidates, registerBatch, registerCandidate, setIdentifier, updateCandidateTrack, withdrawCandidate } from "../application/candidates";
 import { createExaminationsDeps, type ExaminationsDeps } from "../application/deps";
 import { evaluateAll, evaluateEligibility } from "../application/eligibility";
@@ -265,6 +273,30 @@ export async function examinationsPlugin(app: FastifyInstance, options: Examinat
       // Dérogation = acte sensible : permission dédiée (MFA) en plus de l'évaluation.
       if (body.mode === "OVERRIDE" && !(await kit.has(scope, request, reply, P.eligibilityOverride))) throw forbidden(ExamCode.FORBIDDEN, "Une dérogation d'éligibilité exige la permission « exam.eligibility.override ».", { permission: P.eligibilityOverride });
       return unwrapOrThrow(await evaluateEligibility(deps, ctxOf(request), idOf(request.params), body));
+    });
+    // --- candidats libres (Q-E15) : saisie / import, profil restreint (lecture auditée), anonymisation
+    scope.post("/sessions/:id/external-candidates", g(kit.require(P.externalManage), ...core), async (request, reply) => reply.status(201).send(unwrapOrThrow(await createExternalCandidate(deps, ctxOf(request), idOf(request.params), parse(examCreateExternalCandidateBodySchema, request.body)))));
+    scope.post("/sessions/:id/external-candidates/batch", g(kit.require(P.externalManage), ...core), async (request, reply) => {
+      await limit(request, reply, "bulk");
+      const body = parse(examExternalBatchBodySchema, request.body);
+      return unwrapOrThrow(await createExternalBatch(deps, ctxOf(request), idOf(request.params), body.items, body.source));
+    });
+    scope.get("/candidates/:id/external-profile", g(kit.require(P.externalRead), ...core), async (request) => {
+      const q = parse(z.object({ reveal: z.enum(["true", "false"]).default("false") }).strict(), request.query);
+      return unwrapOrThrow(await getExternalProfile(deps, ctxOf(request), idOf(request.params), { reveal: q.reveal === "true" }));
+    });
+    scope.put("/candidates/:id/external-profile", g(kit.require(P.externalManage), ...core), async (request) => unwrapOrThrow(await updateExternalCandidate(deps, ctxOf(request), idOf(request.params), parse(examUpdateExternalCandidateBodySchema, request.body))));
+    scope.post("/candidates/:id/anonymize", g(kit.require(P.externalAnonymize), ...core), async (request) => unwrapOrThrow(await anonymizeExternalCandidate(deps, ctxOf(request), idOf(request.params), parse(examAnonymizeBodySchema, request.body).reason)));
+    // --- frais d'examen intégrés à l'inscription (Q-E13) : barème par type, obligation du candidat, reprise, remboursement manuel
+    scope.get("/exam-types/:id/fee-items", g(kit.anyOf(P.feeRead, P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await listFeeItems(deps, ctxOf(request), idOf(request.params))) }));
+    scope.put("/exam-types/:id/fee-items", g(kit.require(P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await setFeeItems(deps, ctxOf(request), idOf(request.params), parse(examSetFeeItemsBodySchema, request.body))) }));
+    scope.get("/fee-catalog", g(kit.require(P.feeManage), ...core), async (request) => ({ items: unwrapOrThrow(await listFeeCatalog(deps, ctxOf(request))) }));
+    scope.get("/candidates/:id/fee", g(kit.anyOf(P.feeRead, P.feeManage), ...core), async (request) => unwrapOrThrow(await getCandidateFee(deps, ctxOf(request), idOf(request.params))));
+    scope.post("/candidates/:id/fee/sync", g(kit.require(P.feeManage), ...core), async (request) => unwrapOrThrow(await syncCandidateFee(deps, ctxOf(request), idOf(request.params))));
+    scope.post("/candidates/:id/fee/refund-done", g(kit.require(P.feeManage), ...core), async (request) => unwrapOrThrow(await confirmRefund(deps, ctxOf(request), idOf(request.params), parse(examRefundDoneBodySchema, request.body).note)));
+    scope.post("/sessions/:id/fees/sync", g(kit.require(P.feeManage), ...core), async (request, reply) => {
+      await limit(request, reply, "bulk");
+      return unwrapOrThrow(await syncSessionFees(deps, ctxOf(request), idOf(request.params)));
     });
     scope.get("/candidates/:id/documents", g(kit.anyOf(P.candidateRead, P.candidateManage), ...core), async (request) => unwrapOrThrow(await listPieces(deps, ctxOf(request), idOf(request.params))));
     scope.put("/candidates/:id/documents/:reqId", g(kit.require(P.candidateManage), ...core), async (request) => unwrapOrThrow(await actOnPiece(deps, ctxOf(request), idOf(request.params), idOf(request.params, "reqId"), parse(examPieceActionBodySchema, request.body))));

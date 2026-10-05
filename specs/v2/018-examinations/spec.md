@@ -56,7 +56,7 @@ Types d'examens, séries, épreuves, pièces exigées, formats d'export ; sessio
 | Intégration technique avec une plateforme publique d'examens (PRD §20 : « lorsqu'une interface officielle existe ») | futur : le port d'échange est le **format d'export/import** en données |
 | Délibération du jury **national** (l'autorité) | hors périmètre : on enregistre ses résultats |
 | Emploi du temps des épreuves, surveillance | 017 (`kind = EXAM`) — voir §14 |
-| Frais d'inscription à l'examen | 014 (question Q-E13) |
+| Frais d'inscription à l'examen | 014 : les montants et les factures restent dans `finance` ; ce module porte le **barème** (quels frais pour quel type) et l'**obligation** de chaque candidat (décision Q-E13 : frais intégrés à l'inscription) |
 | Orientation / admission en 6e à partir du CEPE | 006 / 007 (consomment le résultat) |
 | Import générique de fichiers (colonnes, mapping, rapport) | 031 (le module livre le **lot** et ses lignes ; l'analyse de fichier peut passer par 031) |
 
@@ -218,7 +218,7 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 
 ## 11. Permissions (déclarées dans `manifest.ts`)
 
-`exam.type.read|manage`, `exam.center.manage`, `exam.session.read|manage`, `exam.candidate.manage`, `exam.eligibility.evaluate`, `exam.eligibility.override` (**sensible**), `exam.score.enter`, `exam.mock.manage`, `exam.import.manage`, `exam.result.enter`, `exam.result.publish` (**sensible**), `exam.result.release` (**sensible**), `exam.result.revise` (**sensible**), `exam.statistics.read`, `exam.export.manage|run`, `exam.document.issue`, `exam.document.self.read`, `exam.document.child.read`. Features : `examinations.core`, `examinations.mock`, `examinations.exports`. Modèles de rôles : `responsable_examens` ; `directeur` (tout) ; `parent` (`*.child.read`). Le calcul d'un examen blanc exige `exam.mock.manage` ; l'approbation d'une révision exige un utilisateur **différent** du demandeur (contrainte SQL).
+`exam.type.read|manage`, `exam.center.manage`, `exam.session.read|manage`, `exam.candidate.manage`, `exam.eligibility.evaluate`, `exam.eligibility.override` (**sensible**), `exam.score.enter`, `exam.mock.manage`, `exam.import.manage`, `exam.result.enter`, `exam.result.publish` (**sensible**), `exam.result.release` (**sensible**), `exam.result.revise` (**sensible**), `exam.statistics.read`, `exam.export.manage|run`, `exam.document.issue`, `exam.document.self.read`, `exam.document.child.read` ; ajouts des décisions métier Q-E15 / Q-E13 : `exam.external.manage|read` et `exam.external.anonymize` (**sensible**), `exam.fee.read|manage`. Features : `examinations.core`, `examinations.mock`, `examinations.exports`. Modèles de rôles : `responsable_examens` ; `directeur` (tout) ; `parent` (`*.child.read`). Le calcul d'un examen blanc exige `exam.mock.manage` ; l'approbation d'une révision exige un utilisateur **différent** du demandeur (contrainte SQL).
 
 ## 12. Événements (outbox, `{ v: 1, … }`, **sans note ni identité**)
 
@@ -227,7 +227,8 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 | `examinations.session.opened` / `.registration_closed` / `.results_published` / `.archived` | session | 016, 025 |
 | `examinations.candidate.registered` / `.withdrawn` | candidat | 016, 025 |
 | `examinations.eligibility.evaluated` (`result`, `reasonCodes`) | éligibilité | 016 |
-| `examinations.result.published` (candidat, issue — **sans note ni moyenne**) | publication | 006/007 (admission en 6e), 013, 016, 025 |
+| `examinations.result.published` (candidat, issue — **sans note ni moyenne**) | publication | 013, 016, 025 |
+| `examinations.result.transmitted` (candidat-élève, issue ET **moyenne**, version du résultat — décision **Q-E18**, jamais de nom) | publication d'un résultat, correction approuvée ; seulement si le type d'examen le demande | **007 (admissions) seul** — admission en 6e |
 | `examinations.result.revised` | révision | audit, 016 |
 | `examinations.import.applied` | import | audit |
 | `examinations.document.issued` / `.revoked` | documents | 016 |
@@ -257,7 +258,7 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 
 ## 15. Cas limites
 
-- **Candidat libre** (non inscrit dans l'établissement) : hors V1 (le candidat est un **élève** de l'établissement) ; question Q-E15.
+- **Candidat libre** (non inscrit dans l'établissement) : géré (décision Q-E15). Il n'a **pas de dossier élève** : identité saisie ou importée, profil restreint à part, faits d'éligibilité saisis, pièces « vues sur place », aucun accès famille, anonymisation sur demande ; uniquement en session **officielle**.
 - **Élève redoublant de CM2** : deux sessions successives, deux candidats ; `nombre_tentatives` (règle) lit les candidatures antérieures.
 - **Retrait d'une inscription** (élève quitte l'établissement) avant l'examen : candidat retiré avec motif, numéro conservé.
 - **Épreuve facultative / options** : épreuve `is_optional` ; règle d'agrégation fournie ; question Q-E05.

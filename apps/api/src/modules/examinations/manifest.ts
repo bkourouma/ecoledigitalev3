@@ -27,6 +27,16 @@ export default defineModule({
     { key: "exam.session.manage", label: "Préparer et conduire une session (figer la définition, ouvrir, clore, démarrer, archiver)" },
     { key: "exam.candidate.read", label: "Consulter les candidats d'une session" },
     { key: "exam.candidate.manage", label: "Gérer les candidats : sélection, pièces, inscription, retrait, identifiants officiels" },
+    { key: "exam.external.manage", label: "Saisir, importer et modifier les candidats libres (sans dossier élève)" },
+    { key: "exam.external.read", label: "Consulter les données personnelles restreintes d'un candidat libre (contact, pièce d'identité, tuteur) ; lecture auditée" },
+    {
+      key: "exam.external.anonymize",
+      label: "Anonymiser un candidat libre (droit à l'effacement)",
+      description: "Irréversible : motif obligatoire, audité, authentification forte requise.",
+      sensitive: true,
+    },
+    { key: "exam.fee.read", label: "Consulter les frais d'examen (barème d'un type, obligation et statut de paiement d'un candidat)" },
+    { key: "exam.fee.manage", label: "Gérer le barème des frais d'examen, relancer la facturation, confirmer un remboursement manuel" },
     { key: "exam.eligibility.evaluate", label: "Évaluer l'éligibilité d'un candidat (règle) ou la saisir manuellement en l'absence de règle" },
     {
       key: "exam.eligibility.override",

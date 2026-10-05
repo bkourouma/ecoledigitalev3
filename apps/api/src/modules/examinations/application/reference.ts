@@ -58,6 +58,7 @@ export async function createExamType(deps: ExaminationsDeps, ctx: RequestContext
     const t = await ref.insertType(tx, ctx.tenantId, {
       id: deps.newId(), code: body.code, label: body.label, educationLevelCode: body.educationLevelCode, gradeLevelCode: body.gradeLevelCode ?? null,
       resultContractId: body.resultContractId ?? "exam-national@1", candidateNumberPattern: pattern, sourceKind: body.sourceKind, sourceReference: body.sourceReference ?? null,
+      transmitsToAdmission: body.transmitsToAdmission ?? false,
     });
     const events = new EventBuffer(deps, ctx);
     events.audit({ action: "examinations.type.create", resourceType: "exam_type", resourceId: t.id, after: { code: t.code, sourceKind: t.sourceKind } });
@@ -70,7 +71,7 @@ export async function updateExamType(
   deps: ExaminationsDeps,
   ctx: RequestContext,
   id: string,
-  patch: { label?: string; gradeLevelCode?: string | null; candidateNumberPattern?: string; sourceReference?: string | null; status?: "ACTIVE" | "ARCHIVED" },
+  patch: { label?: string; gradeLevelCode?: string | null; candidateNumberPattern?: string; sourceReference?: string | null; status?: "ACTIVE" | "ARCHIVED"; transmitsToAdmission?: boolean },
 ): Promise<Result<ExamTypeDto, AppError>> {
   if (patch.candidateNumberPattern !== undefined) {
     const bad = validateNumberPattern(patch.candidateNumberPattern);
@@ -80,7 +81,14 @@ export async function updateExamType(
     const t = await ref.updateType(tx, id, patch);
     if (!t) return err(notFound(ExamCode.TYPE_NOT_FOUND, "Type d'examen", id));
     const events = new EventBuffer(deps, ctx);
-    events.audit({ action: "examinations.type.update", resourceType: "exam_type", resourceId: id, after: { fields: Object.keys(patch) } });
+    events.audit({
+      action: "examinations.type.update",
+      resourceType: "exam_type",
+      resourceId: id,
+      // Décider d'envoyer (ou non) la moyenne aux admissions est un acte tracé avec sa valeur (Q-E18) : ce n'est pas une donnée d'élève.
+      sensitive: patch.transmitsToAdmission !== undefined,
+      after: { fields: Object.keys(patch), ...(patch.transmitsToAdmission !== undefined ? { transmitsToAdmission: patch.transmitsToAdmission } : {}) },
+    });
     await events.flush(tx);
     return ok(toTypeDto(t));
   });
@@ -266,7 +274,7 @@ export async function instantiatePack(deps: ExaminationsDeps, ctx: RequestContex
       }
       const row = await ref.insertType(tx, ctx.tenantId, {
         id: newId(), code: t.code, label: t.label, educationLevelCode: t.educationLevelCode, gradeLevelCode: t.gradeLevelCode, resultContractId: t.resultContractId,
-        candidateNumberPattern: t.candidateNumberPattern, sourceKind: t.sourceKind, sourceReference: null,
+        candidateNumberPattern: t.candidateNumberPattern, sourceKind: t.sourceKind, sourceReference: null, transmitsToAdmission: t.transmitsToAdmission,
       });
       typeIds.set(t.code, row.id);
       report.createdTypes.push(t.code);
