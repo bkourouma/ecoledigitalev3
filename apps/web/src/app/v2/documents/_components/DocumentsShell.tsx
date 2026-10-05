@@ -13,6 +13,7 @@ export function DocumentsNav() {
       label={t("label")}
       items={[
         { href: "/v2/documents", label: t("explorer"), anyPermission: VIEW_PERMISSIONS, exact: true },
+        { href: "/v2/documents/search", label: t("search"), anyPermission: VIEW_PERMISSIONS },
         { href: "/v2/documents/expirations", label: t("expirations"), anyPermission: VIEW_PERMISSIONS },
         { href: "/v2/documents/categories", label: t("categories"), permission: "documents.category.manage" },
         { href: "/v2/documents/quarantine", label: t("quarantine"), permission: "documents.quarantine.manage" },

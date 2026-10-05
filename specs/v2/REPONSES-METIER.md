@@ -221,7 +221,7 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-10 | Dépôt parent/élève sans validation préalable | Défaut conservé |
 | Q-11 | Doublon refusé (409) | Défaut conservé |
 | Q-13 | Alerte d'expiration : déposant, propriétaire et gestion | Défaut conservé |
-| Q-14 | Recherche DANS LE TEXTE DES PDF dès la V1 (extraction de texte) | Écart (chantier) |
+| Q-14 | Recherche DANS LE TEXTE DES PDF dès la V1 (extraction de texte) | Écart — **implémenté** (migration 2504, job `documents.text-index`, `GET /documents/search` ; pas d'OCR : un scan est marqué « sans texte » ; voir le README du module) |
 | Q-15 | Partage à toute identité IAM, en un clic | Défaut conservé |
 | Q-17 | Changement de catégorie refusé sauf même type | Défaut conservé |
 | Q-01, 07, 08, 09, 12, 16 | Questions techniques : défauts conservés | Défaut conservé |

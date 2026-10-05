@@ -9,6 +9,7 @@ import type {
   DocumentSettingsDto,
   DocumentShareDto,
   DocumentSummaryDto,
+  DocumentTextHitDto,
   DocumentUsageDto,
   DocumentVersionDto,
 } from "@ecoledigitale/contracts/v2/documents";
@@ -196,3 +197,20 @@ export function quarantineItem(over: Partial<DocumentQuarantineDto> = {}): Docum
 }
 
 export const page = <T,>(items: T[], nextCursor: string | null = null) => ({ items, nextCursor });
+
+export function textHit(over: Partial<DocumentTextHitDto> = {}): DocumentTextHitDto {
+  return {
+    document: summary(),
+    snippet: [
+      { text: "… délivré au titre de l'année scolaire, ", match: false },
+      { text: "certificat", match: true },
+      { text: " de scolarité de l'élève Awa Koné …", match: false },
+    ],
+    versionNo: 1,
+    pageCount: 3,
+    pagesIndexed: 3,
+    truncated: false,
+    score: 0.42,
+    ...over,
+  };
+}

@@ -18,7 +18,9 @@ import type { Actor, ActorCaps, Uuid } from "../domain/types";
 import * as docs from "../infrastructure/documents-repository";
 import * as repo from "../infrastructure/settings-repository";
 import * as sharesRepo from "../infrastructure/shares-repository";
+import * as textRepo from "../infrastructure/text-index-repository";
 import { EventBuffer, inTx, type DocumentsDeps } from "./deps";
+import { enqueueForVersion, textIndexDto } from "./text-search";
 import { actorOf, categoryFactsOf, detailDto, effectiveQuota, ensureDefaults, loadVisible, nameBook, todayOf } from "./support";
 
 export interface UploadedFile {
@@ -140,6 +142,7 @@ export async function persistNewDocument(deps: DocumentsDeps, ctx: RequestContex
     { id: deps.newId(), documentId: a.id, versionNo: 1, storageKey: a.storageKey, fileName: a.check.fileName, extension: a.check.extension, mime: a.check.mime, sizeBytes: a.check.size, sha256: a.check.sha256, scanStatus: a.scanStatus, scanEngine: a.scanEngine, note: f.note ?? null, uploadedBy: a.uploaderId },
     now,
   );
+  await enqueueForVersion(tx, ctx.tenantId, a.id, 1, a.check.mime, now);
   await sharesRepo.insertHistory(tx, ctx.tenantId, { id: deps.newId(), documentId: a.id, versionNo: 1, action: "CREATED", actorId: a.actorId, detail: { via: a.via, sizeBytes: a.check.size, mime: a.check.mime, scanStatus: a.scanStatus } }, now);
   const events = new EventBuffer(deps, ctx);
   events.add(
@@ -191,6 +194,7 @@ export async function persistNewVersion(deps: DocumentsDeps, ctx: RequestContext
     },
     now,
   );
+  await enqueueForVersion(tx, ctx.tenantId, a.row.id, a.versionNo, a.check.mime, now);
   await sharesRepo.insertHistory(tx, ctx.tenantId, { id: deps.newId(), documentId: a.row.id, versionNo: a.versionNo, action: "VERSION_ADDED", actorId: a.actorId, detail: { via: a.via, sizeBytes: a.check.size, mime: a.check.mime, scanStatus: a.scanStatus, expiresOnChanged: a.expiresOn !== undefined } }, now);
   const events = new EventBuffer(deps, ctx);
   events.add(
@@ -217,7 +221,8 @@ export async function buildDetail(deps: DocumentsDeps, tx: Tx, ctx: RequestConte
   const versions = await docs.listVersions(tx, ctx.tenantId, documentId);
   const shares = access.share || actor.caps.manage === true ? await sharesRepo.listShares(tx, ctx.tenantId, documentId) : null;
   const names = await nameBook(deps, ctx, [row], [...versions.map((v) => v.uploadedBy), ...(shares ?? []).flatMap((s) => [s.userId, s.createdBy])]);
-  return ok(detailDto(row, access, names, settings, todayOf(deps), versions, shares, deps.clock.now()));
+  const textIndex = textIndexDto(await textRepo.getTextIndexState(tx, ctx.tenantId, documentId));
+  return ok({ ...detailDto(row, access, names, settings, todayOf(deps), versions, shares, deps.clock.now()), textIndex });
 }
 
 export async function reportUsage(deps: DocumentsDeps, ctx: RequestContext, usedBytes: number): Promise<void> {

@@ -88,5 +88,10 @@ export {
   updateSettings,
 } from "./application/categories";
 
+// Recherche dans le texte des PDF (Q-14)
+export { indexPendingTexts, indexPendingTextsAllTenants, reindexTexts, searchDocumentText, snippetSegments, textIndexStatus, type TextIndexingReport } from "./application/text-search";
+export { IsolatedPdfExtractor, pdfTextExtractorFromEnv, resolvePdfParserPath, DEFAULT_PDF_LIMITS, type PdfExtractLimits } from "./infrastructure/pdf-text-extractor";
+export { NO_TEXT_EXTRACTOR, type PdfExtractFailure, type PdfExtractResult, type PdfTextExtractor } from "./application/ports";
+
 // Jobs
 export { housekeepingAllTenants, runHousekeeping, sweepExpirations, sweepExpirationsAllTenants, type ExpiryReport, type HousekeepingReport } from "./application/housekeeping";

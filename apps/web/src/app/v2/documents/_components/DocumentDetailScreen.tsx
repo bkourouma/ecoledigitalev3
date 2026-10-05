@@ -371,7 +371,11 @@ export function DocumentDetailScreen({ documentId }: { documentId: string }) {
         <StatusBadge label={t(`confidentiality.${doc.confidentiality}`)} tone={confidentialityTone(doc.confidentiality)} />
         {doc.visibility !== "INHERIT" ? <StatusBadge label={t(`visibility.${doc.visibility}`)} /> : null}
         <ExpiryBadge doc={doc} />
+        {doc.textIndex ? <StatusBadge label={t(`textIndex.status.${doc.textIndex.status}`)} tone={doc.textIndex.status === "INDEXED" ? "success" : doc.textIndex.status === "FAILED" ? "danger" : "warning"} /> : null}
       </div>
+      {doc.textIndex?.status === "NO_TEXT" ? <Notice kind="info">{t("textIndex.noTextHint")}</Notice> : null}
+      {doc.textIndex?.status === "INDEXED" && doc.textIndex.truncated ? <Notice kind="info">{t("textIndex.truncatedHint", { read: doc.textIndex.pagesIndexed ?? 0, total: doc.textIndex.pageCount ?? 0 })}</Notice> : null}
+      {doc.textIndex?.status === "FAILED" ? <Notice kind="warning">{t("textIndex.failedHint", { cause: doc.textIndex.errorCode && t.has(`textIndex.errors.${doc.textIndex.errorCode}`) ? t(`textIndex.errors.${doc.textIndex.errorCode}`) : (doc.textIndex.errorCode ?? "") })}</Notice> : null}
 
       <dl className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-3">
         <Meta label={t("detail.category")}>{doc.categoryLabel}</Meta>

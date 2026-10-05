@@ -52,10 +52,10 @@ export interface DocumentRow {
   grantLevel: DocumentShareLevel | null;
 }
 
-type RawDocument = Omit<DocumentRow, "sizeBytes"> & { sizeBytes: string };
+export type RawDocument = Omit<DocumentRow, "sizeBytes"> & { sizeBytes: string };
 
 /** Paramètres positionnels : `$1` tenant, `$2` utilisateur, `$3` instant — toujours présents. */
-const SELECT_DOC = `
+export const SELECT_DOC = `
   d.id, d.kind, d.category_id AS "categoryId", c.code AS "categoryCode", c.label AS "categoryLabel", c.confidentiality,
   c.audience_owner AS "audienceOwner", c.audience_guardians AS "audienceGuardians", c.owner_upload AS "ownerUpload",
   c.status AS "categoryStatus", c.alert_days AS "categoryAlertDays", c.requires_expiry AS "categoryRequiresExpiry", c.retention_days AS "categoryRetentionDays",
@@ -69,9 +69,9 @@ const SELECT_DOC = `
   (SELECT max(g.level) FROM documents.category_grants g WHERE g.tenant_id = d.tenant_id AND g.category_id = d.category_id AND g.user_id = $2
       AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at > $3)) AS "grantLevel"`;
 
-const FROM_DOC = `FROM documents.documents d JOIN documents.categories c ON c.tenant_id = d.tenant_id AND c.id = d.category_id`;
+export const FROM_DOC = `FROM documents.documents d JOIN documents.categories c ON c.tenant_id = d.tenant_id AND c.id = d.category_id`;
 
-const toDocument = (r: RawDocument): DocumentRow => ({ ...r, sizeBytes: Number(r.sizeBytes) });
+export const toDocument = (r: RawDocument): DocumentRow => ({ ...r, sizeBytes: Number(r.sizeBytes) });
 
 /** Un document (RLS) avec les partages / droits de l'appelant déjà résolus. `null` : inconnu ou autre tenant. */
 export async function getDocument(tx: Tx, tenantId: Uuid, id: Uuid, userId: Uuid, now: Date, options: { forUpdate?: boolean } = {}): Promise<DocumentRow | null> {
@@ -545,6 +545,8 @@ export async function markVersionsPurged(tx: Tx, tenantId: Uuid, documentId: Uui
 }
 
 export async function markDocumentPurged(tx: Tx, tenantId: Uuid, documentId: Uuid, now: Date): Promise<void> {
+  // Le texte extrait est une copie du contenu : il disparaît avec le document (jamais d'extrait d'un document purgé).
+  await tx.query(`DELETE FROM documents.text_index WHERE tenant_id = $1 AND document_id = $2`, [tenantId, documentId]);
   await tx.query(
     `UPDATE documents.documents SET purged_at = $3, title = '[purgé]', description = NULL, tags = '{}', metadata = '{}'::jsonb, search_key = '',
         current_file_name = 'purgé', updated_at = $3 WHERE tenant_id = $1 AND id = $2`,

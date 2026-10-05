@@ -11284,7 +11284,8 @@
       "expirations": "Échéances",
       "categories": "Catégories",
       "quarantine": "Quarantaine",
-      "settings": "Paramètres"
+      "settings": "Paramètres",
+      "search": "Recherche dans les PDF"
     },
     "kind": {
       "STUDENT": "Dossier d'élève",
@@ -11360,7 +11361,8 @@
       "empty": "Aucun document ne correspond.",
       "emptyHint": "Déposez un premier document avec le bouton « Déposer un document ».",
       "more": "Afficher plus de documents",
-      "loading": "Chargement…"
+      "loading": "Chargement…",
+      "contentSearch": "Recherche dans le contenu"
     },
     "upload": {
       "title": "Déposer un document",
@@ -11748,6 +11750,73 @@
         "saving": "Enregistrement…",
         "saved": "Paramètres enregistrés."
       }
+    },
+    "textSearch": {
+      "title": "Recherche dans le contenu des PDF",
+      "description": "Retrouvez un document par les mots qu'il contient. Seuls les PDF dont le texte a été lu sont cherchés ; vous ne voyez que les documents que vous avez le droit de consulter.",
+      "search": "Mots recherchés",
+      "hint": "Plusieurs mots : tous doivent figurer. « Expression exacte » entre guillemets, -mot pour exclure. Accents et majuscules sans importance.",
+      "placeholder": "Par exemple : certificat de scolarité",
+      "scopeNote": "Les PDF scannés (images sans texte) ne sont pas cherchés : il n'y a pas de reconnaissance de caractères. Un document déposé à l'instant peut mettre une minute à devenir cherchable.",
+      "idle": "Saisissez des mots à chercher",
+      "idleHint": "La recherche porte sur le texte contenu dans les PDF, pas seulement sur leur titre.",
+      "tooShort": "Saisissez au moins 2 caractères.",
+      "empty": "Aucun document ne contient ces mots.",
+      "emptyHint": "Essayez d'autres mots, ou retirez le filtre de catégorie. Un PDF scanné n'a pas de texte à chercher.",
+      "resultsLabel": "Résultats de la recherche",
+      "more": "Afficher plus de résultats",
+      "truncated": "Seules {read} pages sur {total} ont été lues : la fin du document n'est pas cherchable."
+    },
+    "textIndex": {
+      "status": {
+        "PENDING": "Texte en cours de lecture",
+        "INDEXED": "Texte cherchable",
+        "NO_TEXT": "Sans texte",
+        "FAILED": "Texte illisible"
+      },
+      "noTextHint": "Ce PDF ne contient pas de texte (probablement un scan) : il n'est pas cherchable par son contenu. Il n'y a pas de reconnaissance de caractères.",
+      "truncatedHint": "Seules {read} pages sur {total} ont été lues : la suite du document n'est pas cherchable.",
+      "failedHint": "Le texte de ce PDF n'a pas pu être lu ({cause}). Le document reste consultable et cherchable par son titre.",
+      "errors": {
+        "corrupt": "fichier abîmé",
+        "encrypted": "fichier protégé par un mot de passe",
+        "too_large": "fichier trop volumineux",
+        "timeout": "lecture trop longue",
+        "memory": "fichier trop complexe",
+        "crashed": "lecture interrompue",
+        "unavailable": "lecteur indisponible",
+        "object_missing": "fichier introuvable",
+        "index_error": "texte refusé par l'index"
+      }
+    },
+    "textAdmin": {
+      "title": "Index du texte des PDF",
+      "description": "Le texte des PDF est lu en arrière-plan, quelques instants après le dépôt. Cet état n'est visible que de la gestion.",
+      "counts": {
+        "PENDING": "En attente",
+        "INDEXED": "Cherchables",
+        "NO_TEXT": "Sans texte (scans)",
+        "FAILED": "Illisibles"
+      },
+      "failuresLabel": "Causes des échecs",
+      "failure": "{count, plural, one {# document} other {# documents}} : {cause}",
+      "errors": {
+        "corrupt": "fichier abîmé",
+        "encrypted": "fichier protégé par un mot de passe",
+        "too_large": "fichier trop volumineux",
+        "timeout": "lecture trop longue",
+        "memory": "fichier trop complexe",
+        "crashed": "lecture interrompue",
+        "unavailable": "lecteur indisponible",
+        "object_missing": "fichier introuvable",
+        "index_error": "texte refusé par l'index"
+      },
+      "retryFailed": "Relancer les échecs",
+      "reindexAll": "Tout réindexer",
+      "confirmAll": "Oui, tout réindexer",
+      "cancel": "Annuler",
+      "confirmAllHint": "Tout l'index est vidé puis reconstruit en arrière-plan : la recherche dans le contenu est incomplète jusqu'à la fin du traitement.",
+      "queued": "{count, plural, =0 {Aucun PDF à traiter.} one {# PDF remis en file de lecture.} other {# PDF remis en file de lecture.}}"
     }
   },
   "v2DocumentsUi": {
