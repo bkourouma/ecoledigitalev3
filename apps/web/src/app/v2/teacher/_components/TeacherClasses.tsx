@@ -28,6 +28,8 @@ export function TeacherClasses() {
   const callScope = useCallScope();
   const canCallClass = (c: MyClass) => canTake && (typeof c.educationLevelCode !== "string" || c.educationLevelCode === "" || callScope.allows(c.educationLevelCode, "DAILY"));
   const canGrade = usePermission("assessment.read").allowed;
+  const tHalf = useTranslations("v2AttendanceHalfDays");
+  const halfDaysOf = (c: MyClass) => (typeof c.educationLevelCode === "string" && c.educationLevelCode !== "" ? callScope.halfDays(c.educationLevelCode) : []);
   const today = todayCivil();
   return (
     <div className="space-y-6">
@@ -64,10 +66,20 @@ export function TeacherClasses() {
                   </Link>
                 ) : null}
                 {canCallClass(c) ? (
-                  <Link href={teacherHref.dailyCall(c.classroomId, today)} className={buttonClass.secondary}>
-                    {t("call")}
-                    <span className="sr-only"> — {name}</span>
-                  </Link>
+                  halfDaysOf(c).length > 0 ? (
+                    // Deux appels par jour (primaire) : un lien par demi-journée.
+                    halfDaysOf(c).map((part) => (
+                      <Link key={part} href={teacherHref.dailyCall(c.classroomId, today, part)} className={buttonClass.secondary}>
+                        {tHalf(`doCall.${part}`)}
+                        <span className="sr-only"> — {name}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <Link href={teacherHref.dailyCall(c.classroomId, today)} className={buttonClass.secondary}>
+                      {t("call")}
+                      <span className="sr-only"> — {name}</span>
+                    </Link>
+                  )
                 ) : null}
               </div>
             </li>

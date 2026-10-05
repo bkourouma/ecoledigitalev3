@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useFeature, usePermission } from "@/platform/access";
 import { ApiError, ClientErrorCode } from "@/platform/api/errors";
-import { callKey } from "@/platform/offline/attendance-outbox";
+import { callKey, type HalfDay } from "@/platform/offline/attendance-outbox";
 import { useOutboxManager, useOutboxStatus } from "@/platform/offline/OutboxProvider";
 import { useJustificationReasons, useMarkRecords, useMarkWithJustification, useOpenAttendanceSession, useAttendanceSession, useStatusDefinitions, useSubmitAttendanceSession } from "@/platform/v2/attendance";
 import { useClassroomDirectory } from "@/platform/v2/directory";
@@ -29,11 +29,12 @@ import { StatusPicker, type StatusOption } from "./StatusPicker";
  * écrits dans la file locale (identifiants seulement) et envoyés par lot, avec clés d'idempotence, dès que le
  * réseau revient. L'écran doit avoir été ouvert en ligne (une navigation hors ligne ne peut pas charger la liste).
  */
-export function CallScreen({ kind, id, date, backHref = "/v2/attendance/call" }: { kind: "occurrence" | "daily"; id: string; date: string; backHref?: string }) {
+export function CallScreen({ kind, id, date, dayPart, backHref = "/v2/attendance/call" }: { kind: "occurrence" | "daily"; id: string; date: string; dayPart?: HalfDay; backHref?: string }) {
   const t = useTranslations("v2Attendance.call");
+  const tPart = useTranslations("v2AttendanceHalfDays");
   const tStatus = useTranslations("v2Attendance.status");
   const dateFmt = useDateFormat();
-  const target = useMemo(() => targetOf(kind, id, date), [kind, id, date]);
+  const target = useMemo(() => targetOf(kind, id, date, dayPart), [kind, id, date, dayPart]);
   const key = callKey(target);
 
   const offlineFeature = useFeature("attendance.offline");
@@ -97,7 +98,12 @@ export function CallScreen({ kind, id, date, backHref = "/v2/attendance/call" }:
   }, [detail.data, drafts, myCall, queueMode]);
   const counts = useMemo(() => countByStatus(rows), [rows]);
 
-  const label = useMemo(() => (session ? `${classrooms.name(session.classroomId)} · ${dateFmt.civil(session.sessionDate)}` : null), [session, classrooms, dateFmt]);
+  const label = useMemo(() => {
+    if (!session) return null;
+    const base = `${classrooms.name(session.classroomId)} · ${dateFmt.civil(session.sessionDate)}`;
+    // Deux appels par jour (primaire) : la demi-journée figure dans le titre et dans le libellé de la file locale.
+    return dayPart ? tPart("withPart", { label: base, part: tPart(`parts.${dayPart}`) }) : base;
+  }, [session, classrooms, dateFmt, dayPart, tPart]);
   const editable = detail.data?.editable ?? false;
   const isOpenSession = session?.status === "OPEN";
 

@@ -4,7 +4,7 @@
  * décidés par l'API ; ces fonctions ne font que présenter l'état.
  */
 import type { AttendanceSessionDetailDto } from "@ecoledigitale/contracts/v2/attendance";
-import type { CallTarget } from "@/platform/offline/attendance-outbox";
+import type { CallTarget, HalfDay } from "@/platform/offline/attendance-outbox";
 
 /** Statuts SYSTÈME des élèves (les établissements peuvent en ajouter : ils viennent alors des définitions). */
 export const SYSTEM_STUDENT_STATUSES = ["PRESENT", "ABSENT", "LATE", "EXCUSED", "EARLY_LEAVE"] as const;
@@ -71,12 +71,24 @@ export function pendingEntries(rows: ReadonlyArray<CallRow>): Array<{ studentId:
     .map((r) => ({ studentId: r.studentId, statusCode: r.draft!.statusCode, ...(r.draft!.minutesLate ? { minutesLate: r.draft!.minutesLate } : {}) }));
 }
 
-export function targetOf(kind: "occurrence" | "daily", id: string, date: string): CallTarget {
-  return kind === "occurrence" ? { kind: "occurrence", occurrenceId: id } : { kind: "daily", classroomId: id, date };
+export function targetOf(kind: "occurrence" | "daily", id: string, date: string, dayPart?: HalfDay): CallTarget {
+  if (kind === "occurrence") return { kind: "occurrence", occurrenceId: id };
+  return dayPart ? { kind: "daily", classroomId: id, date, dayPart } : { kind: "daily", classroomId: id, date };
 }
 
-export function sessionOpenBody(target: CallTarget): { occurrenceId: string } | { scope: "DAILY"; classroomId: string; date: string } {
-  return target.kind === "occurrence" ? { occurrenceId: target.occurrenceId } : { scope: "DAILY", classroomId: target.classroomId, date: target.date };
+export function sessionOpenBody(target: CallTarget): { occurrenceId: string } | { scope: "DAILY"; classroomId: string; date: string; dayPart?: HalfDay } {
+  if (target.kind === "occurrence") return { occurrenceId: target.occurrenceId };
+  return { scope: "DAILY", classroomId: target.classroomId, date: target.date, ...(target.dayPart ? { dayPart: target.dayPart } : {}) };
+}
+
+/** Valeur de `?part=` de l'adresse d'un appel journalier : seules les demi-journées sont reconnues (le reste = appel unique). */
+export function parseHalfDay(value: string | null | undefined): HalfDay | undefined {
+  return value === "MORNING" || value === "AFTERNOON" ? value : undefined;
+}
+
+/** Suffixe d'adresse d'un appel journalier (`&part=MORNING`) ; vide pour l'appel unique. */
+export function partQuery(dayPart: HalfDay | undefined): string {
+  return dayPart ? `&part=${dayPart}` : "";
 }
 
 export function statusTone(code: string): "success" | "danger" | "warning" | "info" | "neutral" {

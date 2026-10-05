@@ -20,6 +20,7 @@ export function sessionDto(over: Record<string, unknown> = {}) {
     offeringId: null,
     occurrenceId: IDS.occurrence,
     scope: "SESSION",
+    dayPart: "FULL",
     sessionDate: "2026-10-01",
     startsAt: "2026-10-01T08:00:00.000Z",
     endsAt: "2026-10-01T09:00:00.000Z",

@@ -4,7 +4,7 @@ export const TEACHER_CALL_BASE = `${TEACHER_ROOT}/attendance/call`;
 
 export const teacherHref = {
   call: (occurrenceId: string) => `${TEACHER_CALL_BASE}/occurrence/${occurrenceId}`,
-  dailyCall: (classroomId: string, date: string) => `${TEACHER_CALL_BASE}/daily/${classroomId}?date=${date}`,
+  dailyCall: (classroomId: string, date: string, dayPart?: "MORNING" | "AFTERNOON") => `${TEACHER_CALL_BASE}/daily/${classroomId}?date=${date}${dayPart ? `&part=${dayPart}` : ""}`,
   classroom: (classroomId: string) => `${TEACHER_ROOT}/classes/${classroomId}`,
   assessments: (classroomId?: string) => (classroomId ? `${TEACHER_ROOT}/assessments?classroom=${classroomId}` : `${TEACHER_ROOT}/assessments`),
   assessment: (id: string) => `${TEACHER_ROOT}/assessments/${id}`,

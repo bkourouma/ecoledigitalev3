@@ -11,7 +11,7 @@ import { usePermission } from "@/platform/access";
 import { useCallPolicies } from "@/platform/v2/attendance";
 
 export type CallScopeKind = "DAILY" | "SESSION";
-type PolicyLike = { educationLevelCode: string; callScope: "DAILY" | "SESSION" | "BOTH" };
+type PolicyLike = { educationLevelCode: string; callScope: "DAILY" | "SESSION" | "BOTH"; dailyCallMode?: "SINGLE" | "HALF_DAYS" };
 
 /** Même sélection que l'API (`selectPolicy`) : politique du niveau de la classe, sinon celle par défaut (`*`), sinon aucune. */
 export function selectCallPolicy(policies: readonly PolicyLike[], levelCode: string | null | undefined) {
@@ -25,6 +25,16 @@ export function callScopeAllowed(policies: readonly PolicyLike[] | undefined, le
   return !policy || policy.callScope === "BOTH" || policy.callScope === scope;
 }
 
+/**
+ * Appels journaliers proposés pour ce niveau (décision Q-P17) : `["MORNING", "AFTERNOON"]` quand la politique du cycle demande deux appels par
+ * jour, `[]` sinon (un appel unique : aucune demi-journée à choisir). Politique inconnue : `[]`, l'API tranche.
+ */
+export function dailyHalfDays(policies: readonly PolicyLike[] | undefined, levelCode: string | null | undefined): Array<"MORNING" | "AFTERNOON"> {
+  if (!policies || policies.length === 0) return [];
+  const policy = selectCallPolicy(policies, levelCode);
+  return policy && policy.callScope !== "SESSION" && policy.dailyCallMode === "HALF_DAYS" ? ["MORNING", "AFTERNOON"] : [];
+}
+
 /** `allows(levelCode, scope)` selon la politique lisible par le compte (`attendance.take` suffit pour la lire). */
 export function useCallScope() {
   const take = usePermission("attendance.take").allowed;
@@ -35,6 +45,7 @@ export function useCallScope() {
     () => ({
       policies,
       allows: (levelCode: string | null | undefined, scope: CallScopeKind) => callScopeAllowed(policies, levelCode, scope),
+      halfDays: (levelCode: string | null | undefined) => dailyHalfDays(policies, levelCode),
     }),
     [policies],
   );

@@ -93,11 +93,11 @@ function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: 
   );
 }
 
-const MENTION_CODES = ["PENDING", "INSUFFICIENT", "PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "EXCELLENT"] as const;
+const MENTION_CODES = ["INSUFFICIENT", "PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "EXCELLENT"] as const;
 
-/** Libellé d'une mention produite par le jeu de règles (code connu traduit ; code inconnu affiché tel quel, jamais inventé). */
+/** Libellé d'une mention produite par le jeu de règles (code connu traduit ; code inconnu affiché tel quel, jamais inventé ; `PENDING` = pas de mention). */
 function mentionLabel(t: (key: never) => string, code: string | null): string {
-  if (code === null) return "—";
+  if (code === null || code === "PENDING") return "—";
   return (MENTION_CODES as readonly string[]).includes(code) ? t(code as never) : code;
 }
 

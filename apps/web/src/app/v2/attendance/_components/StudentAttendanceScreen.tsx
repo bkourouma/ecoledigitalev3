@@ -24,6 +24,7 @@ type Row = z.infer<typeof attendanceAbsenceRowDtoSchema>;
  */
 export function StudentAttendanceScreen({ studentId, initialPeriodId }: { studentId: string; initialPeriodId?: string }) {
   const t = useTranslations("v2Attendance.student");
+  const tPart = useTranslations("v2AttendanceHalfDays.sessionPart");
   const tStatus = useTranslations("v2Attendance.status");
   const tJ = useTranslations("v2Attendance.justifications.status");
   const date = useDateFormat();
@@ -41,7 +42,7 @@ export function StudentAttendanceScreen({ studentId, initialPeriodId }: { studen
 
   const label = (code: string) => (["PRESENT", "ABSENT", "LATE", "EXCUSED", "EARLY_LEAVE"].includes(code) ? tStatus(code) : code);
   const columns: DataTableColumn<Row>[] = [
-    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => date.civil(r.sessionDate) },
+    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => (r.dayPart === "FULL" ? date.civil(r.sessionDate) : `${date.civil(r.sessionDate)} · ${tPart(r.dayPart)}`) },
     { id: "status", header: t("columns.status"), cell: (r) => <StatusBadge label={label(r.statusCode)} tone={statusTone(r.statusCode)} /> },
     { id: "minutes", header: t("columns.minutes"), align: "right", cell: (r) => (r.statusCode === "LATE" ? (r.minutesLate ?? "—") : (r.countedMinutes ?? "—")), className: "hidden sm:table-cell" },
     { id: "excused", header: t("columns.justification"), cell: (r) => (r.excused ? <StatusBadge label={t("excused")} tone="info" /> : "—") },

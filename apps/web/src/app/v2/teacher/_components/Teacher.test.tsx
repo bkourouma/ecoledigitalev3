@@ -124,6 +124,31 @@ describe("Mes classes : périmètre de l'enseignant", () => {
     expect(screen.getByRole("link", { name: /Faire l'appel/ }).getAttribute("href")).toContain(`/daily/${uuid(501)}`);
   });
 
+  it("primaire à deux appels par jour (Q-P17) : un lien d'appel par demi-journée, avec la demi-journée dans l'adresse ; maternelle inchangée", async () => {
+    const policies = {
+      items: [
+        { institutionId: uuid(1), educationLevelCode: "PRESCHOOL", callScope: "DAILY", editWindowMinutes: null, lateRequiresMinutes: false, dailyMinutes: null, dailyCallMode: "SINGLE" },
+        { institutionId: uuid(1), educationLevelCode: "PRIMARY", callScope: "DAILY", editWindowMinutes: null, lateRequiresMinutes: false, dailyMinutes: null, dailyCallMode: "HALF_DAYS" },
+        { institutionId: uuid(1), educationLevelCode: "*", callScope: "SESSION", editWindowMinutes: 120, lateRequiresMinutes: false, dailyMinutes: null, dailyCallMode: "SINGLE" },
+      ],
+    };
+    const primaire = { ...myClass, classroomId: uuid(501), classroomName: "CM2", educationLevelCode: "PRIMARY" };
+    const maternelle = { ...myClass, classroomId: uuid(502), classroomName: "Grande Section", educationLevelCode: "PRESCHOOL" };
+    setTestApi(base({ "GET /api/v1/people/me/classes": { items: [primaire, maternelle] }, "GET /api/v1/attendance/reference/call-policies": policies }));
+    renderWithProviders(<TeacherClasses />);
+    expect(await screen.findByRole("heading", { level: 2, name: "CM2" })).toBeTruthy();
+    const morning = await screen.findByRole("link", { name: /Appel du matin/ });
+    const afternoon = screen.getByRole("link", { name: /Appel de l'après-midi/ });
+    expect(morning.getAttribute("href")).toContain(`/daily/${uuid(501)}?date=`);
+    expect(morning.getAttribute("href")).toContain("&part=MORNING");
+    expect(afternoon.getAttribute("href")).toContain("&part=AFTERNOON");
+    // La maternelle garde l'appel unique : un seul lien, sans demi-journée.
+    const single = screen.getAllByRole("link", { name: /Faire l'appel/ });
+    expect(single).toHaveLength(1);
+    expect(single[0]!.getAttribute("href")).toContain(`/daily/${uuid(502)}`);
+    expect(single[0]!.getAttribute("href")).not.toContain("part=");
+  });
+
   it("aucune affectation : état vide", async () => {
     setTestApi(base({ "GET /api/v1/people/me/classes": { items: [] } }));
     renderWithProviders(<TeacherClasses />);
