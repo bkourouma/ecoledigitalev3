@@ -322,7 +322,7 @@ describe("délai, mémoire et sortie bornés : l'enfant est tué", () => {
 describe("isolation du processus enfant", () => {
   it("n'hérite d'aucune variable d'environnement (secrets), n'a aucun module réseau ni processus, ne peut rien écrire", async () => {
     process.env["IMPORTS_TEST_FAKE_SECRET"] = "valeur-factice-ne-doit-pas-fuiter";
-    process.env["DATABASE_URL"] = "postgres://factice:factice@127.0.0.1:1/factice";
+    process.env["DATABASE_URL"] = "valeur-factice-base-ne-doit-pas-fuiter";
     process.env["NODE_OPTIONS"] = "--max-old-space-size=4096";
     try {
       const report = await probeConverterSandbox();
