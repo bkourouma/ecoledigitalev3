@@ -13,12 +13,13 @@ import type { Tx } from "@ecoledigitale/database";
 import { AttendanceCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import { AttendanceEvents } from "../domain/events";
 import { prepareMark, withCoverage, type MarkEntryInput } from "../domain/records";
-import { callScopeAllows, checkEditable, durationOf, selectPolicy } from "../domain/session";
-import type { AttendanceSession, IsoDate, SessionScope, SessionSource, StudentRecord, Uuid } from "../domain/types";
+import { callScopeAllows, checkEditable, durationOf, resolveDayPart, selectPolicy } from "../domain/session";
+import type { AttendanceSession, DayPart, IsoDate, SessionScope, SessionSource, StudentRecord, Uuid } from "../domain/types";
 import { listCallPolicies, listStatuses } from "../infrastructure/reference-repository";
 import {
   findCoveringJustifications,
   findDailySession,
+  findOverlappingDailySessions,
   findSessionByClientId,
   findSessionByOccurrence,
   getRecord,
@@ -57,7 +58,16 @@ import { recomputeAffected } from "./summaries";
 
 export type OpenSessionInput =
   | { readonly kind: "occurrence"; readonly occurrenceId: Uuid; readonly clientId?: Uuid | undefined; readonly caps?: CallerCaps }
-  | { readonly kind: "daily"; readonly classroomId: Uuid; readonly date: IsoDate; readonly takenByStaffId?: Uuid | undefined; readonly clientId?: Uuid | undefined; readonly caps?: CallerCaps }
+  | {
+      readonly kind: "daily";
+      readonly classroomId: Uuid;
+      readonly date: IsoDate;
+      /** Demi-journée (Q-P17) : obligatoire quand la politique du cycle demande deux appels par jour (`HALF_DAYS`), `FULL` ou omise sinon. */
+      readonly dayPart?: DayPart | undefined;
+      readonly takenByStaffId?: Uuid | undefined;
+      readonly clientId?: Uuid | undefined;
+      readonly caps?: CallerCaps;
+    }
   | {
       readonly kind: "external";
       readonly classroomId: Uuid;
@@ -96,6 +106,7 @@ export async function openSessionInTx(
   let academicYearId: Uuid;
   let date: IsoDate;
   let scope: SessionScope;
+  let dayPart: DayPart = "FULL";
   let curriculumNodeId: Uuid | null = null;
   let offeringId: Uuid | null = null;
   let startsAt: Date | null = null;
@@ -156,12 +167,19 @@ export async function openSessionInTx(
     );
   }
 
-  // Existe-t-il déjà un appel pour cette occurrence / ce jour ? (idempotence : le second enseignant reçoit le même)
+  // Appel journalier : la politique du cycle fixe s'il y a un appel par jour ou deux (matin et après-midi, Q-P17).
+  if (input.kind === "daily") {
+    const resolved = resolveDayPart(policy, input.dayPart);
+    if (!resolved.ok) return resolved;
+    dayPart = resolved.value;
+  }
+
+  // Existe-t-il déjà un appel pour cette occurrence / cette demi-journée ? (idempotence : le second enseignant reçoit le même)
   const existing =
     input.kind === "occurrence"
       ? await findSessionByOccurrence(tx, input.occurrenceId)
       : scope === "DAILY"
-        ? await findDailySession(tx, classroomId, date)
+        ? await findDailySession(tx, classroomId, date, dayPart)
         : null;
 
   let takenByStaffId: Uuid | null = null;
@@ -177,17 +195,29 @@ export async function openSessionInTx(
     takenByStaffId = input.takenByStaffId;
   }
   if (existing) return ok({ session: existing, created: false });
+  if (scope === "DAILY") {
+    // Un appel de la journée entière recouvre le matin et l'après-midi (et inversement) : jamais deux appels pour la même demi-journée.
+    const overlapping = await findOverlappingDailySessions(tx, classroomId, date, dayPart);
+    if (overlapping.length > 0) {
+      return err(
+        conflict(AttendanceCode.DAY_PART_TAKEN, "Un autre appel de cette classe couvre déjà cette demi-journée : annulez-le ou continuez-le avant d'en ouvrir un nouveau.", {
+          dayPart,
+          existing: overlapping.map((o) => ({ sessionId: o.id, dayPart: o.dayPart, status: o.status })),
+        }),
+      );
+    }
+  }
 
   const clientId = extra.clientId ?? ("clientId" in input ? input.clientId : undefined) ?? null;
   const inserted = await insertSessionIfAbsent(tx, {
     id: deps.newId(), tenantId: ctx.tenantId, institutionId, academicYearId, classroomId, curriculumNodeId, offeringId,
-    occurrenceId: occurrence?.occurrenceId ?? null, scope, sessionDate: date, startsAt, endsAt, durationMinutes: duration,
+    occurrenceId: occurrence?.occurrenceId ?? null, scope, dayPart, sessionDate: date, startsAt, endsAt, durationMinutes: duration,
     takenByStaffId, takenByUserId: actor, source, clientId,
   });
   if (!inserted) {
     // Course perdue (deux appareils ou deux enseignants) : on renvoie la séance gagnante.
     const winner =
-      (occurrence ? await findSessionByOccurrence(tx, occurrence.occurrenceId) : scope === "DAILY" ? await findDailySession(tx, classroomId, date) : null) ??
+      (occurrence ? await findSessionByOccurrence(tx, occurrence.occurrenceId) : scope === "DAILY" ? await findDailySession(tx, classroomId, date, dayPart) : null) ??
       (clientId ? await findSessionByClientId(tx, clientId) : null);
     if (!winner) {
       return err(conflict(AttendanceCode.IDEMPOTENCY_KEY_REUSED, "Cette clé d'idempotence correspond déjà à une autre séance.", { clientId }));
@@ -196,7 +226,7 @@ export async function openSessionInTx(
   }
   events.add(
     AttendanceEvents.SESSION_OPENED,
-    { v: 1, sessionId: inserted.id, classroomId, date, scope, occurrenceId: inserted.occurrenceId, source },
+    { v: 1, sessionId: inserted.id, classroomId, date, scope, dayPart: inserted.dayPart, occurrenceId: inserted.occurrenceId, source },
     { type: "attendance_session", id: inserted.id },
   );
   return ok({ session: inserted, created: true });

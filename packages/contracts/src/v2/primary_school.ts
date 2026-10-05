@@ -540,12 +540,17 @@ export type PrimaryMinutesResultDto = z.infer<typeof primaryMinutesResultDtoSche
 // Bilan annuel
 // ---------------------------------------------------------------------------
 
+/** Nombre de journées d'assiduité figé dans un bilan : entier, ou chaîne « N.5 » quand une demi-journée y est comptée. */
+export const primaryDayCountSchema = z.union([z.number().int().min(0), z.string().regex(/^\d+\.5$/)]);
+
 export const primaryAttendanceSummarySchema = z
   .object({
-    openDays: z.number().int().min(0).nullable().optional(),
-    absentDays: z.number().int().min(0).nullable().optional(),
-    justifiedAbsentDays: z.number().int().min(0).nullable().optional(),
-    lateCount: z.number().int().min(0).nullable().optional(),
+    // Journées : entiers avec l'appel unique ; avec l'appel du matin et de l'après-midi (décision Q-P17), une demi-journée s'écrit en chaîne
+    // décimale exacte (« 2.5 »), convention des instantanés canoniques.
+    openDays: primaryDayCountSchema.nullable().optional(),
+    absentDays: primaryDayCountSchema.nullable().optional(),
+    justifiedAbsentDays: primaryDayCountSchema.nullable().optional(),
+    lateCount: primaryDayCountSchema.nullable().optional(),
   })
   .passthrough();
 

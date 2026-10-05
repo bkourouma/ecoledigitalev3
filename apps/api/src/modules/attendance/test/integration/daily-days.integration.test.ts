@@ -2,14 +2,17 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { acceptJustification, submitJustification } from "../../application/justifications";
 import { getAttendanceDays, getAttendanceDaysForEnrollments } from "../../application/days";
-import { instantiateAttendancePack, listCallPolicyDefinitions } from "../../application/reference";
+import { instantiateAttendancePack, listCallPolicyDefinitions, upsertCallPolicy } from "../../application/reference";
 import { markStudentRecords, openAttendanceSession, submitAttendanceSession } from "../../application/sessions";
 import { getAttendanceSummary } from "../../application/summaries";
 import { getAttendancePackTemplate } from "../../templates";
 import { createAttendanceTestDb, describeIntegration, type AttendanceTestDb } from "../support/db";
 import { CAPS, addOccurrence, makeWorld, seedSchool, type School, type TestWorld } from "../support/world";
 
-/** Primaire : appel journalier unique, absences en journées, jours ouverts (spec 005 §14.2 « 010 », règle `cas_absences`). */
+/**
+ * Primaire : appel journalier UNIQUE (non-régression : mode `SINGLE`, que l'établissement peut garder malgré le modèle de pack qui propose
+ * désormais deux appels par jour — voir `half-days.integration.test.ts`), absences en journées, jours ouverts (spec 005 §14.2 « 010 »).
+ */
 describeIntegration("appel journalier PRIMARY : modèle de pack, absences en journées, jours ouverts (Postgres réel)", () => {
   let db: AttendanceTestDb;
   let world: TestWorld;
@@ -34,6 +37,8 @@ describeIntegration("appel journalier PRIMARY : modèle de pack, absences en jou
     }
     // Le modèle de pack PRIMARY pose la politique journalière (aucune durée supposée).
     unwrap(await instantiateAttendancePack(world.deps, school.admin.ctx, { pack: getAttendancePackTemplate("CI", "PRIMARY"), institutionIds: [school.institutionId] }));
+    // Le modèle propose l'appel du matin et de l'après-midi pour le primaire (Q-P17) ; cet établissement choisit de garder UN appel par jour.
+    unwrap(await upsertCallPolicy(world.deps, school.admin.ctx, { institutionId: school.institutionId, educationLevelCode: "PRIMARY", callScope: "DAILY", dailyCallMode: "SINGLE" }));
   });
   afterAll(async () => {
     await db.drop();
@@ -47,10 +52,10 @@ describeIntegration("appel journalier PRIMARY : modèle de pack, absences en jou
     return session;
   };
 
-  it("le modèle PRIMARY_DAILY est instancié par niveau, sans minutes ; l'appel SESSION y est refusé, le journalier accepté", async () => {
+  it("le modèle est instancié par niveau, sans minutes ; l'appel SESSION y est refusé, le journalier accepté ; un appel par jour une fois choisi", async () => {
     const policies = unwrap(await listCallPolicyDefinitions(world.deps, school.admin.ctx));
     for (const level of ["PRESCHOOL", "PRIMARY"]) {
-      expect(policies.find((p) => p.educationLevelCode === level)).toMatchObject({ callScope: "DAILY", dailyMinutes: null });
+      expect(policies.find((p) => p.educationLevelCode === level)).toMatchObject({ callScope: "DAILY", dailyMinutes: null, dailyCallMode: "SINGLE" });
     }
     const occ = addOccurrence(world, school, { classroomId: primary });
     const refused = await openAttendanceSession(world.deps, school.teacher.ctx, { kind: "occurrence", occurrenceId: occ.occurrenceId, caps: {} });

@@ -1,15 +1,18 @@
 /**
  * attendance (+ academic) -> primary_school : `AttendancePort` — récapitulatif d'assiduité d'une inscription pour l'année et registre
- * d'appel mensuel d'une classe (appel journalier, `DAILY`).
+ * d'appel mensuel d'une classe (appel journalier, `DAILY`, en un appel par jour ou en deux — matin et après-midi, décision Q-P17).
  *
- * Le récapitulatif est DÉRIVÉ par `attendance` (surcharge tracée comprise : la valeur EFFECTIVE fait foi) ; ce module n'en
- * recalcule rien. L'année est la somme, période par période, des compteurs de séances (jours d'appel), d'absences, d'absences
- * justifiées et de retards : un comptage, jamais un seuil. Une période dont le récapitulatif est illisible rend `null` pour tout
- * le récapitulatif (rien n'est inventé).
+ * Le récapitulatif est DÉRIVÉ par `attendance` (`getAttendanceDays`) ; ce module n'en recalcule rien. Les compteurs sont des JOURNÉES
+ * sur la fenêtre de l'année (de la première période à la dernière) : une demi-journée d'appel vaut 0,5 (entiers avec l'appel journalier
+ * unique) : un comptage, jamais un seuil. Une année dont les compteurs sont illisibles rend `null` pour tout le récapitulatif (rien n'est
+ * inventé).
+ *
+ * Registre mensuel : une colonne par jour d'appel ; avec deux appels par jour, une colonne par demi-journée (`AAAA-MM-JJ:MORNING`,
+ * `AAAA-MM-JJ:AFTERNOON`). Un appel de la journée entière garde la colonne `AAAA-MM-JJ`.
  */
 import type { RequestContext } from "@ecoledigitale/kernel";
 import { listAcademicPeriods, type AcademicDeps } from "../../modules/academic";
-import { getAttendanceSession, getAttendanceSummary, listAttendanceSessions, type AttendanceDeps } from "../../modules/attendance";
+import { getAttendanceDays, getAttendanceSession, listAttendanceSessions, type AttendanceDeps } from "../../modules/attendance";
 import { getStudentsByIds, type PeopleDeps } from "../../modules/people";
 import type { AttendancePort } from "../../modules/primary_school";
 
@@ -20,21 +23,15 @@ export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps;
       const periods = await listAcademicPeriods(academic, ctx, academicYearId);
       const none = { openDays: null, absentDays: null, justifiedAbsentDays: null, lateCount: null } as const;
       if (!periods.ok) return none;
-      let openDays = 0;
-      let absentDays = 0;
-      let justifiedAbsentDays = 0;
-      let lateCount = 0;
-      // Périodes de premier niveau seulement (les sous-périodes et sessions ne sont pas additionnées deux fois).
-      for (const p of periods.value.filter((x) => x.parentPeriodId === null)) {
-        const s = await getAttendanceSummary(attendance, ctx, { enrollmentId, periodId: p.id });
-        if (!s.ok) return none;
-        const e = s.value.effective;
-        openDays += e.sessionsTotal;
-        absentDays += e.absentCount;
-        justifiedAbsentDays += e.excusedCount;
-        lateCount += e.lateCount;
-      }
-      return { openDays, absentDays, justifiedAbsentDays, lateCount };
+      // Fenêtre de l'année : de la première à la dernière période de premier niveau (une demi-journée n'est jamais comptée deux fois).
+      const roots = periods.value.filter((x) => x.parentPeriodId === null);
+      if (roots.length === 0) return none;
+      const from = roots.reduce((m, p) => (p.startsOn < m ? p.startsOn : m), roots[0]!.startsOn);
+      const to = roots.reduce((m, p) => (p.endsOn > m ? p.endsOn : m), roots[0]!.endsOn);
+      const days = await getAttendanceDays(attendance, ctx, { enrollmentId, from, to });
+      if (!days.ok) return none;
+      const d = days.value;
+      return { openDays: d.openDays, absentDays: d.absentDays, justifiedAbsentDays: d.excusedAbsentDays, lateCount: d.lateDays };
     },
 
     async monthlyRegister(ctx: RequestContext, { classroomId, month }) {
@@ -43,15 +40,17 @@ export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps;
       const to = `${month}-${String(last).padStart(2, "0")}`;
       const listed = await listAttendanceSessions(attendance, ctx, { classroomId, from, to, limit: 200 });
       if (!listed.ok) return { days: [], rows: [] };
-      const days = new Set<string>();
+      const slots = new Set<string>();
       const byEnrollment = new Map<string, { enrollmentId: string; studentId: string; displayName: string | null; days: Record<string, string> }>();
       for (const s of listed.value.items.filter((x) => x.scope === "DAILY" && (x.status === "SUBMITTED" || x.status === "VALIDATED"))) {
         const detail = await getAttendanceSession(attendance, ctx, { sessionId: s.id });
         if (!detail.ok) continue;
-        days.add(s.sessionDate);
+        // Un appel de la journée entière garde la colonne de la date ; une demi-journée a sa propre colonne (`date:MORNING`, `date:AFTERNOON`).
+        const slot = s.dayPart === "FULL" ? s.sessionDate : `${s.sessionDate}:${s.dayPart}`;
+        slots.add(slot);
         for (const st of detail.value.students) {
           const row = byEnrollment.get(st.enrollmentId) ?? { enrollmentId: st.enrollmentId, studentId: st.studentId, displayName: st.displayName, days: {} };
-          if (st.record) row.days[s.sessionDate] = st.record.statusCode;
+          if (st.record) row.days[slot] = st.record.statusCode;
           byEnrollment.set(st.enrollmentId, row);
         }
       }
@@ -65,7 +64,9 @@ export function createPrimaryAttendancePort(input: { attendance: AttendanceDeps;
         }
         for (const row of byEnrollment.values()) if (row.displayName === null) row.displayName = names.get(row.studentId) ?? null;
       }
-      return { days: [...days].sort(), rows: [...byEnrollment.values()].sort((a, b) => (a.displayName ?? "").localeCompare(b.displayName ?? "")) };
+      // Ordre chronologique, matin avant après-midi (`MORNING` < `AFTERNOON` à rebours : on trie explicitement).
+      const order = (slot: string): string => slot.replace(":MORNING", ":1").replace(":AFTERNOON", ":2");
+      return { days: [...slots].sort((a, b) => order(a).localeCompare(order(b))), rows: [...byEnrollment.values()].sort((a, b) => (a.displayName ?? "").localeCompare(b.displayName ?? "")) };
     },
   };
 }

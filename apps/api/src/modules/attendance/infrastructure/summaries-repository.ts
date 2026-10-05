@@ -258,20 +258,23 @@ export interface DailyDaysRow {
 }
 
 /**
- * JOURNÉES par inscription sur `[from, to]` : seuls les appels `DAILY` soumis ou validés comptent (un appel par classe et par
- * jour) ; une journée est comptée une fois même si l'élève a changé de classe. Lecture seule, aucune minute supposée.
+ * JOURNÉES par inscription sur `[from, to]` : seuls les appels `DAILY` soumis ou validés comptent. L'unité est la DEMI-JOURNÉE (décision
+ * Q-P17) : un appel `FULL` couvre le matin et l'après-midi, un appel `MORNING` / `AFTERNOON` une demi-journée ; les comptes sont rendus
+ * en journées (demi-journées / 2, donc des multiples de 0,5). Avec l'appel journalier unique, les valeurs sont les mêmes entiers qu'avant.
+ * Une demi-journée est comptée une fois même si l'élève a changé de classe. Lecture seule, aucune minute supposée.
  */
 export async function countDailyDays(tx: Tx, enrollmentIds: readonly Uuid[], from: IsoDate, to: IsoDate): Promise<Map<Uuid, DailyDaysRow>> {
   const rows = await tx.many<{ enrollment_id: Uuid; called_days: number; present_days: number; absent_days: number; excused_absent_days: number; late_days: number }>(
     `SELECT r.enrollment_id,
-            count(DISTINCT s.session_date)::integer AS called_days,
-            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_present)::integer AS present_days,
-            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_absence)::integer AS absent_days,
-            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_absence AND r.excused)::integer AS excused_absent_days,
-            count(DISTINCT s.session_date) FILTER (WHERE d.counts_as_late)::integer AS late_days
+            (count(DISTINCT s.session_date::text || h.part))::float8 / 2 AS called_days,
+            (count(DISTINCT s.session_date::text || h.part) FILTER (WHERE d.counts_as_present))::float8 / 2 AS present_days,
+            (count(DISTINCT s.session_date::text || h.part) FILTER (WHERE d.counts_as_absence))::float8 / 2 AS absent_days,
+            (count(DISTINCT s.session_date::text || h.part) FILTER (WHERE d.counts_as_absence AND r.excused))::float8 / 2 AS excused_absent_days,
+            (count(DISTINCT s.session_date::text || h.part) FILTER (WHERE d.counts_as_late))::float8 / 2 AS late_days
        FROM attendance.student_records r
        JOIN attendance.sessions s ON s.tenant_id = r.tenant_id AND s.id = r.session_id
        JOIN attendance.status_definitions d ON d.tenant_id = r.tenant_id AND d.subject_kind = r.subject_kind AND d.code = r.status_code
+      CROSS JOIN LATERAL unnest(CASE s.day_part WHEN 'FULL' THEN ARRAY['MORNING', 'AFTERNOON'] ELSE ARRAY[s.day_part] END) AS h(part)
       WHERE r.tenant_id = kernel.current_tenant_id()
         AND r.enrollment_id = ANY($1::uuid[])
         AND s.scope = 'DAILY'

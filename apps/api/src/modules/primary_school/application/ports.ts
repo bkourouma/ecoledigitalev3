@@ -239,15 +239,18 @@ export interface AttendanceRegisterRow {
   readonly enrollmentId: Uuid;
   readonly studentId: Uuid;
   readonly displayName: string | null;
-  /** Date -> code de statut du pointage (P, A, L…), tel que reconstitué depuis les pointages. */
-  readonly days: Readonly<Record<IsoDate, string>>;
+  /**
+   * Colonne du registre -> code de statut du pointage (P, A, L…), tel que reconstitué depuis les pointages. La colonne est une date
+   * (`AAAA-MM-JJ`, appel de la journée entière) ou une demi-journée (`AAAA-MM-JJ:MORNING` / `AAAA-MM-JJ:AFTERNOON`, décision Q-P17).
+   */
+  readonly days: Readonly<Record<string, string>>;
 }
 
 export interface AttendancePort {
   /** Récapitulatif d'assiduité d'une inscription pour l'année (dérivé par `attendance`, jamais recalculé ici). */
   summarize(ctx: RequestContext, input: { enrollmentId: Uuid; academicYearId: Uuid }): Promise<AttendanceYearSummary>;
   /** Registre d'appel mensuel d'une classe (R3). */
-  monthlyRegister(ctx: RequestContext, input: { classroomId: Uuid; month: string }): Promise<{ days: readonly IsoDate[]; rows: readonly AttendanceRegisterRow[] }>;
+  monthlyRegister(ctx: RequestContext, input: { classroomId: Uuid; month: string }): Promise<{ days: readonly string[]; rows: readonly AttendanceRegisterRow[] }>;
 }
 
 export interface MinutesRequest {

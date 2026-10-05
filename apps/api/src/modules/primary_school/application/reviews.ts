@@ -10,7 +10,7 @@
 import { err, isAppError, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { PrimaryPrepareReviewsBody } from "@ecoledigitale/contracts/src/v2/primary_school";
 import type { Tx } from "@ecoledigitale/database";
-import { sealBlockers, reviewHash, snapshotOf } from "../domain/review";
+import { attendanceText, dayCount, sealBlockers, reviewHash, snapshotOf } from "../domain/review";
 import { PrimaryCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import { PrimaryEvents } from "../domain/events";
 import type { AnnualReview, CallerCaps, SourceKind, Uuid } from "../domain/types";
@@ -61,7 +61,8 @@ async function gather(deps: PrimarySchoolDeps, ctx: RequestContext, tx: Tx, scop
     decisionRef: decision?.decisionId ?? null,
     outcomeCode: decision ? outcomeCodeOfDecision(decision.finalCode) : null,
     ruleVersionRef: year.ruleVersionRef,
-    attendanceSummary: { openDays: attendance.openDays, absentDays: attendance.absentDays, justifiedAbsentDays: attendance.justifiedAbsentDays, lateCount: attendance.lateCount },
+    // Journées : entiers avec l'appel unique, demi-journées en chaînes décimales exactes (instantané canonique : pas de flottant).
+    attendanceSummary: { openDays: dayCount(attendance.openDays), absentDays: dayCount(attendance.absentDays), justifiedAbsentDays: dayCount(attendance.justifiedAbsentDays), lateCount: dayCount(attendance.lateCount) },
     competencySummary,
   };
 }
@@ -279,6 +280,12 @@ export async function reissueAnnualReview(deps: PrimarySchoolDeps, ctx: RequestC
 // Rendu du PDF (abonné du worker) et renseignement de l'identifiant émis
 // ---------------------------------------------------------------------------
 
+/** Ajoute au contenu du document la phrase d'assiduité (affichage ; l'instantané scellé et son empreinte ne changent pas). */
+function withAttendanceText(content: Record<string, unknown>): Record<string, unknown> {
+  const text = attendanceText((content.attendanceSummary ?? {}) as Record<string, unknown>);
+  return text === null ? content : { ...content, attendance: { text } };
+}
+
 /** Demande à `reportcards` le PDF d'un bilan SCELLÉ, depuis l'instantané figé. Idempotent (par bilan) ; échec fermé si la nature n'est pas livrée. */
 export async function requestReviewDocument(deps: PrimarySchoolDeps, ctx: RequestContext, reviewId: Uuid): Promise<Result<{ requested: boolean; documentId: Uuid | null }, AppError>> {
   const row = await inTx(deps, ctx, async (tx) => ok(await getReviewRow(tx, reviewId)), { readOnly: true });
@@ -293,7 +300,7 @@ export async function requestReviewDocument(deps: PrimarySchoolDeps, ctx: Reques
       reviewId: review.id,
       title: "Bilan annuel",
       issuedAt: review.sealedAt ?? deps.clock.now(),
-      content: snapshotOf(review) as unknown as Record<string, unknown>,
+      content: withAttendanceText(snapshotOf(review) as unknown as Record<string, unknown>),
       contentHash: review.contentHash,
       ruleSourceKind,
     });

@@ -8,7 +8,7 @@ import type { Tx } from "@ecoledigitale/database";
 import { AttendanceCode, forbidden, validation } from "../domain/errors";
 import { AttendanceEvents } from "../domain/events";
 import { prepareMarks, withCoverage, type FinalMark, type MarkContext, type MarkEntryInput } from "../domain/records";
-import { selectPolicy } from "../domain/session";
+import { dailyMinutesFor, selectPolicy } from "../domain/session";
 import { indexStatuses } from "../domain/status";
 import type { AttendanceSession, CallPolicy, RecordSource, StatusIndex, StudentRecord, Uuid } from "../domain/types";
 import { listCallPolicies, listStatuses } from "../infrastructure/reference-repository";
@@ -85,7 +85,7 @@ export async function loadSessionContext(deps: AttendanceDeps, ctx: RequestConte
       scope: session.scope,
       durationMinutes: session.durationMinutes,
       endsAt: session.endsAt,
-      dailyMinutes: policy?.dailyMinutes ?? null,
+      dailyMinutes: dailyMinutesFor(policy?.dailyMinutes ?? null, session.dayPart),
       lateRequiresMinutes: policy?.lateRequiresMinutes ?? false,
     },
   };

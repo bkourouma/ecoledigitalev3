@@ -13,7 +13,7 @@
 import { err, ok, type AppError, type Result } from "@ecoledigitale/kernel";
 import { AttendanceCode, validation } from "./errors";
 import { parseAlertRules, type AlertRule } from "./alerts";
-import type { AttachmentType, CallScope, SubjectKind } from "./types";
+import type { AttachmentType, CallScope, DailyCallMode, SubjectKind } from "./types";
 
 export interface PackStatus {
   readonly subject: SubjectKind;
@@ -47,6 +47,8 @@ export interface AttendancePackTemplate {
     editWindowMinutes?: number | null;
     dailyMinutes?: number | null;
     lateRequiresMinutes?: boolean;
+    /** `HALF_DAYS` : deux appels par jour (matin et après-midi, décision Q-P17) ; défaut `SINGLE`. */
+    dailyCallMode?: DailyCallMode;
   }>;
   readonly settings: {
     readonly attachmentMaxBytes?: number;
@@ -88,7 +90,8 @@ export const DEFAULT_ATTENDANCE_PACK: AttendancePackTemplate = Object.freeze({
   ],
   callPolicies: [
     { educationLevel: "PRESCHOOL", callScope: "DAILY" },
-    { educationLevel: "PRIMARY", callScope: "DAILY" },
+    // Primaire : appel du matin ET de l'après-midi dès la V1 (décision Q-P17) ; politique d'établissement modifiable.
+    { educationLevel: "PRIMARY", callScope: "DAILY", dailyCallMode: "HALF_DAYS" },
     { educationLevel: "*", callScope: "SESSION", editWindowMinutes: 120 },
   ],
   settings: { attachmentMaxBytes: 5_242_880, allowedAttachmentTypes: ["application/pdf", "image/jpeg", "image/png"], allowFutureJustifications: false, alertRules: [] },
@@ -96,6 +99,7 @@ export const DEFAULT_ATTENDANCE_PACK: AttendancePackTemplate = Object.freeze({
 
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,39}$/;
 const CALL_SCOPES: readonly CallScope[] = ["DAILY", "SESSION", "BOTH"];
+const DAILY_CALL_MODES: readonly DailyCallMode[] = ["SINGLE", "HALF_DAYS"];
 
 /** Forme DÉCLARATIVE d'une politique d'appel dans un fichier de gabarit (`templates/CI/primary.json`). */
 export interface PackCallPolicyDeclaration {
@@ -106,6 +110,8 @@ export interface PackCallPolicyDeclaration {
   readonly dailyMinutes?: number | null;
   readonly editWindowMinutes?: number | null;
   readonly lateRequiresMinutes?: boolean;
+  /** `HALF_DAYS` : deux appels par jour (matin et après-midi) ; `SINGLE` (défaut) : un seul. */
+  readonly dailyCallMode?: DailyCallMode;
 }
 
 type NormalizedCallPolicy = AttendancePackTemplate["callPolicies"][number];
@@ -132,6 +138,9 @@ export function normalizeCallPolicies(raw: unknown): Result<NormalizedCallPolicy
     if (daily !== undefined && daily !== null && (typeof daily !== "number" || !Number.isInteger(daily) || daily <= 0)) return bad(`« ${who} » : dailyMinutes doit être null ou un entier positif.`);
     const edit = item.editWindowMinutes;
     if (edit !== undefined && edit !== null && (typeof edit !== "number" || !Number.isInteger(edit) || edit < 0)) return bad(`« ${who} » : editWindowMinutes invalide.`);
+    const mode = item.dailyCallMode;
+    if (mode !== undefined && !DAILY_CALL_MODES.includes(mode as DailyCallMode)) return bad(`« ${who} » : dailyCallMode ${String(mode)} inconnu.`);
+    if (mode === "HALF_DAYS" && scope === "SESSION") return bad(`« ${who} » : deux appels par jour exigent l'appel journalier (DAILY ou BOTH).`);
     for (const level of levels as string[]) {
       if (seen.has(level)) return bad(`: niveau « ${level} » déclaré deux fois.`);
       seen.add(level);
@@ -143,6 +152,7 @@ export function normalizeCallPolicies(raw: unknown): Result<NormalizedCallPolicy
         ...(edit !== undefined ? { editWindowMinutes: edit as number | null } : {}),
         ...(daily !== undefined ? { dailyMinutes: daily as number | null } : {}),
         ...(item.lateRequiresMinutes === true ? { lateRequiresMinutes: true } : {}),
+        ...(mode === "HALF_DAYS" ? { dailyCallMode: "HALF_DAYS" as const } : {}),
       });
     }
   }

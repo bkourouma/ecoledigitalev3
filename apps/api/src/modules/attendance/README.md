@@ -2,7 +2,7 @@
 
 UN SEUL modèle d'appel (statuts `PRESENT`, `ABSENT`, `LATE`, `EXCUSED`, `EARLY_LEAVE`) remplace les quatre systèmes du legacy : appel par séance (occurrence fournie par `scheduling`) ou journalier par classe (primaire), justificatifs structurés, récapitulatifs par période DÉRIVÉS avec surcharge tracée, présence et congés du personnel, synchronisation hors-ligne idempotente, alertes d'assiduité configurables.
 
-Schéma Postgres `attendance` · migrations `0900-0904` (plage 0900-0949) · préfixe HTTP `/api/v1/attendance` · `dependsOn: ["rbac"]`.
+Schéma Postgres `attendance` · migrations `0900-0905` (plage 0900-0949) · préfixe HTTP `/api/v1/attendance` · `dependsOn: ["rbac"]`.
 
 ## Règles qui structurent le module
 
@@ -56,5 +56,18 @@ Données de pack : `domain/reference-pack.ts` (statuts, motifs, types de congé,
 
 Additives (spec 010 §17).
 
-- **Modèle de pack PRIMARY** : `templates/CI/primary.json` déclare la politique `PRIMARY_DAILY` (`scope: DAILY`, niveaux `PRESCHOOL` et `PRIMARY`, `dailyMinutes: null` : aucune conversion en minutes, les récapitulatifs ne comptent que des jours) ; il hérite des statuts, motifs et paramètres de la base. `getAttendancePackTemplate(educationSystem, pack)`, `onTenantProvisioned` instancie le modèle de chaque pack provisionné. `validatePackTemplate` accepte la forme déclarative (`scope` + `educationLevels`) et la forme historique. Aucune valeur réglementaire.
+- **Modèle de pack PRIMARY** : `templates/CI/primary.json` (version 2) déclare `PRESCHOOL_DAILY` (appel journalier unique de la maternelle) et `PRIMARY_HALF_DAYS` (primaire : appel du matin ET de l'après-midi, voir plus bas) — `scope: DAILY`, `dailyMinutes: null` : aucune conversion en minutes, les récapitulatifs ne comptent que des jours ; il hérite des statuts, motifs et paramètres de la base. `getAttendancePackTemplate(educationSystem, pack)`, `onTenantProvisioned` instancie le modèle de chaque pack provisionné. `validatePackTemplate` accepte la forme déclarative (`scope` + `educationLevels`) et la forme historique. Aucune valeur réglementaire.
 - **Absences en journées et jours ouverts** (règle `cas_absences` de la spec 005) : `getAttendanceDays` / `getAttendanceDaysForEnrollments` renvoient `absentDays`, `excusedAbsentDays`, `unexcusedAbsentDays`, `lateDays`, `openDays` et `ruleInputs: { absences_journees, jours_ouverts }`. Seuls les appels `DAILY` soumis ou validés comptent ; sans calendrier, `jours_ouverts` = jours d'appel tenus ; le calendrier d'établissement se fournit par `openDays`. Aucun seuil.
+
+## Appel du primaire par demi-journée (décision Q-P17, 2026-10-05) — migration 0905
+
+Le primaire fait l'appel le **matin ET l'après-midi** dès la V1. Évolution additive (rien n'est supprimé, aucune donnée n'est réécrite) :
+
+- **Politique d'appel** : `call_policies.daily_call_mode` = `SINGLE` (un appel par jour, défaut historique) ou `HALF_DAYS` (deux appels par jour). Modifiable par l'établissement (`PUT /reference/call-policies`, audité) ; réservé à l'appel journalier (`DAILY` ou `BOTH`). Le modèle de pack PRIMARY pose `HALF_DAYS` pour le niveau `PRIMARY` ; la maternelle (`PRESCHOOL`) et le secondaire sont inchangés. Les établissements existants gardent leur politique (le modèle ne s'applique qu'à l'instanciation du pack).
+- **Séances** : `sessions.day_part` = `FULL` (appel unique de la journée, valeur de toutes les séances existantes), `MORNING` ou `AFTERNOON`. En `HALF_DAYS`, la demi-journée est **obligatoire** à l'ouverture (`attendance.day_part_required`, jamais devinée d'après l'heure) et `FULL` est refusé (`attendance.day_part_not_allowed`) ; en `SINGLE`, le matin / l'après-midi est refusé. Un appel par séance planifiée est toujours `FULL`. Un seul appel par classe, par jour et par demi-journée (`sessions_one_daily`) ; un appel `FULL` exclut le matin et l'après-midi du même jour (`sessions_daily_parts_exclusive`, `attendance.day_part_taken`). La demi-journée est figée comme la classe, la date et la portée.
+- **Récapitulatifs** : `summarize_enrollment` compte un pointage par appel, donc une demi-journée compte pour un appel. Minutes d'une absence : la moitié de `daily_minutes` pour une demi-journée (rien sans `daily_minutes`).
+- **Journées** (`getAttendanceDays`) : l'unité est la demi-journée, rendue en journées (multiples de 0,5 ; entiers pour l'appel unique, donc `ruleInputs` historiques inchangés). Une journée appelée le matin seulement vaut 0,5 jour ouvert.
+- **Hors-ligne** : la cible d'une séance `DAILY` porte `dayPart` ; la clé d'idempotence (`clientId` de la séance) est propre à chaque demi-journée — la même clé pour l'autre demi-journée donne `attendance.idempotency_key_reused`, sans demi-journée en `HALF_DAYS` : `attendance.day_part_required` (rien n'est écrit en silence). Côté web, la file locale distingue `day:<classe>:<date>:MORNING|AFTERNOON`.
+- **Événement** `attendance.session.opened` : charge additive `dayPart`.
+- Contrats : `dayPart` (séance, ouverture, cible de synchronisation), `dailyCallMode` (politique) dans `packages/contracts/src/v2/attendance.ts`.
+- Hors périmètre : le contrôle de conformité (`getCallCompliance`) ne porte que sur les séances planifiées, pas sur les appels journaliers ; un calendrier d'établissement des demi-journées ouvertes n'est pas modélisé (`openDays` fourni par l'appelant reste possible).

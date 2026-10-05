@@ -5,6 +5,8 @@
 import type {
   AttendanceSession,
   CallPolicy,
+  DailyCallMode,
+  DayPart,
   IsoDate,
   Justification,
   RecordSource,
@@ -28,7 +30,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 export const SESSION_COLUMNS = `s.id, s.institution_id, s.academic_year_id, s.classroom_id, s.curriculum_node_id, s.offering_id,
-  s.occurrence_id, s.scope, s.session_date::text AS session_date, s.starts_at, s.ends_at, s.duration_minutes,
+  s.occurrence_id, s.scope, s.day_part, s.session_date::text AS session_date, s.starts_at, s.ends_at, s.duration_minutes,
   s.taken_by_staff_id, s.taken_by_user_id, s.status, s.source, s.client_id, s.submitted_at, s.validated_at,
   s.validated_by, s.reopened_count, s.note, s.created_at, s.updated_at`;
 
@@ -41,6 +43,7 @@ export interface SessionRow {
   offering_id: Uuid | null;
   occurrence_id: Uuid | null;
   scope: SessionScope;
+  day_part: DayPart;
   session_date: IsoDate;
   starts_at: Date | null;
   ends_at: Date | null;
@@ -68,6 +71,7 @@ export const toSession = (r: SessionRow): AttendanceSession => ({
   offeringId: r.offering_id,
   occurrenceId: r.occurrence_id,
   scope: r.scope,
+  dayPart: r.day_part,
   sessionDate: r.session_date,
   startsAt: r.starts_at,
   endsAt: r.ends_at,
@@ -176,8 +180,9 @@ export interface CallPolicyRow {
   edit_window_minutes: number | null;
   late_requires_minutes: boolean;
   daily_minutes: number | null;
+  daily_call_mode: DailyCallMode;
 }
-export const CALL_POLICY_COLUMNS = "institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes";
+export const CALL_POLICY_COLUMNS = "institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes, daily_call_mode";
 export const toCallPolicy = (r: CallPolicyRow): CallPolicy => ({
   institutionId: r.institution_id,
   educationLevelCode: r.education_level_code,
@@ -185,6 +190,7 @@ export const toCallPolicy = (r: CallPolicyRow): CallPolicy => ({
   editWindowMinutes: r.edit_window_minutes,
   lateRequiresMinutes: r.late_requires_minutes,
   dailyMinutes: r.daily_minutes,
+  dailyCallMode: r.daily_call_mode,
 });
 
 // ---------------------------------------------------------------------------

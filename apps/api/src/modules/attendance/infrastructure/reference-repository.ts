@@ -127,13 +127,14 @@ export async function listCallPolicies(tx: Tx): Promise<CallPolicy[]> {
 }
 export async function upsertCallPolicy(tx: Tx, tenantId: Uuid, p: CallPolicy): Promise<CallPolicy> {
   const r = await tx.many<CallPolicyRow>(
-    `INSERT INTO attendance.call_policies (tenant_id, institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `INSERT INTO attendance.call_policies (tenant_id, institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes, daily_call_mode)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      ON CONFLICT (tenant_id, institution_id, education_level_code) DO UPDATE
        SET call_scope = EXCLUDED.call_scope, edit_window_minutes = EXCLUDED.edit_window_minutes,
-           late_requires_minutes = EXCLUDED.late_requires_minutes, daily_minutes = EXCLUDED.daily_minutes, updated_at = now()
+           late_requires_minutes = EXCLUDED.late_requires_minutes, daily_minutes = EXCLUDED.daily_minutes,
+           daily_call_mode = EXCLUDED.daily_call_mode, updated_at = now()
      RETURNING ${CALL_POLICY_COLUMNS}`,
-    [tenantId, p.institutionId, p.educationLevelCode, p.callScope, p.editWindowMinutes, p.lateRequiresMinutes, p.dailyMinutes],
+    [tenantId, p.institutionId, p.educationLevelCode, p.callScope, p.editWindowMinutes, p.lateRequiresMinutes, p.dailyMinutes, p.dailyCallMode],
   );
   return toCallPolicy(r[0] as CallPolicyRow);
 }
@@ -222,9 +223,9 @@ export async function seedFromPack(
   for (const institutionId of institutionIds) {
     for (const p of pack.callPolicies) {
       const res = await tx.query(
-        `INSERT INTO attendance.call_policies (tenant_id, institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (tenant_id, institution_id, education_level_code) DO NOTHING`,
-        [tenantId, institutionId, p.educationLevel, p.callScope, p.editWindowMinutes ?? null, p.lateRequiresMinutes ?? false, p.dailyMinutes ?? null],
+        `INSERT INTO attendance.call_policies (tenant_id, institution_id, education_level_code, call_scope, edit_window_minutes, late_requires_minutes, daily_minutes, daily_call_mode)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (tenant_id, institution_id, education_level_code) DO NOTHING`,
+        [tenantId, institutionId, p.educationLevel, p.callScope, p.editWindowMinutes ?? null, p.lateRequiresMinutes ?? false, p.dailyMinutes ?? null, p.dailyCallMode ?? "SINGLE"],
       );
       policies += res.rowCount;
     }

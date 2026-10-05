@@ -24,6 +24,29 @@ export function canonicalJson(value: unknown): string {
 
 export const sha256Hex = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
 
+/**
+ * Nombre de JOURNÉES d'assiduité tel qu'il est figé dans le bilan. Avec l'appel du matin et de l'après-midi (décision Q-P17), une
+ * demi-journée vaut 0,5 : une valeur entière reste un nombre (bilans historiques inchangés), une valeur à demi-journée s'écrit en CHAÎNE
+ * décimale exacte (« 2.5 »), comme partout dans les instantanés canoniques (les flottants y sont interdits).
+ */
+export function dayCount(days: number | null): number | string | null {
+  if (days === null) return null;
+  return Number.isInteger(days) ? days : days.toFixed(1);
+}
+
+/** « 2,5 » (virgule française) pour un nombre de journées figé par `dayCount`. */
+const frDays = (v: unknown): string => String(v).replace(".", ",");
+
+/** Phrase d'assiduité du bilan (affichage seulement : aucun seuil, aucun calcul) ; `null` quand le récapitulatif est illisible. */
+export function attendanceText(summary: Record<string, unknown>): string | null {
+  const { openDays, absentDays, justifiedAbsentDays, lateCount } = summary;
+  if (openDays == null || absentDays == null) return null;
+  const parts = [`${frDays(absentDays)} journée(s) d'absence sur ${frDays(openDays)} journée(s) d'appel`];
+  if (justifiedAbsentDays != null) parts.push(`dont ${frDays(justifiedAbsentDays)} justifiée(s)`);
+  if (lateCount != null) parts.push(`${frDays(lateCount)} journée(s) de retard`);
+  return parts.join(", ");
+}
+
 /** Contenu figé et haché d'un bilan (tout ce qui s'affiche sur le document, sauf l'identifiant du PDF). */
 export interface ReviewSnapshot {
   schema: 1;
