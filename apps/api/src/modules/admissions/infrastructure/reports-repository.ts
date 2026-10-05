@@ -140,12 +140,69 @@ export async function rejectionRows(tx: Tx, campaignId: string): Promise<Array<{
   );
 }
 
-export async function waitlistEntries(tx: Tx, campaignId: string, grade: string): Promise<Array<{ queuePosition: number; applicationId: string; priorityRank: number | null; waitlistEnteredAt: string }>> {
+export interface WaitlistEntryRow {
+  readonly queuePosition: number;
+  readonly applicationId: string;
+  readonly priorityRank: number | null;
+  readonly waitlistEnteredAt: string;
+  /** Rang décidé par la direction ; `null` = « à classer ». */
+  readonly manualRank: number | null;
+}
+
+/** Liste d'attente dans l'ordre décidé (rang manuel), puis les dossiers à classer par date d'entrée (affichage seulement). */
+export async function waitlistEntries(tx: Tx, campaignId: string, grade: string): Promise<WaitlistEntryRow[]> {
   return tx.many(
     `SELECT w.queue_position AS "queuePosition", w.application_id AS "applicationId",
             CASE WHEN w.priority_rank = 2147483647 THEN NULL ELSE w.priority_rank END AS "priorityRank",
-            to_char(w.waitlist_entered_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "waitlistEnteredAt"
+            to_char(w.waitlist_entered_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "waitlistEnteredAt",
+            w.manual_rank AS "manualRank"
        FROM admissions.waitlist_order($1, $2) w ORDER BY w.queue_position`,
     [campaignId, grade],
+  );
+}
+
+/** Verrouille (FOR UPDATE, ordre stable) les dossiers en liste d'attente d'un niveau : sérialise les réordonnancements. */
+export async function lockWaitlist(tx: Tx, campaignId: string, grade: string): Promise<Array<{ applicationId: string; manualRank: number | null }>> {
+  return tx.many(
+    `SELECT id AS "applicationId", waitlist_rank AS "manualRank"
+       FROM admissions.applications WHERE campaign_id = $1 AND desired_grade_level_code = $2 AND status = 'WAITLISTED'
+      ORDER BY id FOR UPDATE`,
+    [campaignId, grade],
+  );
+}
+
+export async function setWaitlistRank(tx: Tx, applicationId: string, rank: number): Promise<void> {
+  await tx.query(`UPDATE admissions.applications SET waitlist_rank = $2, updated_at = now() WHERE id = $1 AND status = 'WAITLISTED'`, [applicationId, rank]);
+}
+
+export interface WaitlistRankChangeRow {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly kind: "RANKED" | "MOVED";
+  readonly fromRank: number | null;
+  readonly toRank: number | null;
+  readonly reason: string | null;
+  readonly actorId: string | null;
+  readonly occurredAt: string;
+}
+
+export async function insertWaitlistRankChange(
+  tx: Tx,
+  input: { id: string; tenantId: string; applicationId: string; campaignId: string; grade: string; kind: "RANKED" | "MOVED"; fromRank: number | null; toRank: number; reason: string | null; actorId: string | null },
+): Promise<void> {
+  await tx.query(
+    `INSERT INTO admissions.waitlist_rank_changes (id, tenant_id, application_id, campaign_id, grade_level_code, kind, from_rank, to_rank, reason, actor_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [input.id, input.tenantId, input.applicationId, input.campaignId, input.grade, input.kind, input.fromRank, input.toRank, input.reason, input.actorId],
+  );
+}
+
+export async function listWaitlistRankChanges(tx: Tx, campaignId: string, grade: string, limit: number): Promise<WaitlistRankChangeRow[]> {
+  return tx.many(
+    `SELECT id, application_id AS "applicationId", kind, from_rank AS "fromRank", to_rank AS "toRank", reason, actor_id AS "actorId",
+            to_char(occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "occurredAt"
+       FROM admissions.waitlist_rank_changes WHERE campaign_id = $1 AND grade_level_code = $2
+      ORDER BY occurred_at DESC, id DESC LIMIT $3`,
+    [campaignId, grade, limit],
   );
 }

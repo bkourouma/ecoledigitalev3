@@ -64,6 +64,7 @@ import {
   admissionsUpsertPriorityClassBodySchema,
   admissionsUuidSchema,
   admissionsWaitlistQuerySchema,
+  admissionsWaitlistReorderBodySchema,
   admissionsWithdrawConsentBodySchema,
   admissionsWithdrawOfferBodySchema,
 } from "@ecoledigitale/contracts/src/v2/admissions";
@@ -98,7 +99,7 @@ import { convertProspect, createProspect, listProspects, updateProspect } from "
 import { getPublicForm, respondOfferPublic, submitPublicApplication, trackApplication, uploadTrackedDocument, viewOfferPublic, type PublicOutcome } from "../application/public-form";
 import { listConsentTexts, listDecisionReasons, listPriorityClasses, listRequirements, getSettings, managePublicLink, publishConsentText, retireConsentText, updateSettings, upsertDecisionReason, upsertPriorityClass, upsertRequirement } from "../application/reference";
 import { capacityReport, funnel, rejectionsReport, slaReport, sourcesReport } from "../application/reports";
-import { getWaitlist, promoteManually } from "../application/waitlist";
+import { getWaitlist, promoteManually, reorderWaitlist } from "../application/waitlist";
 import { createWorkflow, deleteDraftWorkflow, getWorkflowDetail, listWorkflows, newWorkflowVersion, publishWorkflow, replaceStages, replaceTransitions, updateWorkflow } from "../application/workflows";
 import { AdmissionsCode, HTTP_STATUS_BY_ADMISSIONS_CODE, validation } from "../domain/errors";
 import { admissionsAuditAdapter } from "../infrastructure/audit-adapter";
@@ -447,6 +448,9 @@ export async function admissionsPlugin(app: FastifyInstance, options: Admissions
     // Liste d'attente
     const waitlistGuard = { preHandler: [options.requirePermission("admission.waitlist.manage"), ...feature("admissions.core"), ...feature("admissions.waitlist")] };
     scope.get("/waitlist", waitlistGuard, async (req) => unwrap(await getWaitlist(deps, ctxOf(req), parse(admissionsWaitlistQuerySchema, req.query))));
+    // Q-A03 : le rang est une décision de la direction (permission dédiée, trace + audit + événement).
+    const waitlistReorderGuard = { preHandler: [options.requirePermission("admission.waitlist.reorder"), ...feature("admissions.core"), ...feature("admissions.waitlist")] };
+    scope.put("/waitlist/order", waitlistReorderGuard, async (req) => unwrap(await reorderWaitlist(deps, ctxOf(req), parse(admissionsWaitlistReorderBodySchema, req.body))));
     scope.post("/waitlist/promote", waitlistGuard, async (req) => unwrap(await promoteManually(deps, ctxOf(req), parse(admissionsPromoteBodySchema, req.body))));
 
     // Rapports

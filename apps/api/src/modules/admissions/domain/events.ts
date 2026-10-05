@@ -15,6 +15,7 @@ export const AdmissionsEvents = {
   OFFER_WITHDRAWN: "admissions.offer.withdrawn",
   APPLICATION_ENROLLED: "admissions.application.enrolled",
   WAITLIST_PROMOTED: "admissions.waitlist.promoted",
+  WAITLIST_REORDERED: "admissions.waitlist.reordered",
   PROSPECT_CONVERTED: "admissions.prospect.converted",
   APPLICATION_ANONYMIZED: "admissions.application.anonymized",
   INTERVIEW_SCHEDULED: "admissions.interview.scheduled",

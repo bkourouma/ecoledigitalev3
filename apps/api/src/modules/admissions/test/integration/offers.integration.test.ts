@@ -12,6 +12,7 @@ import { handleEnrollmentConfirmed, handleEnrollmentEnded } from "../../applicat
 import { enforcePaymentDeadline, expireOffers } from "../../application/jobs";
 import { acceptOffer, declineOffer, issueOffer, setOfferClassroom, withdrawOffer } from "../../application/offers";
 import { updateSettings } from "../../application/reference";
+import { reorderWaitlist } from "../../application/waitlist";
 import type { FailPoint } from "../../infrastructure/in-memory-ports";
 import { describeIntegration } from "../support/db";
 import { acceptApplication, createWorld, openCampaignWith, submittedApplication, unwrap, YEAR_ID, type TenantWorld, type World } from "../support/world";
@@ -298,6 +299,8 @@ describeIntegration("admissions : offres et saga d'inscription", () => {
       let detail = unwrap(await getApplication(t.deps, t.ctx(), next.id));
       detail = unwrap(await transitionApplication(t.deps, t.ctx(), next.id, { toStageId: detail.allowedTransitions.find((x) => x.toStageCode === "UNDER_REVIEW")!.toStageId }));
       unwrap(await recordDecision(t.deps, t.ctx(), next.id, { toStageId: detail.allowedTransitions.find((x) => x.toStageCode === "WAITLISTED")!.toStageId, kind: "WAITLIST", reasonCode: "NO_SEAT_YET", overrideCapacity: false }));
+      // Q-A03 : la promotion automatique ne propose que la tête d'un rang DÉCIDÉ par la direction.
+      unwrap(await reorderWaitlist(t.deps, t.ctx(), { campaignId: campaign.id, grade: "CP1", orderedApplicationIds: [next.id] }));
       // Avant l'échéance : rien ne bouge.
       expect(await expireOffers(t.deps, t.systemCtx())).toEqual({ expired: 0, failed: 0 });
       w.clock.advanceDays(3);

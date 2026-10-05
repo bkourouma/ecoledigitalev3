@@ -121,7 +121,7 @@ export async function recordDecision(deps: AdmissionsDeps, ctx: RequestContext, 
 export interface PromotionResult {
   readonly promoted: boolean;
   readonly applicationId: string | null;
-  /** `EMPTY`, `NO_SEAT`, `NOT_WAITLISTED`, `NO_TRANSITION`, `DISABLED` : pourquoi rien n'a été proposé. */
+  /** `EMPTY`, `NOT_RANKED`, `NO_SEAT`, `NOT_WAITLISTED`, `NO_TRANSITION`, `DISABLED` : pourquoi rien n'a été proposé. */
   readonly reason: string | null;
   readonly offer?: IssuedOffer;
 }
@@ -143,6 +143,9 @@ export async function promoteHead(deps: AdmissionsDeps, ctx: RequestContext, tx:
   const entries = await reports.waitlistEntries(tx, input.campaignId, input.grade);
   const target = input.applicationId ? entries.find((e) => e.applicationId === input.applicationId) : entries[0];
   if (!target) return { promoted: false, applicationId: null, reason: "EMPTY" };
+  // Q-A03 : l'ordre est une DÉCISION de la direction. Sans dossier désigné, seule la tête d'un rang DÉCIDÉ est proposée ;
+  // un dossier « à classer » n'est jamais promu d'office (ni par ancienneté, ni par la promotion automatique).
+  if (!input.applicationId && target.manualRank === null) return { promoted: false, applicationId: target.applicationId, reason: "NOT_RANKED" };
   const preview = await apps.getApplicationRow(tx, target.applicationId);
   if (!preview) return { promoted: false, applicationId: null, reason: "EMPTY" };
   const left = await wf.seatsLeft(tx, input.campaignId, input.grade, preview.desiredProgramId);
