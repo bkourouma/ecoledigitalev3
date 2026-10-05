@@ -105,8 +105,9 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "primary.framework.read", "primary.framework.manage", "primary.framework.publish", "primary.competency.read",
       "primary.phrase.read", "primary.phrase.manage", "primary.council.read", "primary.council.manage",
       "primary.bilan.read", "primary.bilan.prepare", "primary.archive.prepare", "primary.report.read", "primary.class.read_all",
-      // examinations (018) : consultation seulement
+      // examinations (018) : consultation + (L-02) publier les résultats et approuver les dérogations d'éligibilité
       "exam.type.read", "exam.session.read", "exam.candidate.read", "exam.result.read", "exam.statistics.read",
+      "exam.result.publish", "exam.eligibility.override",
       // imports (031, O-03) : classes et curriculum
       "imports.read", "imports.create", "imports.import.classrooms", "imports.import.curriculum", "imports.cancel",
       // councils (006) : `council.*` sauf l'approbation d'un déverrouillage et la révocation d'un PV
@@ -142,8 +143,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       "stateassign.read", "stateassign.record", "stateassign.document.manage",
       // primary_school (005) : états, accès à toutes les classes, lecture des bilans et des grilles
       "primary.report.read", "primary.class.read_all", "primary.bilan.read", "primary.competency.read",
-      // imports (031, O-03) : élèves et tuteurs
-      "imports.read", "imports.create", "imports.import.students", "imports.import.guardians", "imports.cancel",
+      // imports (031, O-03, O-13) : élèves, tuteurs et inscriptions
+      "imports.read", "imports.create", "imports.import.students", "imports.import.guardians", "imports.import.enrollments", "imports.cancel",
       // councils (006) : planifier, procès-verbaux (pas de révocation)
       "council.read", "council.manage", "council.minutes.generate", "council.minutes.read", "council.minutes.sign",
     ],
@@ -185,6 +186,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // notifications
       "notifications.own.manage",
       "assessment.type.read", "assessment.read", "assessment.create", "assessment.update", "grade.read", "grade.enter", "grade.revise.request",
+      // imports (031, O-02) : les notes de SES évaluations seulement (périmètre revérifié par assess)
+      "imports.read", "imports.create", "imports.import.grades_own", "imports.cancel",
       "appreciation.write",
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "student.class.read", "staff.own.read", "staff.own.update",
@@ -203,6 +206,8 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // messaging
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       "assessment.type.read", "assessment.read", "assessment.create", "assessment.update", "grade.read", "grade.enter", "grade.revise.request",
+      // imports (031, O-02) : les notes de SA classe seulement
+      "imports.read", "imports.create", "imports.import.grades_own", "imports.cancel",
       "appreciation.write", "reportcard.read",
       "attendance.read", "attendance.take", "attendance.own.read", "attendance.own.record", "attendance.leave.request",
       "student.class.read", "staff.own.read", "staff.own.update",
@@ -473,11 +478,17 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["student.sensitive.read", "champs sensibles : scolarité et direction"],
       ["staff.contract.read", "les contrats du personnel sont à la direction"],
       ["payroll.payslip.read", "aucune donnée salariale"],
-      ["exam.result.publish", "publication des résultats d'examen (sensible, MFA) : direction"],
-      ["exam.result.release", "application d'un lot de résultats officiels (immuable) : direction"],
-      ["exam.result.revise", "approbation d'une révision de résultat publié : direction"],
-      ["exam.eligibility.override", "dérogation d'éligibilité à un examen : direction"],
+      ["exam.result.release", "application d'un lot de résultats officiels (immuable) : direction (L-02 : il publie, il n'applique pas)"],
+      ["exam.result.revise", "approbation d'une révision de résultat publié : direction (L-02 : il publie, il ne révise pas)"],
+      ["exam.result.enter", "saisie d'un résultat d'examen : responsable des examens (saisie ≠ publication)"],
+      ["exam.score.enter", "saisie d'une note d'examen : responsable des examens"],
+      ["exam.import.manage", "dépôt d'un fichier de résultats : responsable des examens"],
+      ["exam.eligibility.evaluate", "évaluation de l'éligibilité : responsable des examens (évaluation ≠ dérogation)"],
+      ["exam.candidate.manage", "gestion des candidats : responsable des examens"],
       ["exam.session.manage", "conduite d'une session d'examen : responsable des examens"],
+      ["admission.waitlist.reorder", "rang de la liste d'attente (Q-A03) : décision de la direction"],
+      ["imports.import.grades_own", "import des notes de ses propres évaluations : enseignants (il ne saisit pas de notes)"],
+      ["imports.import.enrollments", "import des inscriptions : secrétariat"],
       ["primary.bilan.seal", "scellé du bilan annuel (sensible) : direction"],
       ["primary.bilan.reissue", "réémission d'un bilan scellé : direction"],
       ["primary.competency.revise", "révision d'une compétence validée (sensible) : direction"],
@@ -502,6 +513,8 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
     ],
     secretariat: [
+      ["admission.waitlist.reorder", "le secrétariat PROPOSE la place au premier classé ; le rang est décidé par la direction (Q-A03)"],
+      ["imports.import.grades_own", "notes : enseignants (périmètre de leurs évaluations)"],
       ["reportcard.publish", "le secrétariat émet, il ne publie pas aux familles"],
       ["reportcard.revoke", "pas de révocation de document"],
       ["attendance.justification.decide", "il reçoit les justificatifs, la décision est à la vie scolaire/direction des études"],
@@ -553,6 +566,8 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["admission.read", "admissions : secrétariat et direction"],
     ],
     admissions_officer: [
+      ["admission.waitlist.reorder", "rang de la liste d'attente (Q-A03) : décision de la direction ; il propose la place"],
+      ["imports.import.enrollments", "import des inscriptions : secrétariat (il n'a pas enrollment.create)"],
       ["finance.webhook.read", "aucune donnée financière"],
       ["analytics.alerts.read", "aucune alerte de direction"],
       ["analytics.finance.read", "aucune donnée financière"],
@@ -591,6 +606,8 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["schedule.occurrence.validate", "la validation des heures payables n'est pas à celui qui paie"],
       ["imports.import.opening_balances", "il PRÉPARE l'import des soldes d'ouverture, la direction le LANCE (sensible, MFA)"],
       ["imports.import.students", "import des élèves : secrétariat"],
+      ["imports.import.enrollments", "import des inscriptions : secrétariat"],
+      ["imports.import.grades_own", "notes : enseignants"],
       ["imports.manage", "imports des autres utilisateurs : direction"],
       ["stateassign.record", "enregistrer un dossier d'affectation : secrétariat"],
       ["stateassign.verify", "vérifier un dossier : direction"],
@@ -621,7 +638,12 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["primary.framework.manage", "référentiels de compétences : direction des études"],
       ["primary.class.read_all", "il n'accède qu'à SA classe (sans cette permission)"],
       ["schoollife.read", "la vie scolaire est un module du secondaire"],
-      ["imports.read", "aucun import"],
+      ["imports.import.grades", "import des notes de TOUTES les évaluations : direction (il n'importe que SES notes : `imports.import.grades_own`)"],
+      ["imports.import.students", "import des élèves : secrétariat"],
+      ["imports.import.enrollments", "import des inscriptions : secrétariat"],
+      ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
+      ["imports.manage", "imports des autres utilisateurs : direction"],
+      ["imports.template.manage", "modèles de mapping : direction"],
       ["exam.candidate.read", "aucun examen national"],
     ],
     enseignant: [
@@ -648,7 +670,12 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["schoollife.read.all", "vie scolaire de tous les élèves : encadrement (il ne voit que SES classes)"],
       ["schoollife.incident.review", "instruction d'un incident : vie scolaire"],
       ["primary.competency.read", "compétences du primaire : instituteur"],
-      ["imports.read", "aucun import"],
+      ["imports.import.grades", "import des notes de TOUTES les évaluations : direction (il n'importe que SES notes : `imports.import.grades_own`)"],
+      ["imports.import.students", "import des élèves : secrétariat"],
+      ["imports.import.enrollments", "import des inscriptions : secrétariat"],
+      ["imports.import.opening_balances", "soldes d'ouverture : direction (sensible)"],
+      ["imports.manage", "imports des autres utilisateurs : direction"],
+      ["imports.template.manage", "modèles de mapping : direction"],
       ["exam.candidate.read", "aucun examen national (la consultation par l'enseignant n'est pas bornée à ses classes)"],
     ],
     educateur: [
@@ -674,6 +701,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["schoollife.conduct.adjust", "ajustement de points de conduite : direction"],
       ["schoollife.settings.manage", "réglages de vie scolaire : direction"],
       ["imports.read", "aucun import"],
+      ["imports.import.grades_own", "il n'a pas grade.enter : aucune note à importer"],
     ],
     responsable_pedagogique: [
       ["grade.enter", "il valide, il ne saisit pas"],
@@ -828,6 +856,19 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
     }
   });
 
+  it("L-02 : le directeur des études publie les résultats d'examen et approuve les dérogations, sans jamais saisir, déposer ni évaluer (séparation des tâches)", () => {
+    for (const k of ["exam.result.publish", "exam.eligibility.override"]) {
+      expect(granted("directeur_etudes").has(k), k).toBe(true);
+      expect(real.sensitive.has(k), `${k} reste sensible (MFA)`).toBe(true);
+      expect(getSystemRoleTemplate("directeur_etudes")?.sensitiveJustifications?.[k]?.length ?? 0, `justification de ${k}`).toBeGreaterThanOrEqual(30);
+    }
+    for (const k of ["exam.result.enter", "exam.score.enter", "exam.import.manage", "exam.eligibility.evaluate", "exam.candidate.manage", "exam.result.release", "exam.result.revise"]) {
+      expect(granted("directeur_etudes").has(k), k).toBe(false);
+    }
+    // Le responsable des examens, lui, ne peut toujours ni publier ni déroger.
+    for (const k of ["exam.result.publish", "exam.eligibility.override"]) expect(granted("responsable_examens").has(k), k).toBe(false);
+  });
+
   it("directeur_etudes : la direction détient bien les contreparties qu'il n'a pas", () => {
     for (const k of ["result.override.approve", "period.reopen", "period.repin", "reportcard.revoke", "higher.award.revoke", "attendance.session.reopen"]) {
       expect(granted("directeur").has(k), k).toBe(true);
@@ -866,6 +907,10 @@ describe("séparation des tâches", () => {
     { name: "saisie/dépôt/demande de correction d'un résultat d'examen ≠ publication/application/approbation", left: ["exam.result.enter", "exam.score.enter", "exam.import.manage"], right: ["exam.result.publish", "exam.result.release", "exam.result.revise"] },
     { name: "évaluation/gestion des candidats d'un examen ≠ dérogation d'éligibilité", left: ["exam.eligibility.evaluate", "exam.candidate.manage"], right: ["exam.eligibility.override"] },
     { name: "préparation d'un import de soldes (création) ≠ lancement de l'import des soldes d'ouverture", left: ["imports.create"], right: ["imports.import.opening_balances"] },
+    // Réponses métier de cette passe : O-02, Q-A03, L-02.
+    { name: "import de ses propres notes (saisie) ≠ relecture/validation/publication/approbation des notes et évaluations d'autrui", left: ["imports.import.grades_own"], right: ["grade.review", "grade.validate", "grade.publish", "grade.revise.approve", "assessment.manage", "imports.import.grades"] },
+    { name: "proposition de la place libérée (liste d'attente) ≠ décision du rang de la liste", left: ["admission.waitlist.manage"], right: ["admission.waitlist.reorder"] },
+    { name: "import des inscriptions ≠ dérogation d'éligibilité / financement d'une inscription", left: ["imports.import.enrollments"], right: ["enrollment.override", "enrollment.funding.update"] },
   ];
 
   const EXEMPT = ["owner", "directeur"];

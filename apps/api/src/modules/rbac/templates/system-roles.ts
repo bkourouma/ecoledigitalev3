@@ -144,10 +144,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "decision.*": "Modifier une décision proposée par la règle (délibération).",
       "schedule.*": "Valider les séances pour la paie, dépasser un conflit, créer une séance comptable, verrouiller les heures.",
       "notifications.*": "Envoyer un avis urgent (contourne heures calmes et préférences de catégorie, audité, authentification forte) : responsabilité de direction.",
-      "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles ne lancent que les importeurs de leur métier (jamais les soldes d'ouverture).",
+      "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles ne lancent que les importeurs de leur métier (jamais les soldes d'ouverture) : inscriptions au secrétariat, notes de leurs seules évaluations aux enseignants.",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
-      "admission.*": "Décider d'une candidature, dépasser une capacité, publier un workflow et anonymiser un dossier clos (acte irréversible, motif obligatoire, MFA) : responsabilité de direction ; le traitement courant reste au secrétariat.",
-      "exam.*": "Accorder une dérogation d'éligibilité, publier les résultats d'une session, appliquer un lot de résultats officiels et approuver la révision d'une note publiée : actes de direction, hors du responsable des examens (qui saisit et prépare).",
+      "admission.*": "Décider d'une candidature, dépasser une capacité, publier un workflow et anonymiser un dossier clos (acte irréversible, motif obligatoire, MFA) : responsabilité de direction ; le traitement courant reste au secrétariat. Le rang de la liste d'attente (Q-A03) est aussi une décision de direction, tracée.",
+      "exam.*": "Accorder une dérogation d'éligibilité, publier les résultats d'une session, appliquer un lot de résultats officiels et approuver la révision d'une note publiée : actes de direction, hors du responsable des examens (qui saisit et prépare) ; la direction des études (L-02) publie les résultats et approuve les dérogations, mais n'applique ni ne révise.",
       "primary.*": "Réviser une compétence validée, sceller et réémettre un bilan annuel, geler l'archive d'une année et appliquer le modèle de pack : actes irréversibles ou à effet durable, tenus par la direction (l'instituteur saisit et valide).",
       "schoollife.*": "Valider les sanctions et exclusions, appliquer leur effet sur le statut de l'élève, révoquer, trancher un recours, lire les éléments confidentiels (lecture journalisée) et régler les barèmes : responsabilité de direction ; l'éducateur propose, il ne valide pas.",
       "stateassign.*": "Vérifier, activer, suspendre ou amender un dossier d'affectation d'État et régler le module : actes humains audités de direction (le secrétariat enregistre sans vérifier).",
@@ -333,13 +333,18 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "primary.archive.prepare",
       "primary.report.read",
       "primary.class.read_all",
-      // Examens nationaux (spec 018) : consultation seulement (sessions, candidats, résultats, statistiques) ; la gestion
-      // est au responsable des examens, la publication/dérogation/approbation à la direction.
+      // Examens nationaux (spec 018) : consultation (sessions, candidats, résultats, statistiques) ; la gestion est au
+      // responsable des examens. L-02 (réponse métier) : il PUBLIE aussi les résultats d'examen et APPROUVE les dérogations
+      // d'éligibilité (sensibles, MFA). Il ne saisit ni ne dépose ni n'évalue (`exam.result.enter`, `exam.score.enter`,
+      // `exam.import.manage`, `exam.eligibility.evaluate`, `exam.candidate.manage` restent au responsable des examens : séparation
+      // des tâches) et n'applique ni ne révise un lot officiel (`exam.result.release`, `exam.result.revise` = direction).
       "exam.type.read",
       "exam.session.read",
       "exam.candidate.read",
       "exam.result.read",
       "exam.statistics.read",
+      "exam.result.publish",
+      "exam.eligibility.override",
       // Imports Excel / CSV (spec 031, O-03) : classes et curriculum (les droits du module cible sont exigés en plus).
       "imports.read",
       "imports.create",
@@ -368,6 +373,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "schedule.occurrence.validate": "Valider les séances pour la paie : contrôle des heures payables, séparé de leur constatation et du calcul de paie.",
       "schedule.conflict.override": "Autoriser une double réservation motivée dans la conception des emplois du temps.",
       "attendance.leave.decide": "Approuver ou refuser les congés des enseignants et du personnel encadrant.",
+      "exam.result.publish": "Publier les résultats d'une session d'examen aux familles (réponse métier L-02) : acte de direction des études, tenu par un autre que celui qui saisit (le responsable des examens).",
+      "exam.eligibility.override": "Approuver une dérogation d'éligibilité à un examen (réponse métier L-02) : décision motivée et tracée, séparée de l'évaluation de l'éligibilité faite par le responsable des examens.",
     },
   },
 
@@ -473,12 +480,14 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "primary.class.read_all",
       "primary.bilan.read",
       "primary.competency.read",
-      // Imports Excel / CSV (spec 031, O-03) : élèves et tuteurs (les droits `student.create|update`, `enrollment.create`,
-      // `guardian.manage` du module cible sont exigés en plus). Jamais soldes d'ouverture, notes ni personnel.
+      // Imports Excel / CSV (spec 031, O-03) : élèves et tuteurs, et (O-13) INSCRIPTIONS des élèves dans les classes de
+      // l'année (les droits `student.create|update`, `enrollment.create`, `guardian.manage` du module cible sont exigés en
+      // plus). Jamais soldes d'ouverture, notes ni personnel.
       "imports.read",
       "imports.create",
       "imports.import.students",
       "imports.import.guardians",
+      "imports.import.enrollments",
       "imports.cancel",
     ],
     mfaRecommended: true,
@@ -615,6 +624,13 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "grade.read",
       "grade.enter",
       "grade.revise.request",
+      // Import Excel / CSV des notes de SES évaluations (spec 031, O-02) : `imports.import.grades_own` + `grade.enter`, JAMAIS
+      // `assessment.manage` ni `imports.import.grades` (toute évaluation = direction). Le périmètre est revérifié par `assess`
+      // (affectation d'enseignement) à chaque lecture et écriture, y compris dans le worker.
+      "imports.read",
+      "imports.create",
+      "imports.import.grades_own",
+      "imports.cancel",
       // Appréciations de matière (le conseil de classe est rédigé par la direction des études).
       "appreciation.write",
       // Appel de ses classes ; justificatifs et décisions = vie scolaire.
@@ -676,6 +692,11 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "grade.read",
       "grade.enter",
       "grade.revise.request",
+      // Import Excel / CSV des notes de SA classe (spec 031, O-02) : même périmètre que l'enseignant, revérifié par `assess`.
+      "imports.read",
+      "imports.create",
+      "imports.import.grades_own",
+      "imports.cancel",
       // Appréciations ; bulletins de sa classe en lecture (l'émission et la publication sont à d'autres rôles).
       "appreciation.write",
       "reportcard.read",
