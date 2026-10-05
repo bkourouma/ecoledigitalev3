@@ -1015,6 +1015,45 @@ export const academicEnrollmentDtoSchema = z.object({
 });
 export type AcademicEnrollmentDto = z.infer<typeof academicEnrollmentDtoSchema>;
 
+// --- Cumul de financements d'une inscription (O-04) ----------------------------------------------------------------
+/** Part d'un financement : pourcentage (points de base, 1..10000) ou montant entier. Le reste est à la charge de la famille. */
+export const academicFundingShareSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("PERCENT"), bps: z.number().int().min(1).max(10_000) }).strict(),
+  z.object({ kind: z.literal("AMOUNT"), amount: z.number().int().min(1), currency: z.enum(["XOF", "XAF", "EUR", "USD"]) }).strict(),
+]);
+export const academicFundingShareInputSchema = z
+  .object({
+    fundingType: academicFundingCodeSchema.exclude(["PRIVATE"]),
+    share: academicFundingShareSchema,
+    assignmentReference: z.string().trim().min(1).max(100).nullable().optional(),
+    funderLabel: z.string().trim().min(1).max(200).nullable().optional(),
+    notes: z.string().trim().min(1).max(1000).nullable().optional(),
+  })
+  .strict();
+export const academicSetFundingsBodySchema = z
+  .object({ shares: z.array(academicFundingShareInputSchema).max(6), reason: z.string().trim().min(5, "Motif de 5 caractères minimum.").max(500) })
+  .strict();
+export const academicEnrollmentFundingDtoSchema = z.object({
+  id: academicUuidSchema,
+  fundingType: z.string(),
+  share: academicFundingShareSchema,
+  assignmentReference: z.string().nullable(),
+  funderLabel: z.string().nullable(),
+  notes: z.string().nullable(),
+  status: z.enum(["ACTIVE", "ENDED"]),
+  createdAt: academicInstantSchema,
+  endedAt: academicInstantSchema.nullable(),
+});
+export const academicEnrollmentFundingsDtoSchema = z.object({
+  enrollmentId: academicUuidSchema,
+  principalFundingType: z.string(),
+  fundings: z.array(academicEnrollmentFundingDtoSchema),
+  /** `null` : une part en montant intervient, le reste de la famille n'est connu qu'à la facturation. */
+  familyRemainderBps: z.number().int().min(0).max(10_000).nullable(),
+});
+export type AcademicFundingShare = z.infer<typeof academicFundingShareSchema>;
+export type AcademicEnrollmentFundingsDto = z.infer<typeof academicEnrollmentFundingsDtoSchema>;
+
 /**
  * Libellés lisibles par la FAMILLE (`GET /academic/me/labels`, `GET /academic/children/:studentId/labels`) : classes, périodes
  * et matières (nœuds du curriculum) des inscriptions de l'élève, pour nommer les identifiants que portent les notes, résultats,
@@ -1663,6 +1702,18 @@ export const academicFundingChangedEventPayloadSchema = z.object({
   from: z.object({ fundingType: z.string(), assignmentReference: z.string().nullable() }),
   to: z.object({ fundingType: z.string(), assignmentReference: z.string().nullable() }),
   reason: z.string(),
+  /** Additif (O-04) : cumul complet après le changement ; absent des émetteurs historiques. */
+  fundings: z
+    .array(
+      z.object({
+        fundingType: z.string(),
+        shareKind: z.enum(["PERCENT", "AMOUNT"]),
+        shareBps: z.number().int().nullable(),
+        shareAmount: z.number().int().nullable(),
+        currency: z.string().nullable(),
+      }),
+    )
+    .optional(),
 });
 export const academicOutcomeEventPayloadSchema = z.object({
   ...enrollmentEventBase,

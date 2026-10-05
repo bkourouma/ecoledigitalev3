@@ -140,6 +140,10 @@ export const AcademicCode = {
   FUNDING_REFERENCE_FORBIDDEN: "academic.funding_reference_forbidden",
   FUNDING_FUNDER_REQUIRED: "academic.funding_funder_required",
   FUNDING_STATE_ASSIGNED_DISABLED: "academic.funding_feature_disabled",
+  // Cumul de financements (O-04)
+  FUNDING_SHARES_INVALID: "academic.funding_shares_invalid",
+  FUNDING_SHARES_EXCEED: "academic.funding_shares_exceed",
+  FUNDING_CURRENCY_MISMATCH: "academic.funding_currency_mismatch",
   OUTCOME_UNKNOWN: "academic.outcome_unknown",
   OUTCOME_TARGET_REQUIRED: "academic.outcome_target_required",
   OVERRIDE_REASON_REQUIRED: "academic.override_reason_required",

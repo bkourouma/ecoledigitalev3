@@ -134,6 +134,10 @@ export {
   updateOffering,
 } from "./application/classrooms";
 
+// Cumul de financements d'une inscription (O-04)
+export { listEnrollmentFundings, setEnrollmentFundings, upsertEnrollmentFundingShare, type EnrollmentFundingsView } from "./application/enrollment-fundings";
+export { validateFundingShares, principalOf, familyRemainderBps, type EnrollmentFunding, type FundingShare, type FundingShareInput } from "./domain/enrollment-funding";
+
 // Inscriptions
 export {
   cancelEnrollment,
