@@ -45,3 +45,7 @@ Extensions **additives** (aucune migration). Les fichiers `reconcile*` du module
 ## 6. Hors périmètre de ce document
 
 Lecture du rapprochement des webhooks en échec ; saisie des charges et tableaux de bord propriétaire ; commissions de prospection ; fournisseurs de paiement réels (Phase 3).
+
+## Évolution O-04 — cumul de financements (décision du propriétaire, 2026-10)
+
+Un apprenant peut cumuler plusieurs financements sur une année (bourse + État + famille). Le type de financement du compte reste le type **principal** ; `additional_funding_types` porte les types cumulés. Chaque prise en charge reste facturée à part (une facture liée par financeur, la famille garde le reste, somme exacte au franc près). Nouveau : une **base de calcul** par part (`REMAINING`, historique et défaut ; `TOTAL` : pourcentage du total net), la **somme des parts `TOTAL` en pourcentage ≤ 100 %** imposée par la base, et le **refus d'émettre** (`finance.funding_shares_exceed`) quand les parts dépassent le total à facturer. Migration additive 0508 ; aucun comportement historique ne change. Voir `apps/api/src/modules/finance/README.md`.

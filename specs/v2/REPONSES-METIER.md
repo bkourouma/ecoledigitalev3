@@ -7,7 +7,7 @@ Réponses données via AskUserQuestion à partir du 2026-10-05. Source de vérit
 |----|----------|--------|
 | O-01 | Inscription confirmée par paiement des frais OU confirmation manuelle (dérogation de la direction) | Écart |
 | O-03 | Découpage libre par école + modèles 3 trimestres et 2 semestres | Défaut conservé |
-| O-04 | Cumul de financements autorisé sur une même inscription (ex. bourse + État) | Écart |
+| O-04 | Cumul de financements autorisé sur une même inscription (ex. bourse + État) | Écart — **implémenté** (academic 0710, finance 0508 ; stateassign sans migration) |
 | O-05 | Générateur complet d'emploi du temps dès maintenant | Écart (chantier important) |
 | O-06 | Responsable, co-enseignant et remplaçant rémunérés ; surveillant non rémunéré par défaut | Défaut conservé |
 | O-07 | Pas de fusion de doublons ; ne pas tenir compte des données d'élèves de la V1 (pas de reprise des élèves legacy) | Défaut conservé + précision |
@@ -156,7 +156,7 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 |----|----------|--------|
 | Q-PAY-30 | Établissement sans identifiants propres : utiliser les comptes de la PLATEFORME partagés | Écart à risque (fonds de plusieurs écoles sur un même compte : à cadrer — répartition, réconciliation par tenant, responsabilité juridique — avant implémentation) |
 | Q-PAY-31 | Gestion des fournisseurs : directeur et propriétaire, pas l'économe (MFA) | Défaut conservé |
-| Q-PAY-32 | Remboursement chez le fournisseur : TOUJOURS MANUEL (preuve auditée) | Écart (désactiver les remboursements automatiques livrés) |
+| Q-PAY-32 | Remboursement chez le fournisseur : TOUJOURS MANUEL (preuve auditée) | Écart — **implémenté** (`FINANCE_PROVIDER_REFUND_AUTO`, désactivé par défaut) |
 | Q-PAY-34 | Frais d'agrégation non modélisés (montant payé = facture) | Défaut conservé |
 | Q-PAY-35 | TresorPay : adaptateur livré, contrat à confirmer (désactivé) | Défaut conservé |
 | Q-PAY-36 | Secrets des fournisseurs dans l'environnement (trousseau, rotation) | Défaut conservé |
@@ -185,7 +185,7 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-23 | Heures calmes 20h-07h Abidjan, urgence contourne | Défaut conservé |
 | Q-24 | Urgence ne contourne pas la liste de révocation par défaut | Défaut conservé |
 | Q-25 | Plafonds par canal : SMS 500, WhatsApp 1500, e-mail 3000, push 10k, in-app 20k par jour | Défaut conservé |
-| Q-26 | Relances d'impayés à J+7 / J+21 / J+45 (au lieu de J+3 / J+10 / J+30) | Écart |
+| Q-26 | Relances d'impayés à J+7 / J+21 / J+45 (au lieu de J+3 / J+10 / J+30) | Écart — **implémenté** (règle livrée `dunning.default`) |
 | Q-27 | Charge d'enseignement 800 h/an par défaut ; alerte de baisse désactivée | Défaut conservé |
 | Q-28 | Pas de rôle RH ; alerte documents expirant au secrétariat | Défaut conservé |
 | Q-29 | Journal de consentement conservé tant que l'établissement existe | Défaut conservé |

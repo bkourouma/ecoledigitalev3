@@ -12,7 +12,7 @@ Le module ne connaît les apprenants et les inscriptions que par **UUID**, à tr
 |---|---|
 | Catalogue | frais (inscription, scolarité, cantine, transport, uniforme, documents, examens, activités, soutenance, bibliothèque, autres), **barèmes** par établissement / campus / niveau / filière / année / type d'apprenant avec dates d'effet (le plus spécifique gagne, ambiguïté = erreur), **plans d'échéancier** types, **remises** (pourcentage en points de base ou montant, plafonds, cumulables ou non) |
 | Facturation | facture depuis un barème (avec aperçu), facture manuelle, brouillon → émission, numérotation `FAC-aaaa-nnnnnn`, annulation, **avoirs** `AV-aaaa-nnnnnn`, **échéanciers** (500 000 = 100 000 + 150 000 + 150 000 + 100 000, répartition sans perte), retards (`markOverdueInvoices`) |
-| Financement | type de financement porté par le compte de l'apprenant (`PRIVATE`, `STATE_ASSIGNED`, `SCHOLARSHIP`, `COMPANY`, `STAFF_CHILD`, `OTHER`) ; **bourses / prises en charge** : la part de chaque financeur (État, entreprise…) devient une **facture liée** payable séparément, la famille garde sa part (somme exacte, au franc près) |
+| Financement | type de financement porté par le compte de l'apprenant (`PRIVATE`, `STATE_ASSIGNED`, `SCHOLARSHIP`, `COMPANY`, `STAFF_CHILD`, `OTHER`) ; **bourses / prises en charge** : la part de chaque financeur (État, entreprise…) devient une **facture liée** payable séparément, la famille garde sa part (somme exacte, au franc près) ; **cumul de financements (O-04)** : plusieurs financeurs sur une même inscription (bourse + État + famille), une facture par financeur, parts à base `TOTAL` dont la somme est contrôlée (voir « Cumul de financements ») |
 | Encaissement | paiement manuel (espèces, chèque, virement, carte, mobile money), **imputation** automatique (plus ancienne échéance d'abord, ordre configurable) ou manuelle (échéances, lignes), reçus `REC-aaaa-nnnnnn` immuables, **idempotence** par clé fournie |
 | Paiement en ligne | port `PaymentProvider` + `ProviderRegistry` + `SandboxProvider` déterministe ; initiation, vérification active, **webhooks idempotents** et signés |
 | Remboursement | partiel ou total, motif, **approbation à quatre yeux**, exécution par écritures inverses ; **réel chez le fournisseur** (Wave total, MTN, TresorPay, sandbox : `REFUND_PENDING → COMPLETED \| REFUND_FAILED`, jamais de double remboursement) ou **repli manuel explicite et audité** (Orange, CinetPay, partiel Wave) |
@@ -357,6 +357,16 @@ Tenant par tenant, par lots : (1) crée le suivi (`finance.reconciliation_state`
 
 Garanties : idempotent (sous verrou de ligne, jamais deux reçus), plusieurs instances sans doublon (bail en base), reprise après plantage (le bail expire),
 un tenant en échec n'arrête pas les autres (le job échoue APRÈS les avoir tous traités).
+
+### Cumul de financements (O-04, migration 0508)
+
+Décision du propriétaire : un apprenant peut cumuler plusieurs financements sur la même année (bourse + État + famille). La facturation savait déjà émettre **une facture par prise en charge** ; l'écart comblé :
+
+* **Base de calcul d'une part** — `scholarships.share_basis` : `REMAINING` (**défaut, comportement historique** : le pourcentage porte sur le reste après les prises en charge de priorité inférieure ; 60 % puis 25 % couvrent 70 %) ou `TOTAL` (le pourcentage porte sur le **total net** : 60 % + 25 % couvrent 85 %, la famille garde 15 %). Une couverture `FIXED` en base `TOTAL` est un montant du total.
+* **Somme contrôlée** — la somme des parts `TOTAL` en pourcentage **actives** d'un apprenant pour une année ne dépasse pas 100 % : refusée par le cas d'usage (`finance.funding_shares_exceed`, 409) **et** par un déclencheur de la base (superutilisateur compris), y compris à la réactivation d'une part suspendue. Les parts `REMAINING` ne sont pas concernées (jamais plus de 100 % par construction).
+* **Pas de troncature silencieuse** — une part `TOTAL` que le reste ne peut pas couvrir (ex. montant fixe de 400 000 après un État à 60 % de 560 000) fait **refuser l'émission** (`finance.funding_shares_exceed`) ; l'écart d'arrondi (au plus 1 unité mineure par part, demi vers le haut) est absorbé par la dernière part.
+* **Types cumulés** — `learner_accounts.additional_funding_types` : le type principal (`funding_type`) reste lu tel quel par tous les consommateurs ; chaque type cumulé doit être soutenu par une prise en charge active (un cumul « boursier » exige une bourse **autre que celle de l'État**). `PUT /learners/:id/funding` sans `additionalFundingTypes` **conserve** le cumul existant ; `null` ou une liste le remplace.
+* Aucun nouvel événement ni permission : `finance.fee.manage` (bourses, financement) et les factures existantes. Tests : `test/unit/funding-shares.test.ts`, `test/integration/funding-cumul.integration.test.ts` (cumul, non-régression REMAINING, plafond SQL, isolation A/B).
 
 ### Remboursement réel
 

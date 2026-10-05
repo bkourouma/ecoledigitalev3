@@ -112,3 +112,7 @@ Perte de la réponse d'initiation Orange (pas de `pay_token`, donc pas de vérif
 ## 9. Dépendances
 
 014-finance (port, registre, webhooks, `payments`), 002 auth-rbac (permission sensible), audit, kernel (`Money`, `Result`).
+
+## Évolution Q-PAY-32 — remboursement chez le fournisseur toujours manuel (décision du propriétaire, 2026-10)
+
+L'exécution automatique d'un remboursement chez un fournisseur de paiement est **désactivée par défaut** (`config.providerRefundAutoExecution = false`, variable `FINANCE_PROVIDER_REFUND_AUTO=true` pour l'activer). Sans elle, un remboursement approuvé d'un paiement en ligne reste `APPROVED` jusqu'à l'**attestation manuelle avec preuve** (`finance.refund.completed_manually`, audit sensible, quatre yeux inchangés). Un remboursement déjà parti (`REFUND_PENDING`) reste conclu par le rapprochement. Voir `apps/api/src/modules/finance/README.md` § « Remboursement réel ».
