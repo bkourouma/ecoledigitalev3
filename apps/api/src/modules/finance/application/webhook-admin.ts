@@ -103,7 +103,7 @@ export async function replayFailedWebhookEvent(
     if (!pre.payment.provider || pre.payment.provider !== pre.event.provider) {
       return err(conflict(FinanceCode.WEBHOOK_NOT_REPLAYABLE, "Le fournisseur de l'événement ne correspond pas à celui du paiement.", { eventId: input.id }));
     }
-    const provider = await deps.providers.resolve(ctx.tenantId, pre.event.provider);
+    const provider = await deps.providers.resolve(ctx.tenantId, pre.event.provider, { account: pre.payment.providerAccount });
     if (!provider.ok) {
       verifyFailure = provider.error.code;
     } else {

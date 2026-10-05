@@ -302,3 +302,57 @@ export async function agedBalanceByLearner(tx: Tx, scope: ReportScope, limit: nu
     total: money(r.total, c),
   }));
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Paiements en ligne par fournisseur et par COMPTE (Q-PAY-30)
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface ProviderAccountRow {
+  provider: string;
+  /** `UNKNOWN` : paiement en ligne antérieur au suivi du compte. */
+  account: "TENANT" | "PLATFORM" | "UNKNOWN";
+  confirmedCount: number;
+  confirmed: Money;
+  refunded: Money;
+  pendingCount: number;
+  pending: Money;
+  flaggedCount: number;
+  failedCount: number;
+}
+
+/**
+ * Paiements EN LIGNE du tenant courant (la RLS isole l'école : une école ne voit jamais le compte plateforme des autres)
+ * regroupés par fournisseur et par compte. Un paiement est rattaché à l'école par `tenant_id`, jamais par le compte :
+ * sur le compte plateforme, c'est ce rapport (et le rapprochement, qui fonctionne tenant par tenant) qui sépare les écoles.
+ */
+export async function providerAccountsReport(tx: Tx, options: { currency: CurrencyCode; from?: IsoDate; to?: IsoDate }): Promise<ProviderAccountRow[]> {
+  const rows = await tx.many(
+    `SELECT p.provider, COALESCE(p.provider_account, 'UNKNOWN') AS account,
+            count(*) FILTER (WHERE p.status IN ('CONFIRMED','REFUNDED'))::text AS confirmed_n,
+            COALESCE(sum(p.amount) FILTER (WHERE p.status IN ('CONFIRMED','REFUNDED')), 0)::text AS confirmed,
+            COALESCE(sum(p.refunded_amount) FILTER (WHERE p.status IN ('CONFIRMED','REFUNDED')), 0)::text AS refunded,
+            count(*) FILTER (WHERE p.status = 'PENDING')::text AS pending_n,
+            COALESCE(sum(p.amount) FILTER (WHERE p.status = 'PENDING'), 0)::text AS pending,
+            count(*) FILTER (WHERE p.status = 'PENDING' AND s.flagged_at IS NOT NULL AND s.resolved_at IS NULL)::text AS flagged_n,
+            count(*) FILTER (WHERE p.status = 'FAILED')::text AS failed_n
+       FROM finance.payments p
+       LEFT JOIN finance.reconciliation_state s ON s.payment_id = p.id
+      WHERE p.method = 'ONLINE' AND p.currency = $1
+        AND ($2::date IS NULL OR (p.received_at AT TIME ZONE 'Africa/Abidjan')::date >= $2::date)
+        AND ($3::date IS NULL OR (p.received_at AT TIME ZONE 'Africa/Abidjan')::date <= $3::date)
+      GROUP BY p.provider, COALESCE(p.provider_account, 'UNKNOWN')
+      ORDER BY p.provider, 2`,
+    [options.currency, options.from ?? null, options.to ?? null],
+  );
+  return rows.map((r) => ({
+    provider: r.provider,
+    account: r.account as ProviderAccountRow["account"],
+    confirmedCount: Number(r.confirmed_n),
+    confirmed: money(r.confirmed, options.currency),
+    refunded: money(r.refunded, options.currency),
+    pendingCount: Number(r.pending_n),
+    pending: money(r.pending, options.currency),
+    flaggedCount: Number(r.flagged_n),
+    failedCount: Number(r.failed_n),
+  }));
+}

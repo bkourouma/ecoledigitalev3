@@ -133,6 +133,7 @@ export function payment(over: Over = {}) {
     unallocated: xof(0),
     provider: null,
     providerRef: null,
+    providerAccount: null,
     simulated: false,
     reference: null,
     cashSessionId: fid(90),

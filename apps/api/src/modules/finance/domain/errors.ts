@@ -2,7 +2,7 @@
  * Erreurs métier du module finance : types du kernel + codes stables
  * `finance.*` (ils font partie du contrat d'API ; ne jamais en renommer un).
  */
-import { ConflictError, NotFoundError, ValidationError, type Result, err } from "@ecoledigitale/kernel";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type Result, err } from "@ecoledigitale/kernel";
 
 export const FinanceCode = {
   INVALID_AMOUNT: "finance.invalid_amount",
@@ -36,7 +36,6 @@ export const FinanceCode = {
   REFUND_IN_FLIGHT: "finance.refund_in_flight",
   RESOLUTION_NOT_FOUND: "finance.resolution_not_found",
   RESOLUTION_NOT_APPLICABLE: "finance.resolution_not_applicable",
-  RESOLUTION_SELF_APPROVAL: "finance.resolution_self_approval",
   RESOLUTION_ALREADY_OPEN: "finance.resolution_already_open",
   CREDIT_EXCEEDS_BALANCE: "finance.credit_exceeds_balance",
   CASH_SESSION_REQUIRED: "finance.cash_session_required",
@@ -56,6 +55,8 @@ export const FinanceCode = {
   PROVIDER_DISABLED: "finance.provider_disabled",
   PROVIDER_CONFIG_INVALID: "finance.provider_config_invalid",
   WEBHOOK_UNVERIFIED: "finance.webhook_unverified",
+  WEBHOOK_ACCOUNT_MISMATCH: "finance.webhook_account_mismatch",
+  MFA_STEP_UP_REQUIRED: "finance.mfa_required",
   SECRETS_UNAVAILABLE: "finance.secrets_unavailable",
   PROVIDER_TEST_THROTTLED: "finance.provider_test_throttled",
   WEBHOOK_SIGNATURE_INVALID: "finance.webhook_signature_invalid",
@@ -84,6 +85,9 @@ export const validation = (
 
 export const conflict = (code: FinanceCodeValue, message: string, details?: Record<string, unknown>): ConflictError =>
   new ConflictError(message, { code, ...(details ? { details } : {}) });
+
+export const forbidden = (code: FinanceCodeValue, message: string, details?: Record<string, unknown>): ForbiddenError =>
+  new ForbiddenError(message, { code, ...(details ? { details } : {}) });
 
 export const notFound = (code: FinanceCodeValue, resource: string, id?: string): NotFoundError =>
   NotFoundError.of(resource, id, { code });

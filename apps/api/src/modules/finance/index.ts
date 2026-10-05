@@ -187,6 +187,8 @@ export {
 } from "./application/refunds";
 export {
   approveManualResolution,
+  resolveManually,
+  requireRecentMfa,
   listManualResolutions,
   listPendingReconciliations,
   rejectManualResolution,
@@ -226,8 +228,10 @@ export {
   getAgedBalance,
   getCollectionsTrend,
   getFinanceSummary,
+  getProviderAccountsReport,
   getReceivablesByGroup,
   getReceivablesByLearner,
+  type ProviderAccountsReport,
   type ReportFilter,
 } from "./application/reports";
 export type {
@@ -235,6 +239,7 @@ export type {
   AgedLearnerRow,
   FinanceSummary,
   LearnerReceivableRow,
+  ProviderAccountRow,
   ReceivableRow,
   TrendGranularity,
   TrendPoint,

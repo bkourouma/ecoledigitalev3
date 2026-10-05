@@ -86,9 +86,11 @@ export function createFinanceProviderRuntime(input: FinanceProviderRuntimeInput)
     logger: input.logger,
     ...configCacheMsOf(env),
   });
-  // Configuration d'ENVIRONNEMENT : repli explicite seulement (déploiement mono-établissement, développement) ;
-  // la sandbox interne reste pilotée par l'environnement (`allowSandbox` d'un tenant de démonstration).
-  const envFallback = env.FINANCE_PROVIDER_ENV_FALLBACK === undefined ? isDevLikeEnvironment(environment) : env.FINANCE_PROVIDER_ENV_FALLBACK === "true";
+  // Compte PLATEFORME (configuration d'ENVIRONNEMENT) : repli d'un établissement sans configuration propre (Q-PAY-30,
+  // décision du 2026-10-05). Actif par défaut ; `FINANCE_PROVIDER_ENV_FALLBACK=false` le coupe. Sans réglages d'environnement
+  // pour le fournisseur, le repli ne produit rien (`finance.provider_not_configured`). La sandbox interne reste pilotée par
+  // l'environnement (`allowSandbox` d'un tenant de démonstration).
+  const envFallback = env.FINANCE_PROVIDER_ENV_FALLBACK?.trim().toLowerCase() !== "false";
   const providers = createProviderRegistry({
     environment,
     logger: input.logger,

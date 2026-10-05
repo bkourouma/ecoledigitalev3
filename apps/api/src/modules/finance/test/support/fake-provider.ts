@@ -25,8 +25,16 @@ export class FakeRealProvider implements PaymentProvider {
   /** Statut que `verify` renverra. */
   verifyStatus: ProviderPaymentStatus = "PENDING";
   verifyAmount: Money | null = null;
+  /** Références interrogées par `verify` (preuve de QUEL compte a été interrogé : voir `apiKey` / `tenantId`). */
+  verifyCalls: Array<string | null> = [];
 
-  constructor(private readonly name: string, private readonly secret: string) {}
+  constructor(
+    private readonly name: string,
+    private readonly secret: string,
+    /** Clé d'API du compte (distingue le compte d'une école du compte de la plateforme). */
+    readonly apiKey: string = "",
+    readonly tenantId: string = "",
+  ) {}
 
   getProviderName(): string {
     return this.name;
@@ -42,6 +50,7 @@ export class FakeRealProvider implements PaymentProvider {
   }
 
   async verify(request: ProviderVerifyRequest): Promise<Result<ProviderVerification, AppError>> {
+    this.verifyCalls.push(request.providerRef);
     return ok({
       status: this.verifyStatus,
       providerRef: request.providerRef,
@@ -84,8 +93,8 @@ export class FakeRealProvider implements PaymentProvider {
 export const fakeDefinition = (name: string, instances: FakeRealProvider[] = []): ProviderDefinition => ({
   name,
   requiredSettings: ["apiKey", "webhookSecret"],
-  create: ({ settings }) => {
-    const p = new FakeRealProvider(name, settings.webhookSecret ?? "");
+  create: ({ settings, tenantId }) => {
+    const p = new FakeRealProvider(name, settings.webhookSecret ?? "", settings.apiKey ?? "", tenantId);
     instances.push(p);
     return p;
   },

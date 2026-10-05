@@ -382,6 +382,8 @@ function ProviderCard({ provider, secretsAvailable }: { provider: FinanceProvide
         <p className="text-sm text-muted-foreground">{provider.description}</p>
         <p className="text-xs text-muted-foreground">{provider.supportsRefund ? t("capabilities.refund") : t("capabilities.noRefund")}</p>
         <p className="text-xs text-muted-foreground">{provider.updatedAt ? t("updatedAt", { date: date.instant(provider.updatedAt) }) : t("never")}</p>
+        <p className="text-xs text-muted-foreground">{provider.activeAccount ? t(`account.${provider.activeAccount}`) : t("account.none")}</p>
+        {provider.activeAccount === "PLATFORM" || (provider.activeAccount === "TENANT" && provider.platformFallbackReady) ? <p className="text-xs text-muted-foreground">{t("account.frozen")}</p> : null}
       </header>
 
       <form onSubmit={onSubmit} noValidate autoComplete="off" aria-labelledby={titleId} className="space-y-4">

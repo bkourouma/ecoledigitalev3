@@ -6,16 +6,18 @@
  *    (`finance.provider_secret.accessed`, une entrée par remplissage du cache, jamais une valeur) ; invalidé par les
  *    écritures d'administration du processus. Une désactivation faite par un autre processus s'applique au plus tard
  *    à l'expiration du cache.
- *  - `CompositeConfigSource` : configuration du tenant d'abord ; la configuration d'ENVIRONNEMENT ne sert de repli que
- *    si on l'autorise (déploiement mono-établissement, développement) — jamais par défaut en production : l'argent d'un
- *    établissement ne doit pas arriver sur le compte marchand de la plateforme.
+ *  - `CompositeConfigSource` : compte de l'ÉTABLISSEMENT d'abord ; en son absence (aucune ligne de configuration pour
+ *    ce fournisseur), repli sur le compte de la PLATEFORME (configuration d'environnement) — Q-PAY-30. Une ligne
+ *    existante mais DÉSACTIVÉE n'ouvre pas le repli : l'établissement a choisi de ne pas proposer ce fournisseur.
+ *    Le repli se coupe par `allowEnvFallback: false` (`FINANCE_PROVIDER_ENV_FALLBACK=false`). Chaque lecture dit de quel
+ *    compte elle vient (`getAccount`) : le paiement garde la trace du compte qui a reçu l'argent.
  */
 import { createSystemContext, noopLogger, systemClock, type Clock, type Logger } from "@ecoledigitale/kernel";
 import type { TenantDb } from "@ecoledigitale/database";
 import type { AuditPort } from "../application/ports/audit";
 import { SecretStoreError, type SecretStorePort } from "../application/ports/secret-store";
 import { getProviderConfig } from "./provider-config-repository";
-import type { ProviderConfigSource, ProviderSettings } from "./providers/registry";
+import type { AccountedSettings, ProviderAccount, ProviderConfigSource, ProviderSettings } from "./providers/registry";
 
 export interface TenantProviderConfigSourceOptions {
   readonly db: TenantDb;
@@ -112,9 +114,33 @@ export class CompositeConfigSource implements ProviderConfigSource {
   ) {}
 
   async get(tenantId: string, provider: string): Promise<ProviderSettings | null> {
-    if (this.options.alwaysEnv?.includes(provider)) return this.envSource.get(tenantId, provider);
+    return (await this.getAccount(tenantId, provider))?.settings ?? null;
+  }
+
+  async getAccount(tenantId: string, provider: string, wanted?: ProviderAccount): Promise<AccountedSettings | null> {
+    if (this.options.alwaysEnv?.includes(provider)) {
+      const settings = await this.envSource.get(tenantId, provider);
+      return settings ? { account: "PLATFORM", settings } : null;
+    }
+    if (wanted === "TENANT") {
+      const own = await this.tenantSource.get(tenantId, provider);
+      return own ? { account: "TENANT", settings: own } : null;
+    }
+    if (wanted === "PLATFORM") {
+      // Paiement déjà initié sur le compte plateforme : on l'interroge LÀ, même si l'établissement a configuré le sien
+      // depuis (l'argent est parti vers le compte plateforme).
+      const platform = await this.envSource.get(tenantId, provider);
+      return platform ? { account: "PLATFORM", settings: platform } : null;
+    }
     const own = await this.tenantSource.get(tenantId, provider);
-    if (own) return own;
-    return this.options.allowEnvFallback ? this.envSource.get(tenantId, provider) : null;
+    if (own) return { account: "TENANT", settings: own };
+    if (!this.options.allowEnvFallback) return null;
+    const platform = await this.envSource.get(tenantId, provider);
+    return platform ? { account: "PLATFORM", settings: platform } : null;
+  }
+
+  async platformSettings(provider: string): Promise<ProviderSettings | null> {
+    if (!this.options.allowEnvFallback) return null;
+    return this.envSource.get("", provider);
   }
 }

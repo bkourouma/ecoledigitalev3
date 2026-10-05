@@ -95,6 +95,10 @@ export type CashSessionStatus = (typeof CASH_SESSION_STATUSES)[number];
 export const PAYER_KINDS = ["LEARNER", "FUNDER"] as const;
 export type PayerKind = (typeof PAYER_KINDS)[number];
 
+/** Compte fournisseur d'un paiement en ligne (Q-PAY-30) : `TENANT` = compte propre de l'établissement, `PLATFORM` = compte de la plateforme. */
+export type ProviderAccount = "TENANT" | "PLATFORM";
+export const PROVIDER_ACCOUNTS: readonly ProviderAccount[] = ["TENANT", "PLATFORM"];
+
 export const FUNDER_KINDS = ["STATE", "COMPANY", "INSTITUTION", "FOUNDATION", "OTHER"] as const;
 export type FunderKind = (typeof FUNDER_KINDS)[number];
 

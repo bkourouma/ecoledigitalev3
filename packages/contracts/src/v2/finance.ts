@@ -590,6 +590,11 @@ export const financeListPaymentsQuerySchema = financePageQuerySchema.extend({
 
 export const financeListReceiptsQuerySchema = financePageQuerySchema.extend({ learnerId: financeUuidSchema.optional() });
 
+/** Compte fournisseur d'un paiement en ligne (Q-PAY-30) : `TENANT` = compte propre de l'école, `PLATFORM` = compte de la plateforme. */
+export const FINANCE_PROVIDER_ACCOUNTS = ["TENANT", "PLATFORM"] as const;
+export const financeProviderAccountSchema = z.enum(FINANCE_PROVIDER_ACCOUNTS);
+export type FinanceProviderAccount = z.infer<typeof financeProviderAccountSchema>;
+
 export const financePaymentDtoSchema = z.object({
   id: financeUuidSchema,
   learnerId: financeUuidSchema,
@@ -604,6 +609,8 @@ export const financePaymentDtoSchema = z.object({
   refunded: financeMoneyDtoSchema,
   unallocated: financeMoneyDtoSchema,
   provider: z.string().nullable(),
+  /** Compte fournisseur utilisé à l'initiation (Q-PAY-30) ; `null` : paiement hors ligne ou antérieur au suivi. */
+  providerAccount: financeProviderAccountSchema.nullable(),
   providerRef: z.string().nullable(),
   simulated: z.boolean(),
   reference: z.string().nullable(),
@@ -826,7 +833,7 @@ export type FinanceReconciliationDto = z.infer<typeof financeReconciliationDtoSc
 export const financePendingPaymentDtoSchema = z.object({
   payment: financePaymentDtoSchema,
   reconciliation: financeReconciliationDtoSchema.nullable(),
-  /** Demande de résolution manuelle en attente d'approbation (quatre yeux), s'il y en a une. */
+  /** Demande de résolution ouverte avant la décision Q-PAY-38 (ancien flux à deux personnes), s'il en reste une à clore. */
   openResolutionId: financeUuidSchema.nullable(),
 });
 export type FinancePendingPaymentDto = z.infer<typeof financePendingPaymentDtoSchema>;
@@ -837,7 +844,10 @@ export type FinancePendingPaymentsDto = z.infer<typeof financePendingPaymentsDto
 export const FINANCE_RESOLUTION_OUTCOMES = ["SUCCEEDED", "FAILED"] as const;
 export const FINANCE_RESOLUTION_STATUSES = ["REQUESTED", "APPROVED", "REJECTED"] as const;
 
-/** Demande de résolution manuelle : un paiement OU un remboursement, ce qui s'est réellement passé, un motif et une preuve. */
+/**
+ * Résolution manuelle (Q-PAY-38, UNE seule personne habilitée, MFA récente exigée) : un paiement OU un remboursement, ce qui
+ * s'est réellement passé, un motif et une preuve. La réponse est la résolution déjà `APPROVED`.
+ */
 export const financeRequestResolutionBodySchema = z
   .object({
     paymentId: financeUuidSchema.optional(),
@@ -953,6 +963,13 @@ export const financeCollectionsTrendQuerySchema = z.object({
   currency: financeCurrencySchema.optional(),
 });
 
+/** Rapport « par compte fournisseur » (Q-PAY-30) : propre à l'école (RLS), regroupé par fournisseur et compte. */
+export const financeProviderAccountsReportQuerySchema = z.object({
+  from: financeDateSchema.optional(),
+  to: financeDateSchema.optional(),
+  currency: financeCurrencySchema.optional(),
+});
+
 export const financeAgedBalanceQuerySchema = financeReportQuerySchema.extend({
   byLearner: z.coerce.number().int().min(1).max(500).optional(),
 });
@@ -993,6 +1010,29 @@ export const financeLearnerReceivableRowDtoSchema = financeReceivableRowDtoSchem
   learnerName: z.string().nullable().optional(),
   oldestOverdueDate: financeDateSchema.nullable(),
 });
+
+export const financeProviderAccountRowDtoSchema = z.object({
+  provider: z.string(),
+  /** `UNKNOWN` : paiement en ligne antérieur au suivi du compte (migration 0509). */
+  account: z.enum(["TENANT", "PLATFORM", "UNKNOWN"]),
+  confirmedCount: z.number().int(),
+  confirmed: financeMoneyDtoSchema,
+  refunded: financeMoneyDtoSchema,
+  pendingCount: z.number().int(),
+  pending: financeMoneyDtoSchema,
+  /** Paiements en attente signalés « à rapprocher » par le rapprochement automatique. */
+  flaggedCount: z.number().int(),
+  failedCount: z.number().int(),
+});
+export type FinanceProviderAccountRowDto = z.infer<typeof financeProviderAccountRowDtoSchema>;
+
+export const financeProviderAccountsReportDtoSchema = z.object({
+  currency: financeCurrencySchema,
+  from: financeDateSchema.nullable(),
+  to: financeDateSchema.nullable(),
+  items: z.array(financeProviderAccountRowDtoSchema),
+});
+export type FinanceProviderAccountsReportDto = z.infer<typeof financeProviderAccountsReportDtoSchema>;
 
 export const financeTrendPointDtoSchema = z.object({
   bucket: financeDateSchema,
@@ -1071,7 +1111,7 @@ export const financeFamilyInstallmentDtoSchema = financeInstallmentDtoSchema.ext
 });
 export type FinanceFamilyInstallmentDto = z.infer<typeof financeFamilyInstallmentDtoSchema>;
 
-export const financeFamilyPaymentDtoSchema = financePaymentDtoSchema.omit({ payerRef: true, providerRef: true, simulated: true, cashSessionId: true });
+export const financeFamilyPaymentDtoSchema = financePaymentDtoSchema.omit({ payerRef: true, providerRef: true, providerAccount: true, simulated: true, cashSessionId: true });
 export type FinanceFamilyPaymentDto = z.infer<typeof financeFamilyPaymentDtoSchema>;
 export const financeFamilyPaymentViewDtoSchema = z.object({
   payment: financeFamilyPaymentDtoSchema,
@@ -1247,6 +1287,10 @@ export const financeProviderDtoSchema = z.object({
   fields: z.array(financeProviderFieldDtoSchema),
   lastTest: financeProviderTestDtoSchema.nullable(),
   updatedAt: isoInstant.nullable(),
+  /** Q-PAY-30 : compte qui recevrait un paiement aujourd'hui (propre à l'école, repli plateforme, ou aucun). */
+  activeAccount: financeProviderAccountSchema.nullable(),
+  /** Le compte de la plateforme est complet pour ce fournisseur (repli possible sans configuration propre). */
+  platformFallbackReady: z.boolean(),
 });
 export type FinanceProviderDto = z.infer<typeof financeProviderDtoSchema>;
 

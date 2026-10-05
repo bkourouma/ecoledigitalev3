@@ -13,6 +13,7 @@ import type {
   PayerKind,
   PaymentMethod,
   PaymentStatus,
+  ProviderAccount,
   RefundExecutionMode,
   RefundStatus,
   Uuid,
@@ -72,6 +73,8 @@ export interface PaymentRecord {
   readonly idempotencyKey: string;
   readonly requestFingerprint: string;
   readonly provider: string | null;
+  /** Compte fournisseur utilisé à l'initiation d'un paiement en ligne (Q-PAY-30) ; `null` : hors ligne ou antérieur à 0509. */
+  readonly providerAccount: ProviderAccount | null;
   readonly providerRef: string | null;
   readonly providerStatus: string | null;
   readonly simulated: boolean;

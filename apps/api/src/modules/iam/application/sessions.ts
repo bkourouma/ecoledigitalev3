@@ -157,6 +157,8 @@ export async function authenticateBearer(
     actor: isImpersonation ? "superAdmin" : "user",
     // Lu en base (jamais dans la revendication du jeton) ; lu par le RBAC pour les permissions sensibles.
     mfa: mfaSatisfied,
+    // Step-up encore ouvert (lu en base, jamais dans le jeton) : les actions qui exigent une MFA RÉCENTE le lisent.
+    ...(!isImpersonation && row.mfa_elevated_until !== null && row.mfa_elevated_until > now ? { mfaElevatedUntil: row.mfa_elevated_until } : {}),
   });
   const principal: AuthenticatedPrincipal = {
     ctx,

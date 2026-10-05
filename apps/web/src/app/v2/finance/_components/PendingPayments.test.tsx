@@ -105,32 +105,60 @@ describe("PendingPaymentsScreen (paiements à rapprocher)", () => {
     expect(screen.queryByRole("button", { name: /Résoudre à la main/ })).toBeNull(); // pas la permission sensible
   });
 
-  it("résolution manuelle : motif (10 car.) et preuve obligatoires, envoi avec la preuve, la demande attend une AUTRE personne", async () => {
+  it("Q-PAY-38 — résolution manuelle : motif (10 car.) et preuve obligatoires, envoi avec la preuve, appliquée aussitôt par UNE personne", async () => {
     const api = setTestApi({
       ...accessRoutes(RECONCILER),
       [`GET ${BASE}/payments/pending`]: { items: [flagged], total: 1 },
       [`GET ${BASE}/resolutions`]: { items: [] },
-      [`POST ${BASE}/resolutions`]: () => json(resolution(), { status: 201 }),
+      [`POST ${BASE}/resolutions`]: () => json(resolution({ status: "APPROVED", decidedBy: fid(500), decidedAt: AT }), { status: 201 }),
     });
     renderWithProviders(<PendingPaymentsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: /Résoudre à la main/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText(/^Motif/), { target: { value: "court" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Demander la résolution" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Résoudre le paiement" }));
     expect(await within(dialog).findByText("Le motif doit faire au moins 10 caractères.")).toBeTruthy();
     expect(within(dialog).getByText("Saisissez la preuve (3 caractères au moins).")).toBeTruthy();
     expect(posts(api, `${BASE}/resolutions`)).toHaveLength(0);
 
     fireEvent.change(within(dialog).getByLabelText(/^Motif/), { target: { value: "Relevé Orange du 01/10 montrant l'encaissement" } });
     fireEvent.change(within(dialog).getByLabelText(/^Preuve/), { target: { value: "MP251001.1234.A56789" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Demander la résolution" }));
-    await screen.findByText("La demande est enregistrée : elle attend l'approbation d'une autre personne.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Résoudre le paiement" }));
+    await screen.findByText("La résolution est enregistrée et appliquée.");
     expect(posts(api, `${BASE}/resolutions`)[0]!.body).toEqual({
       paymentId: fid(70),
       outcome: "SUCCEEDED",
       reason: "Relevé Orange du 01/10 montrant l'encaissement",
       evidenceRef: "MP251001.1234.A56789",
     });
+  });
+
+  it("Q-PAY-38 — MFA récente exigée : code TOTP demandé, puis la MÊME requête est rejouée une seule fois", async () => {
+    let calls = 0;
+    const api = setTestApi({
+      ...accessRoutes(RECONCILER),
+      [`GET ${BASE}/payments/pending`]: { items: [flagged], total: 1 },
+      [`GET ${BASE}/resolutions`]: { items: [] },
+      [`POST ${BASE}/resolutions`]: () =>
+        ++calls === 1
+          ? json({ code: "finance.mfa_required", message: "Une vérification MFA récente est exigée pour résoudre un paiement à la main." }, { status: 403 })
+          : json(resolution({ status: "APPROVED", decidedBy: fid(500), decidedAt: AT }), { status: 201 }),
+      "POST /api/v1/iam/mfa/step-up": { elevated: true, expiresAt: "2026-10-05T10:05:00.000Z", ttlSec: 300 },
+    });
+    renderWithProviders(<PendingPaymentsScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: /Résoudre à la main/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/^Motif/), { target: { value: "Relevé Orange du 01/10 montrant l'encaissement" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Preuve/), { target: { value: "MP251001.1234.A56789" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Résoudre le paiement" }));
+    const stepUp = await screen.findByRole("dialog", { name: "Confirmez votre identité" });
+    fireEvent.change(within(stepUp).getByLabelText(/Code à 6 chiffres/), { target: { value: "123456" } });
+    fireEvent.click(within(stepUp).getByRole("button", { name: "Confirmer et continuer" }));
+    await screen.findByText("La résolution est enregistrée et appliquée.");
+    expect(calls).toBe(2);
+    expect(posts(api, `${BASE}/resolutions`)).toHaveLength(2);
+    expect(posts(api, `${BASE}/resolutions`)[1]!.body).toEqual(posts(api, `${BASE}/resolutions`)[0]!.body);
+    expect(api.calls.filter((c) => c.path === "/api/v1/iam/mfa/step-up")).toHaveLength(1);
   });
 
   it("une demande déjà ouverte remplace le bouton : « Résolution à approuver »", async () => {
@@ -144,19 +172,19 @@ describe("PendingPaymentsScreen (paiements à rapprocher)", () => {
     expect(screen.queryByRole("button", { name: /Résoudre à la main/ })).toBeNull();
   });
 
-  it("approbation : la note est facultative ; le refus d'auto-approbation de l'API est affiché tel quel (quatre yeux côté serveur)", async () => {
+  it("clôture d'une demande ouverte avant Q-PAY-38 : la note est facultative ; un refus de l'API est affiché tel quel", async () => {
     const api = setTestApi({
       ...accessRoutes(RECONCILER),
       [`GET ${BASE}/payments/pending`]: { items: [], total: 0 },
       [`GET ${BASE}/resolutions`]: { items: [resolution()] },
-      [`POST ${BASE}/resolutions/${fid(300)}/approve`]: () => json({ code: "finance.resolution_self_approval", message: "Le demandeur ne peut pas approuver sa propre résolution manuelle." }, { status: 409 }),
+      [`POST ${BASE}/resolutions/${fid(300)}/approve`]: () => json({ code: "finance.resolution_not_applicable", message: "Le paiement n'est plus en attente : la résolution n'a plus d'objet." }, { status: 409 }),
     });
     renderWithProviders(<PendingPaymentsScreen />);
     fireEvent.click(await screen.findByRole("button", { name: /Approuver/ }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/MP251001\.1234\.A56789/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Approuver" }));
-    expect(await within(dialog).findByText("Le demandeur ne peut pas approuver sa propre résolution manuelle.")).toBeTruthy();
+    expect(await within(dialog).findByText("Le paiement n'est plus en attente : la résolution n'a plus d'objet.")).toBeTruthy();
     expect(posts(api, `${BASE}/resolutions/${fid(300)}/approve`)[0]!.body).toEqual({});
   });
 

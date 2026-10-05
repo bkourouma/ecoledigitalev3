@@ -36,3 +36,22 @@ describe("RequestContext.mfa (extension rétro-compatible)", () => {
     }).toThrow();
   });
 });
+
+describe("RequestContext.mfaElevatedUntil (step-up récent, Q-PAY-38)", () => {
+  const until = new Date("2026-10-05T10:05:00.000Z");
+
+  it("absent par défaut ; copié (pas de partage de l'objet Date) quand il est fourni", () => {
+    expect(createRequestContext({ tenantId: T, userId: U, mfa: true }).mfaElevatedUntil).toBeUndefined();
+    expect("mfaElevatedUntil" in createRequestContext({ tenantId: T, userId: U })).toBe(false);
+    expect(createRequestContext({ tenantId: T, userId: U, mfaElevatedUntil: null }).mfaElevatedUntil).toBeUndefined();
+    const ctx = createRequestContext({ tenantId: T, userId: U, mfa: true, mfaElevatedUntil: until });
+    expect(ctx.mfaElevatedUntil?.getTime()).toBe(until.getTime());
+    expect(ctx.mfaElevatedUntil).not.toBe(until);
+  });
+
+  it("est conservé par deriveContext, et perdu si la MFA est modifiée explicitement", () => {
+    const strong = createRequestContext({ tenantId: T, userId: U, mfa: true, mfaElevatedUntil: until });
+    expect(deriveContext(strong, { campusId: CAMPUS }).mfaElevatedUntil?.getTime()).toBe(until.getTime());
+    expect(deriveContext(strong, { mfa: false }).mfaElevatedUntil).toBeUndefined();
+  });
+});

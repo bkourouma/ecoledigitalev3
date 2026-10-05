@@ -26,6 +26,8 @@ const provider = {
   fields: [{ key: "api_key", label: "Clé API", secret: true, required: true, kind: "text", generated: false, isSet: true, value: null }],
   lastTest: null,
   updatedAt: AT,
+  activeAccount: "TENANT",
+  platformFallbackReady: false,
 };
 
 function wrapper() {

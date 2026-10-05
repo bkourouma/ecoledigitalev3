@@ -38,6 +38,7 @@ import type { FinanceProviderDto, FinanceProviderListDto, FinanceProviderName } 
 import type { ProviderListView, ProviderView } from "../application/provider-admin";
 import type { PaymentView } from "../application/billing-core";
 import type { OnlinePaymentResult } from "../application/online-payments";
+import type { ProviderAccountsReport } from "../application/reports";
 import type { InvoicePreview, LearnerStatement } from "../application/invoices";
 import type { FamilyAccess, FamilyStatement } from "../application/family";
 import type { LearnerInstallmentRow } from "../infrastructure/billing-repository";
@@ -216,6 +217,7 @@ export const paymentDto = (p: PaymentRecord) => ({
   refunded: money(p.refunded),
   unallocated: money(p.status === "CONFIRMED" ? unallocatedAmount(p) : Money.zero(p.amount.currency)),
   provider: p.provider,
+  providerAccount: p.providerAccount,
   providerRef: p.providerRef,
   simulated: p.simulated,
   reference: p.reference,
@@ -403,6 +405,23 @@ export const learnerReceivableRowDto = (r: LearnerReceivableRow, names: Readonly
   oldestOverdueDate: r.oldestOverdueDate,
 });
 
+export const providerAccountsReportDto = (r: ProviderAccountsReport) => ({
+  currency: r.currency,
+  from: r.from,
+  to: r.to,
+  items: r.items.map((i) => ({
+    provider: i.provider,
+    account: i.account,
+    confirmedCount: i.confirmedCount,
+    confirmed: money(i.confirmed),
+    refunded: money(i.refunded),
+    pendingCount: i.pendingCount,
+    pending: money(i.pending),
+    flaggedCount: i.flaggedCount,
+    failedCount: i.failedCount,
+  })),
+});
+
 export const trendPointDto = (p: TrendPoint) => ({
   bucket: p.bucket,
   collected: money(p.collected),
@@ -464,7 +483,7 @@ export const familyInstallmentDto = (r: LearnerInstallmentRow, today: IsoDate) =
 });
 
 export const familyPaymentDto = (p: PaymentRecord) => {
-  const { payerRef: _payerRef, providerRef: _providerRef, simulated: _simulated, cashSessionId: _cashSessionId, ...rest } = paymentDto(p);
+  const { payerRef: _payerRef, providerRef: _providerRef, providerAccount: _providerAccount, simulated: _simulated, cashSessionId: _cashSessionId, ...rest } = paymentDto(p);
   return rest;
 };
 
@@ -528,6 +547,8 @@ export function providerDto(v: ProviderView): FinanceProviderDto {
     })),
     lastTest: v.lastTest ? { at: v.lastTest.at.toISOString(), ok: v.lastTest.ok, code: v.lastTest.code } : null,
     updatedAt: v.updatedAt ? v.updatedAt.toISOString() : null,
+    activeAccount: v.activeAccount,
+    platformFallbackReady: v.platformFallbackReady,
   };
 }
 

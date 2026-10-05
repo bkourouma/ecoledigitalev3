@@ -13,7 +13,7 @@ import type {
   ReceiptSnapshot,
   RefundRecord,
 } from "../domain/records";
-import type { DocumentKind, PayerKind, PaymentMethod, PaymentStatus, RefundStatus, Uuid } from "../domain/types";
+import type { DocumentKind, PayerKind, PaymentMethod, PaymentStatus, ProviderAccount, RefundStatus, Uuid } from "../domain/types";
 import { money } from "./rows";
 
 // --- Numérotation ------------------------------------------------------------
@@ -31,7 +31,7 @@ export async function nextSequence(tx: Tx, kind: DocumentKind, year: number): Pr
 
 export const PAYMENT_COLS = `id, learner_id, enrollment_id, payer_kind, payer_ref, payer_name, method, status,
   amount::text AS amount, currency, allocated_amount::text AS allocated_amount, refunded_amount::text AS refunded_amount,
-  idempotency_key, request_fingerprint, provider, provider_ref, provider_status, simulated, reference,
+  idempotency_key, request_fingerprint, provider, provider_account, provider_ref, provider_status, simulated, reference,
   intended_invoice_id, cash_session_id, received_at, confirmed_at, failed_at, failure_reason, created_by, created_at`;
 
 export const paymentOf = (r: any): PaymentRecord => ({
@@ -49,6 +49,7 @@ export const paymentOf = (r: any): PaymentRecord => ({
   idempotencyKey: r.idempotency_key,
   requestFingerprint: r.request_fingerprint,
   provider: r.provider,
+  providerAccount: (r.provider_account ?? null) as ProviderAccount | null,
   providerRef: r.provider_ref,
   providerStatus: r.provider_status,
   simulated: r.simulated,
@@ -76,6 +77,8 @@ export interface NewPayment {
   idempotencyKey: string;
   requestFingerprint: string;
   provider: string | null;
+  /** Compte fournisseur utilisé à l'initiation (Q-PAY-30) ; `null` hors ligne. */
+  providerAccount?: ProviderAccount | null;
   providerRef: string | null;
   simulated: boolean;
   reference: string | null;
@@ -96,8 +99,8 @@ export async function insertPaymentIdempotent(tx: Tx, tenantId: string, p: NewPa
     `INSERT INTO finance.payments
        (id, tenant_id, learner_id, enrollment_id, payer_kind, payer_ref, payer_name, method, status, amount, currency,
         idempotency_key, request_fingerprint, provider, provider_ref, simulated, reference, intended_invoice_id,
-        cash_session_id, received_at, confirmed_at, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        cash_session_id, received_at, confirmed_at, created_by, provider_account)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
      RETURNING ${PAYMENT_COLS}`,
     [
@@ -123,6 +126,7 @@ export async function insertPaymentIdempotent(tx: Tx, tenantId: string, p: NewPa
       p.receivedAt,
       p.confirmedAt,
       p.createdBy,
+      p.providerAccount ?? null,
     ],
   );
   return row ? paymentOf(row) : null;

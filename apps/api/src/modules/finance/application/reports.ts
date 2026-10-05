@@ -12,12 +12,14 @@ import {
   agedBalanceByLearner,
   collectionsTrend,
   financeSummary,
+  providerAccountsReport,
   receivablesByGroup,
   receivablesByLearner,
   type AgedBalanceReport,
   type AgedLearnerRow,
   type FinanceSummary,
   type LearnerReceivableRow,
+  type ProviderAccountRow,
   type ReceivableRow,
   type ReportScope,
   type TrendGranularity,
@@ -126,3 +128,43 @@ export async function getAgedBalance(
   );
 }
 
+
+export interface ProviderAccountsReport {
+  currency: CurrencyCode;
+  from: IsoDate | null;
+  to: IsoDate | null;
+  items: ProviderAccountRow[];
+}
+
+/**
+ * Q-PAY-30 : paiements en ligne de l'ÉCOLE du contexte, par fournisseur et par compte (propre / plateforme). La RLS limite
+ * toujours à l'école : jamais de total « plateforme » mêlant plusieurs écoles dans ce rapport.
+ */
+export async function getProviderAccountsReport(
+  deps: FinanceDeps,
+  ctx: RequestContext,
+  filter: { from?: IsoDate; to?: IsoDate; currency?: CurrencyCode } = {},
+): Promise<Result<ProviderAccountsReport, AppError>> {
+  for (const [name, value] of [["from", filter.from], ["to", filter.to]] as const) {
+    if (value === undefined) continue;
+    try {
+      assertIsoDate(value, name);
+    } catch {
+      return err(validation(FinanceCode.INVALID_INPUT, "Date invalide.", name));
+    }
+  }
+  if (filter.from && filter.to && filter.from > filter.to) return err(validation(FinanceCode.INVALID_INPUT, "La période est inversée.", "to"));
+  const currency = filter.currency ?? deps.config.defaultCurrency;
+  return inTx(
+    deps,
+    ctx,
+    async (tx) =>
+      ok({
+        currency,
+        from: filter.from ?? null,
+        to: filter.to ?? null,
+        items: await providerAccountsReport(tx, { currency, ...(filter.from ? { from: filter.from } : {}), ...(filter.to ? { to: filter.to } : {}) }),
+      }),
+    { readOnly: true },
+  );
+}

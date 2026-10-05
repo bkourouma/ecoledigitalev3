@@ -5,8 +5,8 @@
  * `GET /api/v1/finance/payments/pending`, `GET|POST /api/v1/finance/resolutions…`, repli manuel des remboursements.
  *
  * Le web n'invente aucune issue : il affiche l'état du rapprochement calculé par l'API et lui transmet les actions. Les
- * résolutions manuelles exigent la permission sensible `finance.payment.reconcile` (MFA) ; l'approbation par une AUTRE
- * personne que le demandeur est contrôlée côté API (refus 409 `finance.resolution_self_approval`).
+ * résolutions manuelles exigent la permission sensible `finance.payment.reconcile` (MFA) ET une MFA RÉCENTE (Q-PAY-38 : une
+ * seule personne tranche ; refus 403 `finance.mfa_required` rejoué après confirmation par code, voir `useStepUp`).
  *
  * Clés de cache : `["finance", "pending", …]`, `["finance", "resolutions", …]` (le tenant est ajouté par `platformHooks`).
  */

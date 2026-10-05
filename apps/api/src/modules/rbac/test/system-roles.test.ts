@@ -615,7 +615,7 @@ describe("interdits notables (moindre privilège, séparation des tâches)", () 
       ["exam.fee.manage", "barème des frais d'examen et confirmation d'un remboursement manuel : direction ; l'économe consulte l'obligation de paiement"],
       ["enrollment.confirm.override", "confirmer une inscription sans paiement : direction (l'économe encaisse, il ne dispense pas)"],
       ["finance.webhook.replay", "rejeu d'un webhook de paiement (sensible, MFA) : direction"],
-      ["finance.payment.reconcile", "résolution manuelle des paiements (sensible, quatre yeux) : direction"],
+      ["finance.payment.reconcile", "résolution manuelle des paiements (sensible, une seule personne, MFA récente) : direction"],
       ["analytics.payroll.read", "masse salariale des tableaux de bord (sensible) : direction"],
       ["analytics.charges.read", "charges et compte de résultat : direction"],
       ["analytics.alerts.manage", "seuils et destinataires des alertes : acte de direction"],

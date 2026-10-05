@@ -60,6 +60,9 @@ describeIntegration("iam — step-up MFA (Postgres réel)", () => {
   it("une session sans MFA devient MFA-satisfaite pour la fenêtre courte, puis redevient non élevée", async () => {
     const { token, secret } = await sessionWithoutMfa("stepup1@exemple.ci");
     expect(await mfaOf(token)).toBe(false);
+    const before = await h.iam.authenticate(token);
+    if (!before.ok) throw before.error;
+    expect(before.value.principal.ctx.mfaElevatedUntil).toBeUndefined(); // pas d'élévation : pas de « MFA récente » (Q-PAY-38)
 
     const res = await stepUp(token, codeAt(secret));
     expect(res.statusCode).toBe(200);
@@ -68,11 +71,18 @@ describeIntegration("iam — step-up MFA (Postgres réel)", () => {
     expect(body).toMatchObject({ elevated: true, ttlSec: 120 });
     expect(new Date(body.expiresAt).getTime()).toBe(h.clock.now().getTime() + 120_000);
     expect(await mfaOf(token)).toBe(true);
+    // Le contexte porte la fin de la fenêtre : les actions qui exigent une MFA RÉCENTE la comparent à l'horloge.
+    const elevated = await h.iam.authenticate(token);
+    if (!elevated.ok) throw elevated.error;
+    expect(elevated.value.principal.ctx.mfaElevatedUntil?.getTime()).toBe(h.clock.now().getTime() + 120_000);
 
     h.clock.advance(119_000);
     expect(await mfaOf(token)).toBe(true);
     h.clock.advance(2_000);
     expect(await mfaOf(token)).toBe(false);
+    const expired = await h.iam.authenticate(token);
+    if (!expired.ok) throw expired.error;
+    expect(expired.value.principal.ctx.mfaElevatedUntil).toBeUndefined();
   });
 
   it("refuse un mauvais code (401), un format invalide (400), sans session (401) ; n'élève rien", async () => {
