@@ -125,14 +125,14 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "rbac.*": "Attribuer et retirer les rôles du personnel (la définition des rôles reste au propriétaire).",
       "academic.*": "Clôturer, reconduire, rouvrir les années et périodes, appliquer un modèle de pack : actes de direction de l'établissement.",
       "curriculum.*": "Amender un curriculum publié : décision de direction avec effet sur les résultats.",
-      "enrollment.*": "Déroger à l'éligibilité d'une offre et changer le financement d'une inscription : arbitrages de direction.",
+      "enrollment.*": "Déroger à l'éligibilité d'une offre, changer le financement d'une inscription et confirmer une inscription sans paiement (O-01, motif obligatoire, MFA) : arbitrages de direction ; le secrétariat inscrit mais ne confirme pas sans paiement.",
       "assessment.*": "Régler les types d'évaluation et la séparation des tâches de la saisie des notes.",
       "grade.*": "Valider, publier et corriger après publication les notes : responsabilité de direction (garde-fou final).",
       "attendance.*": "Rouvrir un appel validé, surcharger un récapitulatif, décider des congés du personnel.",
       "audit.*": "Exporter le journal d'audit : contrôle de direction.",
       "finance.*": "Rembourser (quatre yeux à l'exécution), rapprocher les paiements et rejouer un webhook de paiement en échec (re-vérification auprès du fournisseur, audité, MFA) : la direction supervise la caisse.",
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
-      "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires.",
+      "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires, accorder ou révoquer une dispense d'UE (O-14) et déclarer une UE annuelle (O-11).",
       "iam.*": "Réinitialiser la double authentification d'un membre : gestion des accès par la direction.",
       "analytics.*": "Consulter la masse salariale par période dans les tableaux de bord de direction (lecture seule, MFA exigée, chaque lecture est auditée).",
       "payroll.*": "Gérer les configurations de paie, arrêter, verser et annuler les bulletins (le seuil propriétaire et les réglages restent au propriétaire).",
@@ -146,8 +146,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "notifications.*": "Envoyer un avis urgent (contourne heures calmes et préférences de catégorie, audité, authentification forte) : responsabilité de direction.",
       "imports.*": "Reprise de données (soldes financiers d'ouverture : factures et avoirs de reprise, MFA exigée, audité) : acte de direction ; les autres rôles ne lancent que les importeurs de leur métier (jamais les soldes d'ouverture) : inscriptions au secrétariat, notes de leurs seules évaluations aux enseignants.",
       "messaging.*": "Modérer les signalements, restreindre l'envoi et superviser les conversations avec motif obligatoire (audité) : responsabilité de direction.",
-      "admission.*": "Décider d'une candidature, dépasser une capacité, publier un workflow et anonymiser un dossier clos (acte irréversible, motif obligatoire, MFA) : responsabilité de direction ; le traitement courant reste au secrétariat. Le rang de la liste d'attente (Q-A03) est aussi une décision de direction, tracée.",
-      "exam.*": "Accorder une dérogation d'éligibilité, publier les résultats d'une session, appliquer un lot de résultats officiels et approuver la révision d'une note publiée : actes de direction, hors du responsable des examens (qui saisit et prépare) ; la direction des études (L-02) publie les résultats et approuve les dérogations, mais n'applique ni ne révise.",
+      "admission.*": "Lire la moyenne d'examen transmise (donnée d'un enfant, lecture tracée), décider d'une candidature, dépasser une capacité, publier un workflow et anonymiser un dossier clos (acte irréversible, motif obligatoire, MFA) : responsabilité de direction ; le traitement courant reste au secrétariat. Le rang de la liste d'attente (Q-A03) est aussi une décision de direction, tracée.",
+      "exam.*": "Accorder une dérogation d'éligibilité, publier les résultats d'une session, appliquer un lot de résultats officiels, approuver la révision d'une note publiée et anonymiser un candidat libre (droit à l'effacement, irréversible) : actes de direction, hors du responsable des examens (qui saisit et prépare) ; la direction des études (L-02) publie les résultats et approuve les dérogations, mais n'applique ni ne révise. La direction gère aussi le barème des frais et confirme un remboursement manuel.",
       "primary.*": "Réviser une compétence validée, sceller et réémettre un bilan annuel, geler l'archive d'une année et appliquer le modèle de pack : actes irréversibles ou à effet durable, tenus par la direction (l'instituteur saisit et valide).",
       "schoollife.*": "Valider les sanctions et exclusions, appliquer leur effet sur le statut de l'élève, révoquer, trancher un recours, lire les éléments confidentiels (lecture journalisée) et régler les barèmes : responsabilité de direction ; l'éducateur propose, il ne valide pas.",
       "stateassign.*": "Vérifier, activer, suspendre ou amender un dossier d'affectation d'État et régler le module : actes humains audités de direction (le secrétariat enregistre sans vérifier).",
@@ -247,6 +247,10 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "higher.prerequisite.manage",
       "higher.resit.manage",
       "higher.settings.manage",
+      // O-11 / O-14 : UE annuelle (résultat commun, sensible) et dispenses d'UE en lecture. ACCORDER une dispense
+      // (`higher.exemption.grant`, sensible) reste à la direction : il déclare, il ne dispense pas.
+      "higher.exemption.read",
+      "higher.annual_ue.manage",
       // Emplois du temps : conception, publication, salles, calendrier ; validation des séances pour la paie
       // (quatre yeux avec la constatation par l'éducateur) et dépassement motivé d'un conflit.
       // Séance comptable et verrou des heures de paie = direction.
@@ -368,6 +372,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "decision.approve": "Modifier une décision de passage proposée par la règle en délibération (motivation de 20 caractères exigée).",
       "reportcard.generate": "Émettre et réémettre les bulletins et relevés : cœur du métier ; la révocation est séparée (direction).",
       "reportcard.publish": "Rendre un bulletin visible aux familles ou le retirer.",
+      "higher.annual_ue.manage": "Déclarer une UE annuelle (O-11) : décision pédagogique qui change le calcul du résultat commun de l'UE ; motif obligatoire et audit sensible. Accorder une dispense reste à la direction.",
       "higher.award.create": "Octroyer un diplôme à un étudiant éligible ; forcer une non-éligibilité ou révoquer = direction.",
       "higher.document.issue": "Émettre diplômes et attestations ; les signataires sont affectés par la direction.",
       "schedule.occurrence.validate": "Valider les séances pour la paie : contrôle des heures payables, séparé de leur constatation et du calcul de paie.",
@@ -432,6 +437,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       // (octroi, force, révocation et signataires = direction / direction des études).
       "higher.document.read",
       "higher.document.issue",
+      // O-14 : le secrétariat CONSULTE les dispenses d'UE (il ne les accorde pas : direction).
+      "higher.exemption.read",
       // Présences : lecture, saisie, réception des justificatifs (jamais la décision), rapports.
       "attendance.read",
       "attendance.take",
@@ -539,6 +546,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "finance.receipt.read",
       // Financement d'une inscription (bourse, affectation par l'État) : impact direct sur la facturation.
       "enrollment.funding.update",
+      // Q-E13 : barème et statut de paiement des frais d'examen en LECTURE. La gestion (relance de la facturation,
+      // confirmation d'un remboursement manuel) reste à la direction ; jamais les données d'un candidat libre.
+      "exam.fee.read",
       // Paie : préparation, calcul, ajustements, notification, versement. Pas d'arrêt (approve), d'annulation,
       // de réglages ni de validation propriétaire.
       "payroll.config.read",
@@ -865,7 +875,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "messaging.send",
       // Notifications (module notifications) : voir specs/v2/016-communications.
       "notifications.read",
-      // Examens nationaux : toutes les permissions NON sensibles du module.
+      // Examens nationaux : les permissions NON sensibles du module, sauf `exam.fee.manage` (direction).
       "exam.type.read",
       "exam.type.manage",
       "exam.center.manage",
@@ -883,6 +893,12 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "exam.export.manage",
       "exam.export.run",
       "exam.document.issue",
+      // Q-E15 / Q-E13 : candidats libres (saisie, import, modification et lecture auditée de leurs données
+      // personnelles) et frais d'examen en lecture. L'anonymisation (sensible) et la gestion des frais (remboursement
+      // manuel) restent à la direction.
+      "exam.external.manage",
+      "exam.external.read",
+      "exam.fee.read",
       // Contexte : candidats issus d'une classe, évaluations liées aux examens blancs.
       "academic.read",
       "academic.year.read",
