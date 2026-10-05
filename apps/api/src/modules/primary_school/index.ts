@@ -20,6 +20,9 @@ export { primarySchoolPlugin, registerPrimarySchoolPorts, setup as primarySchool
 export { createPermissionKit as createPrimaryPermissionKit, PERMISSIONS as PRIMARY_PERMISSIONS, type PermissionKit as PrimaryPermissionKit } from "./http/guards";
 export { createPrimarySchoolPortRegistry, primarySchoolWorkerPorts, resetPrimarySchoolWorkerPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPortRegistry } from "./application/port-registry";
 
+// Q-P18 : état « prêt » (lecture famille filtrée par results via un port de plateforme)
+export { isPeriodReleasedToFamilies, listPeriodReadiness, markPeriodReady, withdrawPeriodReady, type ReadinessView } from "./application/readiness";
+
 // Dépendances et ports
 export { createPrimarySchoolDeps, DEFAULT_PRIMARY_SCHOOL_CONFIG, type PrimarySchoolConfig, type PrimarySchoolDeps, type PrimarySchoolDepsInput } from "./application/deps";
 export type {

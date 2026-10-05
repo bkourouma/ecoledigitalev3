@@ -29,6 +29,7 @@ import {
   updateDraftAssessment,
   validateClassPeriod,
 } from "../infrastructure/assessments-repository";
+import { getReadiness, readyPeriodIdsOfClass, summarizeForFamily, validatedPeriodIdsOfClass } from "../infrastructure/readiness-repository";
 import { getFrameworkRow, listFrameworkRows } from "../infrastructure/reference-repository";
 import { requireClassAccess, requireFamilyStudent } from "./access";
 import { actorOf, EventBuffer, inTx, todayOf, type PrimarySchoolDeps } from "./deps";
@@ -36,11 +37,11 @@ import { frameworkDetailOf } from "./frameworks";
 import type { ClassroomInfo, PeriodInfo } from "./ports";
 
 /** Verrou consultatif de transaction : sérialise les écritures concurrentes d'une même classe × période. */
-async function lockClassPeriod(tx: Tx, ctx: RequestContext, classroomId: Uuid, periodId: Uuid): Promise<void> {
+export async function lockClassPeriod(tx: Tx, ctx: RequestContext, classroomId: Uuid, periodId: Uuid): Promise<void> {
   await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`primary_school:competencies:${ctx.tenantId}:${classroomId}:${periodId}`]);
 }
 
-async function requirePeriod(deps: PrimarySchoolDeps, ctx: RequestContext, classroom: ClassroomInfo, periodId: Uuid): Promise<Result<PeriodInfo, AppError>> {
+export async function requirePeriod(deps: PrimarySchoolDeps, ctx: RequestContext, classroom: ClassroomInfo, periodId: Uuid): Promise<Result<PeriodInfo, AppError>> {
   const periods = await deps.ports.classrooms.listPeriods(ctx, classroom.academicYearId);
   const period = periods.find((p) => p.id === periodId);
   return period ? ok(period) : err(validation(PrimaryCode.INVALID_INPUT, "Cette période n'appartient pas à l'année de la classe.", "periodId"));
@@ -154,6 +155,10 @@ export async function bulkRecordCompetencies(deps: PrimarySchoolDeps, ctx: Reque
     const levelIds = new Set(detail.scale.levels.map((l) => l.id));
 
     await lockClassPeriod(tx, ctx, classroom.id, input.periodId);
+    // Q-P18 : une classe × période marquée « prête » est gelée pour la saisie (le déclencheur SQL est la défense en profondeur).
+    if ((await getReadiness(tx, classroom.id, input.periodId))?.status === "READY") {
+      return err(conflict(PrimaryCode.PERIOD_READY, "La classe et la période sont marquées prêtes : retirer le marquage avant de modifier la saisie.", { classroomId: classroom.id, periodId: input.periodId }));
+    }
     // Le miroir local du verrou est aligné sur l'état effectif lu auprès d'academic (défense en profondeur du déclencheur).
     await syncPeriodLock(tx, { tenantId: ctx.tenantId, classroomId: classroom.id, periodId: input.periodId, locked: false, now: deps.clock.now() });
 
@@ -409,11 +414,29 @@ export async function getFamilyCompetencySummary(
   if (!student.ok) return student;
   if (!enrollment || enrollment.studentId !== student.value) return err(notFound(PrimaryCode.ENROLLMENT_NOT_IN_CLASS, "Inscription", input.enrollmentId));
   const published = await deps.ports.documents.publishedPeriodIds(ctx, { studentId: student.value, enrollmentId: enrollment.id });
-  const wanted = input.periodIds ? input.periodIds.filter((p) => published.includes(p)) : [...published];
-  if (wanted.length === 0) {
-    return ok({ enrollmentId: enrollment.id, periodIds: [], summary: {}, domainLabels: {}, levelLabels: {}, levelOrder: [] });
-  }
-  return inTx(deps, ctx, async (tx) => ok(await buildSummary(tx, enrollment.id, wanted)), { readOnly: true });
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      // Q-P18 : visible = bulletin publié, OU classe × période marquée « prête », OU grille validée. Jamais une saisie brouillon
+      // hors d'une période prête (qui est gelée) : les brouillons ne comptent que dans les périodes prêtes.
+      const ready = await readyPeriodIdsOfClass(tx, enrollment.classroomId);
+      const validated = await validatedPeriodIdsOfClass(tx, enrollment.classroomId);
+      const visible = new Set<Uuid>([...published, ...ready, ...validated]);
+      const wanted = input.periodIds ? input.periodIds.filter((p) => visible.has(p)) : [...visible];
+      if (wanted.length === 0) return ok<CompetencySummaryView>({ enrollmentId: enrollment.id, periodIds: [], summary: {}, domainLabels: {}, levelLabels: {}, levelOrder: [] });
+      const labels = await labelsOfEnrollment(tx, enrollment.id);
+      return ok<CompetencySummaryView>({
+        enrollmentId: enrollment.id,
+        periodIds: wanted,
+        summary: await summarizeForFamily(tx, enrollment.id, wanted, ready),
+        domainLabels: labels.domains,
+        levelLabels: Object.fromEntries(labels.levels.map((l) => [l.code, l.label])),
+        levelOrder: labels.levels.map((l) => l.code),
+      });
+    },
+    { readOnly: true },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -426,7 +449,7 @@ export interface MyClassroomView {
   gradeLevelCode: string | null;
   academicYearId: Uuid;
   studentCount: number;
-  periods: Array<{ id: Uuid; label: string; locked: boolean }>;
+  periods: Array<{ id: Uuid; label: string; locked: boolean; ready: boolean }>;
   isHomeroom: boolean;
 }
 
@@ -449,9 +472,11 @@ export async function listMyClassrooms(deps: PrimarySchoolDeps, ctx: RequestCont
     const periods = await deps.ports.classrooms.listPeriods(ctx, c.academicYearId);
     const roster = await deps.ports.classrooms.listRoster(ctx, c.id);
     const states: MyClassroomView["periods"] = [];
+    const readyOfClass = await inTx(deps, ctx, async (tx) => ok(new Set(await readyPeriodIdsOfClass(tx, c.id))), { readOnly: true });
+    if (!readyOfClass.ok) return readyOfClass;
     for (const p of periods) {
       const s = await deps.ports.periods.getState(ctx, { classroomId: c.id, periodId: p.id });
-      states.push({ id: p.id, label: p.label, locked: s.locked });
+      states.push({ id: p.id, label: p.label, locked: s.locked, ready: readyOfClass.value.has(p.id) });
     }
     out.push({
       classroomId: c.id,

@@ -92,7 +92,7 @@ import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from 
 import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
 import { createPrimarySchoolDeps, primarySchoolAuditAdapter, registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
 import { createAcademicClassroomActivationGuard } from "./primary-academic";
-import { createResultsCompetencyCounters } from "./primary-results";
+import { createResultsCompetencyCounters, createResultsFamilyRelease } from "./primary-results";
 import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
 import { createPrimaryGuardianshipPort, createPrimaryTeachingPort } from "./people-primary";
 import { createPrimaryResultsPort, createPrimaryRulesPort } from "./results-primary";
@@ -257,6 +257,8 @@ export function buildPlatformPorts(
       yearFacts: createResultsYearFactsPort({ attendance, academic }),
       // compteurs de compétences (contrat competency-period@1, décision de fin d'année de la maternelle) : primary_school
       competencyCounters: createResultsCompetencyCounters(primaryDeps),
+      // rangs provisoires visibles des familles seulement si l'enseignant a marqué la classe « prête » (Q-P18) : primary_school
+      familyRelease: createResultsFamilyRelease(primaryDeps),
     },
     reportcards: {
       results: createReportcardsResultsRead({ results, academic, people, rules }),

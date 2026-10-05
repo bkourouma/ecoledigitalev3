@@ -52,7 +52,7 @@ describeIntegration("primary_school : isolation par tenant (RLS forcée)", () =>
     unwrap(await prepareAnnualReviews(deps, ctxOf(tenantA, IDS.teacherA), { classroomId: w.classA, academicYearId: w.yearId }, {}));
 
     const tables = (await db.admin.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'primary_school' ORDER BY table_name`)).rows.map((r) => r.table_name as string);
-    expect(tables.length).toBe(17);
+    expect(tables.length).toBe(18);
     const populated: string[] = [];
     for (const t of tables) {
       const a = (await db.admin.query(`SELECT count(*)::int AS n FROM primary_school.${t} WHERE tenant_id = $1`, [tenantA])).rows[0].n as number;

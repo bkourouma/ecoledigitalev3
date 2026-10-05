@@ -44,11 +44,13 @@ import {
   primaryUpdateSettingsBodySchema,
   primaryUuidSchema,
   primaryValidateBodySchema,
+  primaryWithdrawReadyBodySchema,
   primaryCouncilListQuerySchema,
 } from "@ecoledigitale/contracts/src/v2/primary_school";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import { getRequestCtx } from "../../rbac";
 import { freezeYearArchive, getYearArchive, listYearArchives, prepareYearArchive } from "../application/archives";
+import { listPeriodReadiness, markPeriodReady, withdrawPeriodReady } from "../application/readiness";
 import { bulkRecordCompetencies, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, listAssessmentRevisions, listMyClassrooms, reviseCompetencyAssessment, validateCompetencies } from "../application/competencies";
 import { decideCouncilCase, getCouncil, listCouncils, prepareCouncil, putCouncilAttendance, requestCouncilMinutes, updateCouncilCase } from "../application/council";
 import { createPrimarySchoolDeps, type PrimarySchoolDeps } from "../application/deps";
@@ -237,6 +239,24 @@ export async function primarySchoolPlugin(app: FastifyInstance, options: Primary
     scope.post("/classrooms/:id/periods/:pid/competencies/validate", { preHandler: kit.require(P.competencyValidate) }, async (req, reply) => {
       const body = parse(primaryValidateBodySchema, req.body);
       return unwrap(await validateCompetencies(deps, ctxOf(req), { classroomId: idParam(req.params), periodId: idParam(req.params, "pid"), frameworkId: body.frameworkId }, await caps(req, reply)));
+    });
+    // Q-P18 : « prêts » (visible des familles, saisie gelée), retrait motivé tant que le bulletin n'est pas publié.
+    const readinessDto = (r: { classroomId: string; periodId: string; status: "READY" | "NOT_READY"; markedAt: Date; withdrawnAt: Date | null }) => ({
+      classroomId: r.classroomId,
+      periodId: r.periodId,
+      status: r.status,
+      markedAt: r.markedAt.toISOString(),
+      withdrawnAt: r.withdrawnAt ? r.withdrawnAt.toISOString() : null,
+    });
+    scope.get("/classrooms/:id/readiness", { preHandler: kit.anyOf(P.competencyRead, P.competencyRecord, P.competencyValidate) }, async (req, reply) => ({
+      items: unwrap(await listPeriodReadiness(deps, ctxOf(req), idParam(req.params), await caps(req, reply))).map(readinessDto),
+    }));
+    scope.post("/classrooms/:id/periods/:pid/ready", { preHandler: kit.require(P.competencyValidate) }, async (req, reply) =>
+      readinessDto(unwrap(await markPeriodReady(deps, ctxOf(req), { classroomId: idParam(req.params), periodId: idParam(req.params, "pid") }, await caps(req, reply)))),
+    );
+    scope.post("/classrooms/:id/periods/:pid/ready/withdraw", { preHandler: kit.require(P.competencyValidate) }, async (req, reply) => {
+      const body = parse(primaryWithdrawReadyBodySchema, req.body);
+      return readinessDto(unwrap(await withdrawPeriodReady(deps, ctxOf(req), { classroomId: idParam(req.params), periodId: idParam(req.params, "pid"), reason: body.reason }, await caps(req, reply))));
     });
     scope.post("/competency-assessments/:id/revisions", { preHandler: kit.require(P.competencyRevise) }, async (req, reply) => {
       const r = unwrap(await reviseCompetencyAssessment(deps, ctxOf(req), idParam(req.params), parse(primaryReviseBodySchema, req.body), await caps(req, reply)));

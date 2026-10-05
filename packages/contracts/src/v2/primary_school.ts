@@ -677,10 +677,22 @@ export const primaryMyClassroomDtoSchema = z.object({
   gradeLevelCode: z.string().nullable(),
   academicYearId: primaryUuidSchema,
   studentCount: z.number().int().min(0),
-  periods: z.array(z.object({ id: primaryUuidSchema, label: z.string(), locked: z.boolean() })),
+  periods: z.array(z.object({ id: primaryUuidSchema, label: z.string(), locked: z.boolean(), ready: z.boolean() })),
   isHomeroom: z.boolean(),
 });
 export type PrimaryMyClassroomDto = z.infer<typeof primaryMyClassroomDtoSchema>;
+
+/** Q-P18 : état « prêt » d'une classe × période (visible des familles, saisie gelée) ; retrait motivé, réversible tant que le bulletin n'est pas publié. */
+export const primaryReadinessDtoSchema = z.object({
+  classroomId: primaryUuidSchema,
+  periodId: primaryUuidSchema,
+  status: z.enum(["READY", "NOT_READY"]),
+  markedAt: z.string(),
+  withdrawnAt: z.string().nullable(),
+});
+export type PrimaryReadinessDto = z.infer<typeof primaryReadinessDtoSchema>;
+export const primaryWithdrawReadyBodySchema = z.object({ reason: z.string().trim().min(10).max(500) }).strict();
+export type PrimaryWithdrawReadyBody = z.infer<typeof primaryWithdrawReadyBodySchema>;
 
 /** Avancement d'une classe (direction) : feux vert / orange / rouge calculés SANS seuil (comptages bruts). */
 export const primaryProgressDtoSchema = z.object({
@@ -710,6 +722,8 @@ export const PRIMARY_EVENT_TYPES = [
   "primary_school.framework.published",
   "primary_school.competency.validated",
   "primary_school.competency.revised",
+  "primary_school.period.marked_ready",
+  "primary_school.period.ready_withdrawn",
   "primary_school.council.prepared",
   "primary_school.council.minutes_requested",
   "primary_school.annual_review.sealed",
@@ -727,6 +741,8 @@ export const PRIMARY_ERROR_CODES = [
   "primary_school.framework_not_published",
   "primary_school.scale_mismatch",
   "primary_school.period_locked",
+  "primary_school.period_ready",
+  "primary_school.period_published",
   "primary_school.validated_frozen",
   "primary_school.review_needs_results",
   "primary_school.review_needs_decision",
@@ -756,6 +772,8 @@ export const primaryEventPayloadSchemas = {
   "primary_school.framework.published": z.object({ v: z.literal(1), frameworkId: primaryUuidSchema, code: z.string(), version: z.number().int(), retiredVersions: z.number().int() }),
   "primary_school.competency.validated": z.object({ v: z.literal(1), classroomId: primaryUuidSchema, periodId: primaryUuidSchema, frameworkId: primaryUuidSchema.nullable(), validated: z.number().int(), missing: z.number().int() }),
   "primary_school.competency.revised": z.object({ v: z.literal(1), assessmentId: primaryUuidSchema, revisionId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, enrollmentId: primaryUuidSchema }),
+  "primary_school.period.marked_ready": z.object({ v: z.literal(1), classroomId: primaryUuidSchema, periodId: primaryUuidSchema }),
+  "primary_school.period.ready_withdrawn": z.object({ v: z.literal(1), classroomId: primaryUuidSchema, periodId: primaryUuidSchema }),
   "primary_school.council.prepared": z.object({ v: z.literal(1), deliberationId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, cases: z.number().int() }),
   "primary_school.council.minutes_requested": z.object({ v: z.literal(1), deliberationId: primaryUuidSchema, classroomId: primaryUuidSchema, periodId: primaryUuidSchema, version: z.number().int(), documentId: primaryUuidSchema }),
   "primary_school.annual_review.sealed": z.object({ v: z.literal(1), reviewId: primaryUuidSchema, enrollmentId: primaryUuidSchema, classroomId: primaryUuidSchema, academicYearId: primaryUuidSchema, version: z.number().int(), contentHash: primaryEventHash }),

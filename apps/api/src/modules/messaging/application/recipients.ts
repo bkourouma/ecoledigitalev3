@@ -105,6 +105,8 @@ export async function listAllowedRecipients(deps: MessagingDeps, ctx: RequestCon
   );
 }
 
+const rulesOf = (caps: CallerCaps, actor: ActorProfile, settings: Parameters<typeof applicableRules>[2]) => applicableRules(caps, actor, settings);
+
 /** Profil d'audience de l'utilisateur : droits, classes qu'il peut écrire en bloc, politique élève, restriction. */
 export async function getMyAudience(deps: MessagingDeps, ctx: RequestContext, input: { caps?: CallerCaps | undefined }): Promise<Result<MessagingMyAudienceDto, AppError>> {
   const me = ctx.userId;
@@ -123,6 +125,7 @@ export async function getMyAudience(deps: MessagingDeps, ctx: RequestContext, in
         userId: me,
         canSend: canInitiate(caps, actor, settings) === null && restriction === null,
         canSendAny: caps.sendAny === true,
+        canSendAnyFamily: rulesOf(caps, actor, settings).includes("R5"),
         canPublishAnnouncements: caps.announcementPublish === true || caps.announcementPublishClass === true || caps.announcementManage === true,
         canManageAnnouncements: caps.announcementManage === true,
         canModerate: caps.moderationRead === true || caps.moderationManage === true || caps.moderationSupervise === true,

@@ -29,6 +29,10 @@ export const PrimaryCode = {
   // Compétences
   SCALE_MISMATCH: "primary_school.scale_mismatch",
   PERIOD_LOCKED: "primary_school.period_locked",
+  // État « prêt » (Q-P18)
+  PERIOD_READY: "primary_school.period_ready",
+  PERIOD_NOT_READY: "primary_school.period_not_ready",
+  PERIOD_PUBLISHED: "primary_school.period_published",
   VALIDATED_FROZEN: "primary_school.validated_frozen",
   ASSESSMENT_NOT_FOUND: "primary_school.assessment_not_found",
   ASSESSMENT_NOT_VALIDATED: "primary_school.assessment_not_validated",
@@ -120,6 +124,7 @@ export const DB_CODE_MESSAGES: Readonly<Record<string, { code: PrimaryCodeValue;
   framework_not_published: { code: PrimaryCode.FRAMEWORK_NOT_PUBLISHED, message: "Seul un référentiel publié s'évalue." },
   scale_mismatch: { code: PrimaryCode.SCALE_MISMATCH, message: "Le niveau n'appartient pas à l'échelle du référentiel." },
   period_locked: { code: PrimaryCode.PERIOD_LOCKED, message: "La saisie est arrêtée pour cette classe et cette période." },
+  period_ready: { code: PrimaryCode.PERIOD_READY, message: "La classe et la période sont marquées prêtes : retirer le marquage avant de modifier la saisie." },
   validated_frozen: { code: PrimaryCode.VALIDATED_FROZEN, message: "Une appréciation validée ne se corrige que par une révision motivée." },
   assessment_transition: { code: PrimaryCode.VALIDATED_FROZEN, message: "Une appréciation validée ne revient pas en brouillon (réviser)." },
   assessment_delete_forbidden: { code: PrimaryCode.VALIDATED_FROZEN, message: "Une appréciation validée ne se supprime pas (réviser)." },

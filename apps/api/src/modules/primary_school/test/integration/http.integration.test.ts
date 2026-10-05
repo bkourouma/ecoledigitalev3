@@ -12,6 +12,8 @@ import {
   primaryCompetencySheetDtoSchema,
   primaryCouncilOverviewDtoSchema,
   primaryFrameworkDetailDtoSchema,
+  primaryMyClassroomDtoSchema,
+  primaryReadinessDtoSchema,
   primaryReportDtoSchema,
   primaryYearArchiveDtoSchema,
 } from "@ecoledigitale/contracts/src/v2/primary_school";
@@ -142,6 +144,9 @@ describeIntegration("primary_school : HTTP (matrice par rôle, contrats)", () =>
     expect(locked.json()).toMatchObject({ code: "primary_school.period_locked", kind: "conflict" });
     w.world.lock(w.classA, w.periods[1]!, false);
 
+    // Q-P18 : une saisie brouillon n'est JAMAIS visible de la famille (ni période prête, ni validée, ni publiée)
+    expect((await ok("GET", `/enrollments/${w.students.s1.enrollmentId}/competency-summary`, IDS.parent1)).summary).toEqual({});
+
     // validation (instituteur) puis correction : seule la direction révise (permission sensible)
     expect(await ok("POST", `/classrooms/${w.classA}/periods/${p1}/competencies/validate`, IDS.teacherA, { frameworkId: fw.id })).toMatchObject({ validated: 3 });
     const target = first.assessments[0];
@@ -155,17 +160,36 @@ describeIntegration("primary_school : HTTP (matrice par rôle, contrats)", () =>
     const frozen = await call("PUT", "/competency-assessments/bulk", IDS.teacherA, { ...body, lines: [{ ...lines[0], ratingLevelId: n1!.id, rowVersion: 1 }] });
     expect(frozen.statusCode).toBe(409);
 
-    // synthèse : compteurs ; la famille ne voit qu'APRÈS publication du bulletin
+    // synthèse : compteurs ; la famille voit la période APRÈS validation (Q-P18), même sans bulletin publié
     const e1 = w.students.s1.enrollmentId;
     const staffSummary = await ok("GET", `/enrollments/${e1}/competency-summary`, IDS.teacherA);
     expect(Object.keys(staffSummary.summary)).toEqual(["D1"]);
     expect((await call("GET", `/enrollments/${e1}/competency-summary`, IDS.teacherB)).statusCode).toBe(404);
-    expect((await ok("GET", `/enrollments/${e1}/competency-summary`, IDS.parent1)).summary).toEqual({});
+    expect(Object.keys((await ok("GET", `/enrollments/${e1}/competency-summary`, IDS.parent1)).summary)).toEqual(["D1"]);
     w.world.publishedPeriods.set(e1, [p1]);
     expect(Object.keys((await ok("GET", `/enrollments/${e1}/competency-summary`, IDS.parent1)).summary)).toEqual(["D1"]);
     expect((await call("GET", `/enrollments/${e1}/competency-summary`, IDS.parent2)).statusCode).toBe(404); // pas le tuteur de cet enfant
     expect((await call("GET", `/children/${w.students.s1.studentId}/enrollments/${e1}/competency-summary`, IDS.parent1)).statusCode).toBe(200);
     expect((await call("GET", `/children/${w.students.s1.studentId}/enrollments/${e1}/competency-summary`, IDS.parent2)).statusCode).toBe(404);
+  });
+
+  it("Q-P18 : « prêts » par HTTP : l'instituteur de la classe marque et retire (motif), parent et autre instituteur refusés, contrat validé", async () => {
+    const p3 = w.periods[2]!;
+    const base = `/classrooms/${w.classA}/periods/${p3}/ready`;
+    expect((await call("POST", base, IDS.parent1)).statusCode).toBe(403); // la famille ne marque pas
+    expect((await call("POST", base, IDS.teacherB)).statusCode).toBe(404); // pas SA classe
+    expect((await call("POST", base, null)).statusCode).toBe(403); // sans contexte
+    const marked = primaryReadinessDtoSchema.parse(await ok("POST", base, IDS.teacherA));
+    expect(marked).toMatchObject({ classroomId: w.classA, periodId: p3, status: "READY", withdrawnAt: null });
+    const list = await ok("GET", `/classrooms/${w.classA}/readiness`, IDS.teacherA);
+    expect(list.items.map((r: { periodId: string; status: string }) => [r.periodId, r.status])).toEqual([[p3, "READY"]]);
+    const mine = await ok("GET", "/my-classrooms", IDS.teacherA);
+    expect(primaryMyClassroomDtoSchema.parse(mine.items[0]).periods.find((p) => p.id === p3)?.ready).toBe(true);
+    // retrait : motif de 10 caractères au moins (400), la famille ne retire pas (403)
+    expect((await call("POST", `${base}/withdraw`, IDS.teacherA, { reason: "court" })).statusCode).toBe(400);
+    expect((await call("POST", `${base}/withdraw`, IDS.parent1, { reason: "Retrait demandé par un parent." })).statusCode).toBe(403);
+    expect(await ok("POST", `${base}/withdraw`, IDS.teacherA, { reason: "Marquage posé trop tôt." })).toMatchObject({ status: "NOT_READY" });
+    expect((await call("POST", `${base}/withdraw`, IDS.teacherA, { reason: "Marquage posé trop tôt." })).statusCode).toBe(409);
   });
 
   it("référentiels : brouillon, structure, publication par la direction ; un référentiel publié est immuable (409) ; version suivante", async () => {

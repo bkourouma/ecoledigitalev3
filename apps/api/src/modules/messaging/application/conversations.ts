@@ -46,6 +46,9 @@ import {
 } from "./support";
 import { conversationSummary, messageView, participantView, rawMessageView } from "./views";
 
+/** Nombre maximal d'identifiants de destinataires recopiés dans une entrée d'audit « hors portée » (le décompte reste exact). */
+const OUT_OF_SCOPE_AUDIT_IDS = 100;
+
 /** Plafond des « contacts de l'administration » joints à un message (parité legacy : 30 administrateurs). */
 export const ADMIN_CONTACT_CAP = 30;
 
@@ -55,6 +58,8 @@ export const ADMIN_CONTACT_CAP = 30;
 
 interface Resolved {
   readonly recipients: Map<Uuid, string>;
+  /** Q-13 : destinataires admis UNIQUEMENT par la permission `messaging.send.any_family` (hors de la portée habituelle). */
+  readonly outOfScope: ReadonlySet<Uuid>;
   /** Classe visée quand un seul bloc de classe est demandé (contexte du fil). */
   readonly classroomId: Uuid | null;
   readonly truncated: boolean;
@@ -72,6 +77,7 @@ async function resolveRecipients(
 ): Promise<Result<Resolved, AppError>> {
   const { caps, actor, settings, recipients: sel } = input;
   const out = new Map<Uuid, string>();
+  const outOfScope = new Set<Uuid>();
   let classroomId: Uuid | null = null;
   let truncated = false;
   const dir = deps.ports.directory;
@@ -96,6 +102,7 @@ async function resolveRecipients(
       }
       const decision = evaluateRecipient({ caps, actor, target, settings, adminContacts, now: deps.clock.now() });
       if (!decision.allowed) return err(denied(decision.reason, id, !caps.sendAny));
+      if (decision.via === "R5") outOfScope.add(id);
       out.set(id, target.displayName ?? UNKNOWN_NAME);
     }
   }
@@ -130,7 +137,9 @@ async function resolveRecipients(
   }
 
   out.delete(actor.userId);
-  return ok({ recipients: out, classroomId, truncated });
+  // Un destinataire retiré ou ajouté par un autre bloc (classe, administration) n'est plus « hors portée » que s'il a été admis par R5 seul.
+  for (const id of [...outOfScope]) if (!out.has(id)) outOfScope.delete(id);
+  return ok({ recipients: out, outOfScope, classroomId, truncated });
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +202,7 @@ export async function createConversation(deps: MessagingDeps, ctx: RequestContex
     const limit = input.kind === "DIRECT" ? 1 : participantLimit(input.kind, caps, settings);
     const resolved = await resolveRecipients(deps, ctx, tx, { caps, actor, settings, kind: input.kind, recipients: input.recipients, limit });
     if (!resolved.ok) return resolved;
-    const { recipients, classroomId, truncated } = resolved.value;
+    const { recipients, outOfScope, classroomId, truncated } = resolved.value;
     if (recipients.size === 0) return err(validation(MessagingCode.AUDIENCE_EMPTY, "Aucun destinataire joignable pour cette sélection.", "recipients"));
     if (input.kind === "DIRECT" && recipients.size !== 1) return err(validation(MessagingCode.INVALID_INPUT, "Une conversation directe a exactement un destinataire.", "recipients"));
     // `limit` = plafond de DESTINATAIRES (l'expéditeur n'est pas compté pour une diffusion, il l'est pour un groupe).
@@ -208,13 +217,31 @@ export async function createConversation(deps: MessagingDeps, ctx: RequestContex
     const senderName = await actorDisplayName(deps, ctx, actor);
     const events = new EventBuffer(deps, ctx);
     const subject = input.subject?.trim() || null;
-    const base = { deps, ctx, tx, events, now, me, senderName, body: body.value, subject, priority: input.priority, aboutStudentId: input.aboutStudentId ?? null, classroomId, clientId: input.clientId ?? null, attachments: attachments.value };
+    const base = { deps, ctx, tx, events, now, me, senderName, body: body.value, subject, priority: input.priority, aboutStudentId: input.aboutStudentId ?? null, classroomId, clientId: input.clientId ?? null, attachments: attachments.value, outOfScope };
 
     let result: SendResult;
     if (input.kind === "BROADCAST") result = await createBroadcast(base, recipients);
     else if (input.kind === "DIRECT") result = await createDirect(base, [...recipients.entries()][0]!);
     else result = await createGroup({ ...base, allowReplies: input.allowReplies ?? true }, recipients);
 
+    // Q-13 : chaque envoi HORS de la portée habituelle est journalisé (identifiants seulement : ni texte, ni nom). Même transaction.
+    if (outOfScope.size > 0) {
+      events.audit({
+        action: "messaging.message.sent_out_of_scope",
+        resourceType: "conversation",
+        resourceId: result.conversation?.id ?? result.broadcastId ?? "broadcast",
+        sensitive: true,
+        metadata: {
+          rule: "SEND_ANY_FAMILY",
+          permission: "messaging.send.any_family",
+          kind: input.kind,
+          outOfScopeCount: outOfScope.size,
+          recipientCount: result.recipientCount,
+          recipientUserIds: [...outOfScope].slice(0, OUT_OF_SCOPE_AUDIT_IDS),
+          broadcastId: result.broadcastId,
+        },
+      });
+    }
     if (flagGroupAudit(input.kind)) {
       events.audit({
         action: "messaging.conversation.created",
@@ -243,6 +270,8 @@ type CreationBase = {
   classroomId: Uuid | null;
   clientId: Uuid | null;
   attachments: repo.AttachmentRow[];
+  /** Q-13 : destinataires admis par `messaging.send.any_family` seul. */
+  outOfScope?: ReadonlySet<Uuid> | undefined;
 };
 
 async function bindToMessage(b: CreationBase, messageId: Uuid): Promise<void> {
@@ -294,16 +323,19 @@ async function createDirect(b: CreationBase, recipient: [Uuid, string]): Promise
   const key = directKey(b.me, recipientId, b.aboutStudentId, b.subject);
   const existing = (await repo.findConversationsByKeys(b.tx, b.ctx.tenantId, [key]))[0];
   if (existing) {
+    if (b.outOfScope?.has(recipientId)) await repo.markScopeException(b.tx, b.ctx.tenantId, [existing.id], "SEND_ANY_FAMILY");
     const posted = await appendToConversation(b, existing.id, { reuse: true });
     return { ...posted, broadcastId: null, reused: true, recipientCount: 1 };
   }
   const id = b.deps.newId();
+  const scopeException = b.outOfScope?.has(recipientId) ? ("SEND_ANY_FAMILY" as const) : null;
   const inserted = await repo.insertConversations(b.tx, b.ctx.tenantId, [
-    { id, kind: "DIRECT", subject: b.subject, priority: b.priority, broadcastId: null, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: null, directKey: key, allowReplies: true, createdAt: b.now },
+    { id, kind: "DIRECT", subject: b.subject, priority: b.priority, broadcastId: null, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: null, directKey: key, allowReplies: true, createdAt: b.now, scopeException },
   ]);
   if (inserted.length === 0) {
     // Course : un autre envoi vient de créer le fil.
     const raced = (await repo.findConversationsByKeys(b.tx, b.ctx.tenantId, [key]))[0]!;
+    if (scopeException) await repo.markScopeException(b.tx, b.ctx.tenantId, [raced.id], scopeException);
     const posted = await appendToConversation(b, raced.id, { reuse: true });
     return { ...posted, broadcastId: null, reused: true, recipientCount: 1 };
   }
@@ -334,7 +366,7 @@ async function insertFirstMessage(b: CreationBase, conversationId: Uuid, options
 async function createGroup(b: CreationBase & { allowReplies: boolean }, recipients: Map<Uuid, string>): Promise<SendResult> {
   const id = b.deps.newId();
   await repo.insertConversations(b.tx, b.ctx.tenantId, [
-    { id, kind: "GROUP", subject: b.subject, priority: b.priority, broadcastId: null, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: b.classroomId, directKey: null, allowReplies: b.allowReplies, createdAt: b.now },
+    { id, kind: "GROUP", subject: b.subject, priority: b.priority, broadcastId: null, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: b.classroomId, directKey: null, allowReplies: b.allowReplies, createdAt: b.now, scopeException: (b.outOfScope?.size ?? 0) > 0 ? "SEND_ANY_FAMILY" : null },
   ]);
   await repo.insertParticipants(b.tx, b.ctx.tenantId, [
     { conversationId: id, userId: b.me, role: "OWNER", displayName: b.senderName, addedAt: b.now, lastReadSeq: 1, lastReadAt: b.now, archivedAt: null },
@@ -369,7 +401,7 @@ async function createBroadcast(b: CreationBase, recipients: Map<Uuid, string>): 
   const created = await repo.insertConversations(
     b.tx,
     b.ctx.tenantId,
-    fresh.map((e) => ({ id: e.id, kind: "DIRECT" as const, subject: b.subject, priority: b.priority, broadcastId, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: b.classroomId, directKey: e.key, allowReplies: true, createdAt: b.now })),
+    fresh.map((e) => ({ id: e.id, kind: "DIRECT" as const, subject: b.subject, priority: b.priority, broadcastId, createdBy: b.me, aboutStudentId: b.aboutStudentId, classroomId: b.classroomId, directKey: e.key, allowReplies: true, createdAt: b.now, scopeException: b.outOfScope?.has(e.userId) ? ("SEND_ANY_FAMILY" as const) : null })),
   );
   const createdKeys = new Set(created.map((c) => c.directKey));
   const inserted = fresh.filter((e) => createdKeys.has(e.key));
@@ -397,6 +429,8 @@ async function createBroadcast(b: CreationBase, recipients: Map<Uuid, string>): 
   const notifyRows: Array<{ userId: Uuid; notificationId: Uuid; conversationId: Uuid }> = inserted.map((e) => ({ userId: e.userId, notificationId: b.deps.newId(), conversationId: e.id }));
   const messageIds = messages.map((m) => m.messageId);
   // Fils existants : le message s'y ajoute (même transaction).
+  const existingOutOfScope = entries.filter((x) => existing.has(x.key) && b.outOfScope?.has(x.userId)).map((x) => existing.get(x.key)!.id);
+  await repo.markScopeException(b.tx, b.ctx.tenantId, existingOutOfScope, "SEND_ANY_FAMILY");
   for (const e of entries.filter((x) => existing.has(x.key))) {
     const conv = existing.get(e.key)!;
     const posted = await appendToConversation(b, conv.id, { reuse: true, broadcastId, silent: true, skipAttachments: true });
@@ -525,6 +559,16 @@ export async function postMessage(deps: MessagingDeps, ctx: RequestContext, inpu
       aboutStudentId: conversation.aboutStudentId, classroomId: conversation.classroomId, clientId: input.clientId ?? null, attachments: attachments.value,
     };
     const posted = await appendToConversation(b, conversation.id, {});
+    // Q-13 : les messages SUIVANTS de celui qui a ouvert un fil hors de sa portée habituelle sont journalisés aussi.
+    if (conversation.scopeException && conversation.createdBy === me) {
+      events.audit({
+        action: "messaging.message.sent_out_of_scope",
+        resourceType: "conversation",
+        resourceId: conversation.id,
+        sensitive: true,
+        metadata: { rule: conversation.scopeException, permission: "messaging.send.any_family", kind: conversation.kind, messageId: posted.message.id, outOfScopeCount: 1, recipientCount: 1 },
+      });
+    }
     await events.flush(tx);
     return ok(posted);
   });

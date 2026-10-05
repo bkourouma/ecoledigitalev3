@@ -83,6 +83,10 @@ Un hook par ressource, clés de cache `["primary", <ressource>, …]` (le tenant
   « validées / non évaluées restantes ». **Réviser** une ligne validée (`primary.competency.revise`, sensible) : nouveau niveau + motif
   ≥ 10 caractères (schéma du contrat), historique `GET …/revisions` dans la fenêtre.
 
+## Prêt pour les familles (Q-P18, `ClassScreen.tsx` : `ReadyControl`)
+
+Dans « Ma classe », chaque période affiche son état (verrouillée / ouverte, **« Prête pour les familles »**) et, avec `primary.competency.validate`, un bouton **Marquer prête** (confirmation explicite : les familles verront les compétences et le **rang provisoire**, la saisie est gelée) ou **Retirer le marquage** (motif de 10 caractères au moins ; l'API refuse si un bulletin de la période est publié et son message est affiché tel quel). Le web n'évalue rien : il envoie l'ordre (`useMarkPrimaryPeriodReady`, `useWithdrawPrimaryReady`) et affiche la réponse. Côté famille, `FamilyResults` montre un résultat `provisional` avec le seul rang, signalé « Rang provisoire », sans moyenne, mention ni crédits ; la synthèse de compétences (`/v2/primary/mon-enfant`) suit les périodes prêtes, validées ou publiées renvoyées par l'API. Espaces de messages : `v2PrimaryClass.ready`, `v2Portal.family.results.official.provisional*`, `v2PrimaryCommon.errorHints.period_ready|period_published`.
+
 ## Appel du jour (`DailyCall.tsx`)
 
 Réutilise les hooks de `platform/v2/attendance.ts` (`useOpenAttendanceSession`, `useAttendanceSession`, `useMarkRecords`,

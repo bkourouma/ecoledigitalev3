@@ -42,8 +42,8 @@ export function myClassroom(over: Partial<Record<string, unknown>> = {}) {
     academicYearId: ID.year,
     studentCount: 3,
     periods: [
-      { id: ID.p1, label: "Trimestre 1", locked: false },
-      { id: ID.p2, label: "Trimestre 2", locked: true },
+      { id: ID.p1, label: "Trimestre 1", locked: false, ready: false },
+      { id: ID.p2, label: "Trimestre 2", locked: true, ready: false },
     ],
     isHomeroom: true,
     ...over,

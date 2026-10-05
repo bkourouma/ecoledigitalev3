@@ -11,7 +11,7 @@ import { RecordingAudit } from "../../application/ports";
 import { messagingPlugin } from "../../http/plugin";
 import { InMemoryStorage, inMemoryPorts } from "../../infrastructure/in-memory-ports";
 import { createModuleTestDb, describeIntegration, type ModuleTestDb } from "../support/db";
-import { buildWorld, IDS, permissionsOf } from "../support/world";
+import { buildWorld, IDS, permissionsOf, registerRole } from "../support/world";
 
 const PDF_B64 = Buffer.from("%PDF-1.7\n1 0 obj\n<< >>\nendobj\n").toString("base64");
 const EXE_B64 = Buffer.from("MZ\x90\x00\x03\x00 programme").toString("base64");
@@ -33,11 +33,13 @@ describeIntegration("module messaging : HTTP (matrice par rôle)", () => {
       ...(payload !== undefined ? { payload: payload as Record<string, unknown> } : {}),
     });
 
+  const world = buildWorld();
+
   beforeAll(async () => {
     db = await createModuleTestDb();
     tenantA = await db.createTenant("http-a");
     tenantB = await db.createTenant("http-b");
-    deps = createMessagingDeps({ db: db.tenantDb, clock, audit, ports: inMemoryPorts(buildWorld(), new InMemoryStorage()) });
+    deps = createMessagingDeps({ db: db.tenantDb, clock, audit, ports: inMemoryPorts(world, new InMemoryStorage()) });
     app = Fastify({ logger: false });
     app.decorateRequest("ctx", null as never);
     app.addHook("onRequest", async (request) => {
@@ -108,6 +110,24 @@ describeIntegration("module messaging : HTTP (matrice par rôle)", () => {
     expect((await call("POST", "/conversations", IDS.parent1, { kind: "DIRECT", body: "  ", recipients: { userIds: [IDS.teacher6A] } })).statusCode).toBe(400);
     expect((await call("GET", "/conversations/pas-un-uuid", IDS.parent1)).statusCode).toBe(400);
     expect((await call("GET", "/conversations?folder=nimportequoi", IDS.parent1)).statusCode).toBe(400);
+  });
+
+  it("Q-13 par HTTP : 403 stable sans la permission explicite ; avec elle, 201 et le profil d'audience l'annonce", async () => {
+    const TF = "0192f0a4-7b1e-7c3a-8d2e-000000000a91";
+    world.addUser({ userId: TF, displayName: "HABILITE Enseignant", staffId: "0192f0a4-7b1e-7c3a-8d2e-000000000a92", teachingClassroomIds: [IDS.C6A] });
+    registerRole(TF, "teacherFamily");
+    // parent3 : tuteur d'un élève de 6B, hors des classes de teacher6A comme de TF
+    const denied = await call("POST", "/conversations", IDS.teacher6A, { kind: "DIRECT", subject: "Hors classe", body: "Bonjour", recipients: { userIds: [IDS.parent3] } });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ code: "messaging.recipient_not_allowed", kind: "forbidden" });
+    expect((await call("GET", "/me/audience", IDS.teacher6A)).json()).toMatchObject({ canSend: true, canSendAnyFamily: false });
+    const sent = await call("POST", "/conversations", TF, { kind: "DIRECT", subject: "Hors classe", body: "Bonjour", recipients: { userIds: [IDS.parent3] } });
+    expect(sent.statusCode).toBe(201);
+    expect((await call("GET", "/me/audience", TF)).json()).toMatchObject({ canSend: true, canSendAnyFamily: true });
+    expect((await call("GET", `/conversations/${sent.json().conversation.id}`, IDS.parent3)).statusCode).toBe(200);
+    // la permission d'extension ne donne pas accès aux fonctions d'administration
+    expect((await call("PUT", "/settings", TF, { studentPolicy: "DISABLED" })).statusCode).toBe(403);
+    expect((await call("GET", "/moderation/reports", TF)).statusCode).toBe(403);
   });
 
   it("élève (politique par défaut) : écrit à son enseignant et à la direction, pas à un camarade ; permissions manquantes : 403", async () => {

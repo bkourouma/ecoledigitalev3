@@ -94,6 +94,8 @@ export const DEFAULT_MESSAGING_SETTINGS: MessagingSettings = Object.freeze({
 /** Capacités RBAC de l'appelant (permissions du manifeste). Sans capacité fournie : le droit le plus restreint. */
 export interface CallerCaps {
   readonly sendAny?: boolean;
+  /** `messaging.send.any_family` (Q-13, sensible) : étend `messaging.send` d'un membre du personnel à TOUTE famille de l'établissement. */
+  readonly sendAnyFamily?: boolean;
   readonly send?: boolean;
   readonly childSend?: boolean;
   readonly selfSend?: boolean;

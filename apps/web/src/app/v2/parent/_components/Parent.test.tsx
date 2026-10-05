@@ -172,6 +172,26 @@ describe("résultats de l'enfant", () => {
     expect(within(grades).queryByText(/^0/)).toBeNull();
   });
 
+  it("Q-P18 : un rang provisoire (classe marquée prête) s'affiche seul, signalé provisoire, sans moyenne ni mention ni crédits", async () => {
+    setTestApi(
+      base({
+        [`GET /api/v1/results/children/${MARIAM}/results`]: {
+          items: [familyResult({ provisional: true, average: null, averageDisplay: null, rank: 2, cohortSize: 28, mentionCode: null, decisionCode: null, decisionOutcome: null, creditsAcquired: null, creditsRequired: null, validated: null, finalizedAt: null, lines: [] })],
+        },
+        [`GET /api/v1/academic/children/${MARIAM}/labels`]: familyLabels(),
+        [`GET /api/v1/assess/children/${MARIAM}/grades`]: gradesPage([]),
+      }),
+    );
+    renderWithProviders(<ChildResults childId={MARIAM} />);
+    expect(await screen.findByText("2 sur 28")).toBeTruthy();
+    expect(screen.getByText("Rang provisoire")).toBeTruthy();
+    expect(screen.getByText(/seul le rang est communiqué/)).toBeTruthy();
+    expect(screen.queryByText("Moyenne")).toBeNull();
+    expect(screen.queryByText("Mention")).toBeNull();
+    expect(screen.queryByText("Crédits")).toBeNull();
+    expect(screen.queryByText("Résultat arrêté le", { exact: false })).toBeNull();
+  });
+
   it("lien de tutelle clos côté serveur : le 403 de l'API est affiché tel quel, sans données", async () => {
     setTestApi(
       base({

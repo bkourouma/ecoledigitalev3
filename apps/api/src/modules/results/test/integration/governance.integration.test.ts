@@ -221,6 +221,52 @@ describeIntegration("surcharges, décisions, recalcul coalescé, lecture famille
   });
 
   describe("lecture famille (élève, tuteur)", () => {
+    it("Q-P18 : AVANT la clôture, la famille ne voit un rang provisoire QUE si la classe est libérée (port) ; jamais de moyenne, mention, décision ni ligne ; échec fermé", async () => {
+      const pupilUser = newId();
+      const tenantCtx = (u: string) => ctxFor(w.tenantId, u, ["eleve"], false);
+      w.guardianship.studentByUser.set(pupilUser, students[0]!.studentId);
+      // le brouillon calculé porte un rang (posé ici pour ne dépendre d'aucune règle du jeu d'essai) ; il est recalculé à la clôture
+      await adminRows(db, `UPDATE results.period_results SET rank = 1, cohort_size = 3 WHERE status = 'DRAFT' AND student_id = $1`, [students[0]!.studentId]);
+      const draft = await adminOne<{ n: number }>(db, `SELECT count(*)::int AS n FROM results.period_results WHERE status = 'DRAFT' AND scope = 'PERIOD' AND student_id = $1`, [students[0]!.studentId]);
+      expect(draft.n).toBe(1);
+
+      const released = new Set<string>();
+      let failing = false;
+      const withRelease = {
+        ...w.deps,
+        ports: Object.create(w.deps.ports, {
+          familyRelease: {
+            value: {
+              async isReleased(_ctx: unknown, input: { classroomId: string; academicPeriodId: string }): Promise<boolean> {
+                if (failing) throw new Error("port en panne");
+                return released.has(`${input.classroomId}:${input.academicPeriodId}`);
+              },
+            },
+          },
+        }),
+      } as typeof w.deps;
+
+      // 1. port non branché : rien (échec fermé) ; 2. branché mais classe non libérée : rien
+      expect(unwrap(await listMyResults(w.deps, tenantCtx(pupilUser)))).toEqual([]);
+      expect(unwrap(await listMyResults(withRelease, tenantCtx(pupilUser)))).toEqual([]);
+
+      // 3. libérée : un rang provisoire, rien d'autre
+      released.add(`${classroomId}:${p.id}`);
+      const provisional = unwrap(await listMyResults(withRelease, tenantCtx(pupilUser)));
+      expect(provisional).toHaveLength(1);
+      expect(provisional[0]).toMatchObject({ provisional: true, scope: "PERIOD", rank: 1, cohortSize: 3, average: null, averageDisplay: null, mentionCode: null, decisionCode: null, decisionOutcome: null, creditsAcquired: null, validated: null, finalizedAt: null, lines: [] });
+
+      // 4. port en panne : échec fermé (aucun rang), jamais une erreur côté famille
+      failing = true;
+      expect(unwrap(await listMyResults(withRelease, tenantCtx(pupilUser)))).toEqual([]);
+      failing = false;
+
+      // 5. une autre classe libérée ne libère pas celle-ci
+      released.clear();
+      released.add(`${newId()}:${p.id}`);
+      expect(unwrap(await listMyResults(withRelease, tenantCtx(pupilUser)))).toEqual([]);
+    });
+
     it("rien avant la clôture ; après : résultats FINAL seulement, sans surcharge, trace ni entrée de calcul", async () => {
       const pupilUser = newId();
       const guardianUser = newId();

@@ -11,7 +11,7 @@
 
 > **Rang et mentions (décisions Q-P04 et Q-P05, 2026-10-05).** Le rang de période est calculé par `results` (classement « compétition » : 1, 1, 3) et **affiché par défaut** sur le bulletin du primaire ; la maternelle, sans note, n'a jamais de rang. Les **mentions** de période viennent de la règle optionnelle `mention_periode` du jeu fictif `CI-PRIMARY-PLACEHOLDER` v3 : seuils de départ fictifs (non officiels), réglables par l'établissement dans une variante privée du jeu de règles, désactivables (paramètre `actif`, ou option `showMention` du gabarit de bulletin). Ce module ne calcule toujours ni rang, ni mention, ni seuil.
 
-## Tables (schéma `primary_school`, migrations 1800-1803)
+## Tables (schéma `primary_school`, migrations 1800-1804)
 
 Les migrations 1800-1802 sont **identiques** au DDL testé de `specs/v2/005-primary/ddl` (test de conformité octet pour octet) ; 1803 est
 un ajout de l'implémentation (période du conseil, procès-verbal figé), testé par `ddl/tests/40_council_minutes.sql` (118 tests de comportement au total).
@@ -22,6 +22,7 @@ un ajout de l'implémentation (période du conseil, procès-verbal figé), test�
 | 1801 | `period_locks`, `competency_assessments`, `competency_revisions` (ajout seul), fonction `summarize_competencies` |
 | 1802 | `council_cases`, `council_attendance`, `annual_reviews`, `year_archives` |
 | 1803 | `council_minutes` (procès-verbal figé), `council_cases.academic_period_id` |
+| 1804 | `period_readiness` (état « prêt » d'une classe × période, Q-P18) et déclencheur `competency_assessments_period_ready` |
 
 Toutes portent `tenant_id` + RLS forcée ; clés étrangères internes **composites** `(tenant_id, id)` ; aucune FK vers un autre schéma que `kernel.tenants` ;
 allowlist d'isolation **vide**. Références à `academic`, `people`, `results`, `reportcards` : UUID sans FK, vérifiés par des ports ; niveaux de classe désignés par leur **code** (PS…CM2).
@@ -47,7 +48,7 @@ allowlist d'isolation **vide**. Références à `academic`, `people`, `results`,
 Paramètres `GET|PUT /settings` · `POST /template/apply` — Échelles `GET|POST /rating-scales`, `PATCH /rating-scales/:id`, `PUT /rating-scales/:id/levels` —
 Référentiels `GET|POST /frameworks`, `GET /frameworks/:id`, `PUT /frameworks/:id/structure`, `DELETE /frameworks/:id` (brouillon), `POST /frameworks/:id/publish|new-version` —
 Compétences `GET /my-classrooms`, `GET /rule-banner`, `GET /classrooms/:id/competency-sheet?periodId=`, `PUT /competency-assessments/bulk`,
-`POST /classrooms/:id/periods/:pid/competencies/validate`, `POST|GET /competency-assessments/:id/revisions`, `GET /enrollments/:id/competency-summary`,
+`POST /classrooms/:id/periods/:pid/competencies/validate`, `POST /classrooms/:id/periods/:pid/ready[/withdraw]`, `GET /classrooms/:id/readiness`, `POST|GET /competency-assessments/:id/revisions`, `GET /enrollments/:id/competency-summary`,
 `GET /children/:studentId/enrollments/:id/competency-summary` — Appréciations `GET|POST|PATCH /phrases` —
 Conseil `GET /councils`, `POST /councils/prepare`, `GET /councils/:id[/cases]`, `PATCH /councils/:id/cases/:caseId`, `POST /councils/:id/cases/:caseId/decide`,
 `PUT /councils/:id/attendance`, `POST /councils/:id/minutes` —
@@ -68,7 +69,7 @@ Sans `primary.class.read_all`, un instituteur n'accède qu'aux classes auxquelle
 
 ## Événements (outbox `{ v: 1 }`, aucun contenu pédagogique : ni appréciation, ni niveau, ni note, ni nom)
 
-Publiés : `primary_school.template.applied`, `framework.published`, `competency.validated|revised`, `council.prepared|minutes_requested`,
+Publiés : `primary_school.template.applied`, `framework.published`, `competency.validated|revised`, `period.marked_ready|ready_withdrawn`, `council.prepared|minutes_requested`,
 `annual_review.sealed|superseded`, `year_archive.ready|frozen`. Consommés (abonnés idempotents) : `tenancy.institution.created` (modèle de pack, pack PRIMARY),
 `academic.classroom_period.grading_closed|closed|reopened` (miroir `period_locks`), `results.decision.confirmed` (dossier décidé + issue d'inscription de fin d'année),
 `primary_school.annual_review.sealed` (demande du PDF à reportcards), `reportcards.official_document.rendered` (nature `ANNUAL_REVIEW` : renseigne `reportcard_id`).
@@ -111,7 +112,22 @@ Enregistrés par `registerPrimarySchoolPorts(app, ports)` (API) / `setPrimarySch
 - **Verrou de période à deux étages** : le port lit l'état EFFECTIF (academic) et aligne le miroir `period_locks` avant l'écriture ; le déclencheur SQL est la défense en profondeur.
 - **Quorum** : jamais une constante ; `RulesPort.quorum` évalue `quorum_conseil` du RuleSet lié ; sans règle liée, présence comptée et affichée, aucun blocage (Q-P14).
 - **Décision de fin d'année** : confirmée par `results.confirmDecision` (le conseil ne duplique pas la décision), puis `academic.recordEnrollmentOutcome` pour la dernière période de l'année.
-- **Famille** : bilans SCELLÉS dont le PDF est ÉMIS ; compétences des seules périodes dont le bulletin est publié ; 404 hors lien de tutelle.
+- **Famille** : bilans SCELLÉS dont le PDF est ÉMIS ; compétences des périodes **prêtes**, **validées** ou dont le bulletin est publié (Q-P18, voir ci-dessous) ; 404 hors lien de tutelle.
+
+## État « prêt » d'une classe × période (décision Q-P18, 2026-10-05)
+
+Les parents et l'élève ne voient **les rangs et les compétences** d'une classe × période qu'**après validation** ou après que l'enseignant l'a marquée **« prête »** ; **jamais une saisie brouillon**.
+
+| Règle | Détail |
+|---|---|
+| Marquer « prêt » | `POST /classrooms/:id/periods/:pid/ready` (permission `primary.competency.validate`, accès à la classe, **audité** : `primary_school.period.marked_ready`, événement du même nom, identifiants et comptages seulement). Idempotent. |
+| Gel de la saisie | Tant que la classe × période est prête, les brouillons ne se créent, ne se modifient et ne se suppriment plus : refus applicatif `409 primary_school.period_ready` **et** déclencheur SQL (migration 1804). Valider (sans changer le contenu) et réviser une appréciation validée (trace motivée) restent possibles. La famille voit donc exactement ce que l'enseignant a déclaré prêt. |
+| Retrait (réversible) | `POST …/ready/withdraw` `{ reason }` (≥ 10 caractères, audité `primary_school.period.ready_withdrawn`). Refusé `409 primary_school.period_published` dès qu'**un** bulletin de la période est publié aux familles (`DocumentsPort`). |
+| Lecture famille — compétences | Période visible = **prête** OU **validée** (au moins une ligne, plus aucun brouillon dans la classe) OU bulletin publié. Les brouillons ne comptent que dans une période prête (gelée) ; sinon seules les lignes `VALIDATED` comptent. |
+| Lecture famille — rangs | Les rangs viennent de `results`, jamais d'ici : `results` expose un **rang provisoire** (seulement rang et effectif, `provisional: true`) pour une classe prête, via le port `familyRelease` (adaptateur `platform/adapters/primary-results.ts` sur `isPeriodReleasedToFamilies`) ; échec fermé si le port est absent ou en panne. Une période déjà FINAL garde son résultat complet. |
+| « Ma classe » | `GET /my-classrooms` renvoie `periods[].ready` ; `GET /classrooms/:id/readiness` liste les états. |
+
+Le bulletin lui-même (`reportcards`) reste soumis à sa publication explicite : cette décision ne le touche pas.
 - **Archive** : `READY` exige tous les bilans scellés, chaque inscription pourvue d'un bilan, et le PDF émis (le gel interdit ensuite d'écrire `reportcard_id`).
 - **Réémission** : l'index « une seule version vivante » impose de remplacer l'ancienne version dans la même transaction ; entre la réémission et le nouveau scellement, la famille ne voit pas le bilan.
 

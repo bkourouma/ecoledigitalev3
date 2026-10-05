@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   read: "messaging.read",
   send: "messaging.send",
   sendAny: "messaging.send.any",
+  sendAnyFamily: "messaging.send.any_family",
   childRead: "messaging.child.read",
   childSend: "messaging.child.send",
   selfRead: "messaging.self.read",
@@ -37,6 +38,7 @@ type Guard = (permission: string) => preHandlerAsyncHookHandler;
 
 const CAP_PERMISSIONS: Readonly<Record<keyof CallerCaps, string>> = Object.freeze({
   sendAny: PERMISSIONS.sendAny,
+  sendAnyFamily: PERMISSIONS.sendAnyFamily,
   send: PERMISSIONS.send,
   childSend: PERMISSIONS.childSend,
   selfSend: PERMISSIONS.selfSend,

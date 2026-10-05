@@ -30,6 +30,13 @@ export default defineModule({
       label: "Écrire à tout utilisateur, toute classe ou toute audience (administration)",
       description: "Diffusions administratives : toutes les classes, tous les niveaux, tous les rôles.",
     },
+    {
+      key: "messaging.send.any_family",
+      label: "Écrire à toute famille de l'établissement, hors de ses classes (enseignant habilité par la direction)",
+      description:
+        "Étend `messaging.send` : le membre du personnel peut écrire aux tuteurs de TOUS les élèves, pas seulement à ceux de ses classes. Accordée explicitement par la direction (rôle personnalisé), jamais par défaut ; chaque envoi hors de la portée habituelle est journalisé dans l'audit ; les plafonds d'envoi restent applicables.",
+      sensitive: true,
+    },
     { key: "messaging.child.read", label: "Lire la boîte, les annonces et les notifications de son espace parent" },
     { key: "messaging.child.send", label: "Écrire aux enseignants de ses enfants et à l'administration (parent)" },
     { key: "messaging.self.read", label: "Lire la boîte, les annonces et les notifications de son espace élève" },

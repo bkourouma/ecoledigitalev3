@@ -23,7 +23,7 @@ describe("Ma classe", () => {
   const classRoutes = (permissions: string[]) => ({
     ...accessRoutes(permissions, ["primary.competencies"]),
     ...banner,
-    [`GET ${P}/my-classrooms`]: { items: [myClassroom(), myClassroom({ classroomId: ID.classroom2, name: "CE1 B", isHomeroom: false, studentCount: 1, periods: [{ id: ID.p1, label: "Trimestre 1", locked: false }] })] },
+    [`GET ${P}/my-classrooms`]: { items: [myClassroom(), myClassroom({ classroomId: ID.classroom2, name: "CE1 B", isHomeroom: false, studentCount: 1, periods: [{ id: ID.p1, label: "Trimestre 1", locked: false, ready: false }] })] },
   });
 
   it("effectif, titulaire oui/non, périodes verrouillées ou ouvertes, accès en un geste", async () => {
@@ -43,6 +43,56 @@ describe("Ma classe", () => {
     expect(within(first).getByRole("link", { name: "Conseil" }).getAttribute("href")).toBe(`/v2/primary/conseil?classe=${ID.classroom}`);
     // Bandeau permanent
     expect(await screen.findByTestId("placeholder-notice")).toBeTruthy();
+  });
+
+  describe("Q-P18 : prêt pour les familles", () => {
+    const readyRoutes = (permissions: string[], ready: boolean, over: Record<string, unknown> = {}) => ({
+      ...accessRoutes(permissions, ["primary.competencies"]),
+      ...banner,
+      [`GET ${P}/my-classrooms`]: { items: [myClassroom({ periods: [{ id: ID.p1, label: "Trimestre 1", locked: false, ready }] })] },
+      ...over,
+    });
+    const readyReply = (status: "READY" | "NOT_READY") => ({ classroomId: ID.classroom, periodId: ID.p1, status, markedAt: "2026-10-05T10:00:00.000Z", withdrawnAt: status === "READY" ? null : "2026-10-05T11:00:00.000Z" });
+
+    it("marquer une période prête : confirmation explicite (familles + gel), puis ordre envoyé à l'API", async () => {
+      const api = setTestApi(readyRoutes(["primary.competency.validate", "primary.competency.record"], false, { [`POST ${P}/classrooms/${ID.classroom}/periods/${ID.p1}/ready`]: readyReply("READY") }));
+      renderWithProviders(<ClassScreen />);
+      const first = await screen.findByRole("region", { name: "CE1 A" });
+      fireEvent.click(await within(first).findByRole("button", { name: "Marquer Trimestre 1 prête" }));
+      expect(await screen.findByText(/Les parents et les élèves verront les compétences saisies et le rang provisoire/)).toBeTruthy();
+      expect(api.calls.some((c) => c.method === "POST")).toBe(false); // rien avant la confirmation
+      fireEvent.click(screen.getByRole("button", { name: "Marquer prête" }));
+      await screen.findByText(/marquée prête, les familles voient désormais/);
+      expect(api.calls.find((c) => c.method === "POST")!.path).toBe(`${P}/classrooms/${ID.classroom}/periods/${ID.p1}/ready`);
+    });
+
+    it("période prête : badge, retrait avec motif d'au moins 10 caractères, refus de l'API affiché tel quel", async () => {
+      const api = setTestApi(
+        readyRoutes(["primary.competency.validate"], true, {
+          [`POST ${P}/classrooms/${ID.classroom}/periods/${ID.p1}/ready/withdraw`]: () => json(apiErrorBody("primary_school.period_published", "Un bulletin de cette période est déjà publié aux familles : le marquage « prêts » ne se retire plus."), { status: 409 }),
+        }),
+      );
+      renderWithProviders(<ClassScreen />);
+      const first = await screen.findByRole("region", { name: "CE1 A" });
+      expect(within(first).getByText("Prête pour les familles")).toBeTruthy();
+      fireEvent.click(await within(first).findByRole("button", { name: "Retirer le marquage de Trimestre 1" }));
+      fireEvent.change(await screen.findByRole("textbox", { name: /Motif du retrait/ }), { target: { value: "court" } });
+      fireEvent.click(screen.getByRole("button", { name: "Retirer le marquage" }));
+      expect(await screen.findByText(/au moins 10 caractères/i)).toBeTruthy();
+      expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+      fireEvent.change(screen.getByRole("textbox", { name: /Motif du retrait/ }), { target: { value: "Marquage posé par erreur." } });
+      fireEvent.click(screen.getByRole("button", { name: "Retirer le marquage" }));
+      expect(await screen.findByText(/déjà publié aux familles/)).toBeTruthy();
+      expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ reason: "Marquage posé par erreur." });
+    });
+
+    it("sans la permission de validation, aucun contrôle de marquage n'est proposé", async () => {
+      const api = setTestApi(readyRoutes(["primary.competency.record"], false));
+      renderWithProviders(<ClassScreen />);
+      await screen.findByRole("region", { name: "CE1 A" });
+      await permissionsLoaded(api);
+      expect(screen.queryByRole("button", { name: /Marquer Trimestre 1 prête/ })).toBeNull();
+    });
   });
 
   it("les gestes non permis sont masqués", async () => {

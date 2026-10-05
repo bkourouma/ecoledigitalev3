@@ -29,6 +29,7 @@ import {
   primaryPrepareReviewsResultDtoSchema,
   primaryProgressDtoSchema,
   primaryRatingScaleDtoSchema,
+  primaryReadinessDtoSchema,
   primaryReportDtoSchema,
   primaryRevisionDtoSchema,
   primaryRuleBannerDtoSchema,
@@ -51,6 +52,7 @@ import {
   type PrimaryStructureBody,
   type PrimaryUpdateCaseBody,
   type PrimaryUpdateSettingsBody,
+  type PrimaryWithdrawReadyBody,
 } from "@ecoledigitale/contracts/v2/primary_school";
 import { useApiAction } from "./actions";
 import { omit } from "./omit";
@@ -256,6 +258,28 @@ export function useValidatePrimaryCompetencies() {
   });
 }
 
+/**
+ * Q-P18 : marque la classe × période « prêtes » (visibles des familles ; la saisie est alors gelée). Réversible tant que le bulletin
+ * n'est pas publié (`useWithdrawPrimaryReady`, motif de 10 caractères au moins).
+ */
+export function useMarkPrimaryPeriodReady() {
+  return useApiAction({
+    path: (v: { classroomId: string; periodId: string }) => `${PRIMARY_BASE}/classrooms/${v.classroomId}/periods/${v.periodId}/ready`,
+    body: () => ({}),
+    schema: primaryReadinessDtoSchema,
+    invalidate: [[...KEY, "classrooms"], [...KEY, "competency-sheet"], [...KEY, "competency-summary"]],
+  });
+}
+
+export function useWithdrawPrimaryReady() {
+  return useApiAction({
+    path: (v: { classroomId: string; periodId: string } & PrimaryWithdrawReadyBody) => `${PRIMARY_BASE}/classrooms/${v.classroomId}/periods/${v.periodId}/ready/withdraw`,
+    body: (v) => ({ reason: v.reason }),
+    schema: primaryReadinessDtoSchema,
+    invalidate: [[...KEY, "classrooms"], [...KEY, "competency-sheet"], [...KEY, "competency-summary"]],
+  });
+}
+
 /** Acte SENSIBLE (MFA) : corrige une ligne VALIDÉE ; motif de 10 caractères au moins, trace conservée côté API. */
 export function useRevisePrimaryAssessment() {
   return useApiAction({
@@ -285,7 +309,7 @@ export function usePrimaryCompetencySummary(enrollmentId: string | null, periodI
   });
 }
 
-/** Synthèse d'un enfant (parent) : périodes dont le bulletin est publié seulement (filtre appliqué par l'API). */
+/** Synthèse d'un enfant (parent) : périodes prêtes, validées ou publiées seulement, jamais une saisie en cours (filtre appliqué par l'API, Q-P18). */
 export function usePrimaryChildCompetencySummary(studentId: string | null, enrollmentId: string | null) {
   return hooks.useApiQuery([...KEY, "competency-summary", "child", studentId, enrollmentId], `${PRIMARY_BASE}/children/${studentId}/enrollments/${enrollmentId}/competency-summary`, {
     schema: primaryCompetencySummaryDtoSchema,

@@ -69,6 +69,7 @@ export function createResultsDeps(input: ResultsDepsInput): ResultsDeps {
     get names() { return resolve().names ?? fallback.names; },
     get yearFacts() { return resolve().yearFacts; },
     get competencyCounters() { return resolve().competencyCounters; },
+    get familyRelease() { return resolve().familyRelease; },
   };
   return {
     db: input.db,

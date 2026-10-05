@@ -225,7 +225,7 @@ describe("complétude des ports branchés par la plateforme", () => {
 
   it("chaque port que ses modules déclarent indisponible est fourni (sinon `*.port_unavailable` en production)", () => {
     // yearFacts : port optionnel des packs (faits de fin d'annee), branche par la plateforme sans etre « indisponible » par defaut.
-    expect(keys(withStorage.results)).toEqual([...keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)), "yearFacts", "competencyCounters"].sort());
+    expect(keys(withStorage.results)).toEqual([...keys(unavailableResultsPorts()).filter((k) => !["assess", "rules"].includes(k)), "yearFacts", "competencyCounters", "familyRelease"].sort());
     expect(keys(withStorage.assess)).toEqual(keys(unavailableAssessPorts()));
     expect(keys(withStorage.attendance)).toEqual(keys(unavailableAttendancePorts()).filter((k) => k !== "alertPolicy"));
     // higher : le port des règles est branché par défaut sur le module rules.

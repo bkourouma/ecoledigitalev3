@@ -76,6 +76,8 @@ export const ROLE_CAPS: Readonly<Record<string, CallerCaps>> = Object.freeze({
   staff: { send: true },
   parent: { childSend: true },
   student: { selfSend: true },
+  /** Q-13 : enseignant auquel la direction a accordé `messaging.send.any_family` (rôle personnalisé, jamais un rôle système). */
+  teacherFamily: { send: true, sendAnyFamily: true },
   none: {},
 });
 
@@ -95,15 +97,21 @@ export const ROLE_OF: Readonly<Record<string, keyof typeof ROLE_CAPS>> = Object.
   [IDS.inactive]: "parent",
 });
 
-export const capsOf = (userId: string): CallerCaps => ROLE_CAPS[ROLE_OF[userId] ?? "none"]!;
+/** Rôles ajoutés par un test à des utilisateurs qu'il crée lui-même (le tableau ROLE_OF est figé). */
+const EXTRA_ROLE_OF = new Map<string, keyof typeof ROLE_CAPS>();
+export const registerRole = (userId: string, role: keyof typeof ROLE_CAPS): void => void EXTRA_ROLE_OF.set(userId, role);
+const roleOf = (userId: string): keyof typeof ROLE_CAPS => ROLE_OF[userId] ?? EXTRA_ROLE_OF.get(userId) ?? "none";
+
+export const capsOf = (userId: string): CallerCaps => ROLE_CAPS[roleOf(userId)]!;
 
 /** Permissions du manifeste correspondant aux capacités d'un utilisateur (pour le garde HTTP simulé). */
 export function permissionsOf(userId: string): Set<string> {
-  const role = ROLE_OF[userId] ?? "none";
+  const role = roleOf(userId);
   const read = role === "parent" ? ["messaging.child.read"] : role === "student" ? ["messaging.self.read"] : role === "none" ? [] : ["messaging.read"];
   const c = ROLE_CAPS[role]!;
   const out = new Set<string>(read);
   if (c.sendAny) out.add("messaging.send.any");
+  if (c.sendAnyFamily) out.add("messaging.send.any_family");
   if (c.send) out.add("messaging.send");
   if (c.childSend) out.add("messaging.child.send");
   if (c.selfSend) out.add("messaging.self.send");
