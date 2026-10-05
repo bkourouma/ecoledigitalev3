@@ -1,5 +1,7 @@
 # Questions métier à valider — EcoleDigitale v2
 
+> **Mise à jour 2026-10-05** : les réponses de l’utilisateur sont consignées dans `specs/v2/REPONSES-METIER.md` (réponses par spec et liste des écarts à implémenter). Restent en attente les textes officiels (à fournir plus tard) et quelques questions techniques conservées par défaut.
+
 **Consolidation unique de toutes les questions métier ouvertes**, avec la valeur par défaut appliquée pour chacune. Source de vérité : `specs/v2/DECISIONS-METIER.md` emporte toute valeur par défaut proposée ici.
 
 **Mise à jour** : 2026-10-02
