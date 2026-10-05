@@ -74,7 +74,7 @@ export const TEMPLATE_CATALOG: readonly CatalogEntry[] = Object.freeze<CatalogEn
   {
     code: "payment_reminder",
     label: "Relance d'impayé",
-    description: "Relance de paiement (paliers J+3, J+10, J+30 configurables).",
+    description: "Relance de paiement (paliers J+7, J+21, J+45 configurables).",
     category: "FINANCE",
     variables: [
       studentName,

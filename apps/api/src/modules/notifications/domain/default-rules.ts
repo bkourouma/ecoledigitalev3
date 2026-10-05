@@ -10,7 +10,7 @@
  *  - le retard est désactivé par défaut (parité avec la messagerie interne) ;
  *  - les alertes d'absences s'appuient sur `attendance.alert.triggered` : les seuils d'ABSENCES sont ceux des règles
  *    d'alerte du module `attendance` ; `minValue` ajoute un seuil propre à la notification ;
- *  - les relances d'impayés ont des paliers J+3 / J+10 / J+30 ;
+ *  - les relances d'impayés ont des paliers J+7 / J+21 / J+45 ;
  *  - l'alerte de baisse de résultats est désactivée par défaut : l'échelle des moyennes dépend de l'établissement ;
  *  - la charge d'enseignement se lit dans l'unité de PLANIFICATION des heures de l'établissement (`planned_hours` des affectations,
  *    cumul de l'année) : le seuil de départ (800 h) est à ajuster.
@@ -414,7 +414,7 @@ export const DEFAULT_RULES: readonly RuleDef[] = Object.freeze<RuleDef[]>([
   // --- Relances d'impayés (job quotidien) --------------------------------------------------------------
   {
     key: "dunning.default",
-    label: "Relances d'impayés (J+3, J+10, J+30)",
+    label: "Relances d'impayés (J+7, J+21, J+45)",
     kind: "DUNNING",
     trigger: "dunning",
     enabled: true,
@@ -423,7 +423,7 @@ export const DEFAULT_RULES: readonly RuleDef[] = Object.freeze<RuleDef[]>([
     channels: ["IN_APP", "EMAIL", "WHATSAPP"],
     strategy: "ALL",
     urgent: false,
-    conditions: { stages: [3, 10, 30] },
+    conditions: { stages: [7, 21, 45] },
     custom: false,
   },
   // --- Alertes intelligentes (job) -------------------------------------------------------------------

@@ -251,7 +251,7 @@
 | Q-23 | Heures calmes par défaut (20:00-07:00, fuseau Abidjan) | Paramétrables par établissement et personne ; urgence bypass | Notifications hors heures ou non bloquées | Direction de chaque établissement |
 | Q-24 | Urgence et révocation (bypass liste suppression) | Non par défaut ; établissement l'autorise (`urgent_bypasses_revocations`) | Alerte non reçue ou consentement contourné | Propriétaire + juridique |
 | Q-25 | Plafonds canaux (SMS 500/j, WhatsApp 1500, e-mail 3000, push 10k, in-app 20k par établissement) | Paramétrables ; à calibrer sur usage et coût | Quota atteint ou overspend | Exploitation |
-| Q-26 | Relances impayés : paliers, gabarit, destinataire | J+3/J+10/J+30, une seule règle active, responsable financier (repli : tuteurs puis élève) | Impayé oublié ou relance double | Propriétaire + économat |
+| Q-26 | Relances impayés : paliers, gabarit, destinataire | J+7/J+21/J+45 (décision du propriétaire ; anciennement J+3/J+10/J+30), une seule règle active, responsable financier (repli : tuteurs puis élève) | Impayé oublié ou relance double | Propriétaire + économat |
 | Q-27 | Charge d'enseignement et baisse de résultats | Charge : heures planifiées année (défaut 800 h) ; baisse : désactivée, seuil en points | Alerte erronée ou manquée | Direction des études |
 | Q-28 | Rôle « ressources humaines » | Aucun modèle ; alerte document expirant = secrétariat par défaut | Alerte à mauvaise personne | Propriétaire du produit |
 | Q-29 | Conservation consentement (`consent_log`) | Conservé tant qu'établissement existe ; effacement sur demande | Non-conformité RGPD | Juridique |

@@ -2,7 +2,7 @@
  * Relances d'impayés automatiques (job quotidien, un établissement à la fois).
  *
  *  - lit les ÉCHÉANCES en retard par le port `OverdueSource` (finance) ; ne calcule aucun montant, ne lit aucune table de finance ;
- *  - paliers configurables (`conditions.stages`, par défaut J+3 / J+10 / J+30) : pour une échéance, seul le palier le plus
+ *  - paliers configurables (`conditions.stages`, par défaut J+7 / J+21 / J+45) : pour une échéance, seul le palier le plus
  *    haut atteint donne lieu à un message, et chaque palier atteint est consigné au registre `dunning_steps` — JAMAIS deux
  *    fois le même palier, même si le job est rejoué, lancé deux fois ou en retard ;
  *  - arrêt dès paiement : l'échéance est relue au moment d'envoyer (`isInstallmentStillOverdue`), les remises en attente d'une

@@ -156,7 +156,7 @@ describe("RulesScreen", () => {
   it("modifie les paliers de relance : corps exact ; paliers invalides refusés avant l'envoi", async () => {
     const api = setTestApi({ ...routes(), [`PUT ${N}/rules/dunning.default`]: (r: { body: unknown }) => json({ ...ruleView({ source: "TENANT" }), ...(r.body as object), key: "dunning.default", label: "Relance des impayés", kind: "DUNNING", trigger: "dunning", custom: false, updatedAt: NOW }) });
     renderWithProviders(<RulesScreen />);
-    expect(await screen.findByText("paliers J+3, J+10, J+30")).toBeTruthy();
+    expect(await screen.findByText("paliers J+7, J+21, J+45")).toBeTruthy();
     expect(screen.getByText("Déclencheur : Absence enregistrée")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Modifier la règle Relance des impayés" }));
     const dialog = await screen.findByRole("dialog");

@@ -75,7 +75,7 @@ export function ruleView(over: Record<string, unknown> = {}) {
     channels: ["EMAIL", "SMS"],
     strategy: "FIRST_REACHABLE",
     urgent: false,
-    conditions: { stages: [3, 10, 30] },
+    conditions: { stages: [7, 21, 45] },
     updatedAt: null,
     ...over,
   };

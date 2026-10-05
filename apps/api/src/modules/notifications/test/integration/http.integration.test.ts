@@ -133,7 +133,7 @@ describeIntegration("module notifications : HTTP (matrice par rôle, routes publ
 
   it("règles : liste fusionnée, surcharge, remise aux valeurs livrées (204) ; règle invalide : 400 avec code stable", async () => {
     const rules = (await call("GET", "/rules", STAFF)).json().items;
-    expect(rules.find((r: { key: string }) => r.key === "dunning.default")).toMatchObject({ kind: "DUNNING", source: "SHIPPED", conditions: { stages: [3, 10, 30] } });
+    expect(rules.find((r: { key: string }) => r.key === "dunning.default")).toMatchObject({ kind: "DUNNING", source: "SHIPPED", conditions: { stages: [7, 21, 45] } });
     const body = { enabled: true, templateCode: "payment_reminder", audience: { kind: "STUDENT_GUARDIANS" }, channels: ["EMAIL"], strategy: "ALL", urgent: false, conditions: { stages: [2, 8] } };
     expect((await call("PUT", "/rules/dunning.default", STAFF, body)).statusCode).toBe(403);
     const saved = await call("PUT", "/rules/dunning.default", IDS.admin, body);

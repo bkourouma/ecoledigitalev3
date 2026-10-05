@@ -4,7 +4,7 @@
  *
  *  - `notifications.dispatch`          toutes les 15 s : envoie les remises dues (réclamation `SKIP LOCKED`, bail, plafonds
  *    journaliers, reprise avec backoff). L'envoi réseau se fait HORS transaction. Un établissement en échec n'arrête pas les autres.
- *  - `notifications.run-dunning`       07:00 : relances d'impayés par paliers (J+3 / J+10 / J+30 configurables), jamais deux fois
+ *  - `notifications.run-dunning`       07:00 : relances d'impayés par paliers (J+7 / J+21 / J+45 configurables), jamais deux fois
  *    le même palier, arrêt dès paiement.
  *  - `notifications.evaluate-alerts`   07:30 : alertes (retard de paiement prolongé, baisse de résultats, charge d'enseignement).
  *  - `notifications.housekeeping`      04:15 : purge du journal au-delà de la rétention, abonnements push expirés.

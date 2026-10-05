@@ -195,7 +195,7 @@ Tuteur sans compte (aucune remise : signalé au composeur par un compte de desti
 3. **Journal de chaque envoi** : destinataire masqué, canal, gabarit et version, statut, tentatives, erreur, identifiant fournisseur, coût si connu ; reprise avec backoff ; dédoublonnage par clé d'événement.
 4. **Préférences et consentement** par personne et canal (opt-out, heures calmes, urgences qui contournent) ; conformité (désinscription signée, mentions).
 5. **Règles configurables par établissement** (qui est notifié, par quel canal, avec quel gabarit, quels seuils) appliquées aux événements des modules.
-6. **Relances d'impayés automatiques** par paliers (J+3, J+10, J+30 configurables) : jamais deux fois le même palier, arrêt dès paiement. **Alertes** configurables : absences, retard de paiement, baisse de résultats, charge d'enseignement, document expirant.
+6. **Relances d'impayés automatiques** par paliers (J+7, J+21, J+45 configurables) : jamais deux fois le même palier, arrêt dès paiement. **Alertes** configurables : absences, retard de paiement, baisse de résultats, charge d'enseignement, document expirant.
 7. **Administration** : routes `/api/v1/notifications/*`, écrans `/v2/notifications/*` et `/v2/account/notifications`, gardes serveur, i18n fr-CI `v2Notifications*`, mobile-first.
 8. **Sécurité** : aucun envoi réel en test ; secrets par variables d'environnement ; jamais d'adresse complète dans les journaux d'exécution ni dans le journal restitué ; quotas ; un canal non configuré échoue EXPLICITEMENT (jamais de simulation silencieuse).
 
@@ -298,7 +298,7 @@ Une règle = (déclencheur, audience, canaux ordonnés, stratégie, gabarit, urg
 
 Job quotidien (07:00) par établissement. Source : port `OverdueSource` (finance : échéances dont le reste dû est > 0, facture émise, payeur = apprenant ; aucun calcul de montant ici).
 
-- **Paliers** configurables (`conditions.stages`, défaut `[3, 10, 30]`) : pour une échéance en retard de *d* jours, seul le palier le plus haut atteint donne lieu à un message (un job en retard n'envoie pas J+3 ET J+10) ; tous les paliers atteints sont consignés (`dunning_steps`, clé primaire (échéance, palier)) : **jamais deux fois le même palier**, même job rejoué ou lancé deux fois.
+- **Paliers** configurables (`conditions.stages`, défaut `[7, 21, 45]` (Q-26 : décision du propriétaire, anciennement J+3 / J+10 / J+30)) : pour une échéance en retard de *d* jours, seul le palier le plus haut atteint donne lieu à un message (un job en retard n'envoie pas J+7 ET J+21) ; tous les paliers atteints sont consignés (`dunning_steps`, clé primaire (échéance, palier)) : **jamais deux fois le même palier**, même job rejoué ou lancé deux fois.
 - **Arrêt dès paiement** : (1) l'échéance est relue au moment de l'envoi (`isInstallmentStillOverdue` : sinon `CANCELLED / paid`) ; (2) `finance.invoice.paid` annule les remises en attente de la facture ; (3) une échéance soldée n'est plus remontée.
 - Famille injoignable : le palier n'est pas consommé (nouvel essai à la passe suivante). Une seule règle de relance active par établissement.
 
@@ -358,7 +358,7 @@ Abonnés : `notifications.on.<événement>` (un par déclencheur) et `notificati
 2. Un opt-out WhatsApp écarte ce canal (consigné) et le message part par SMS ; relu à l'envoi.
 3. Un SMS de nuit est reporté à 07:00 puis envoyé ; une urgence part tout de suite ; la liste de suppression n'est jamais contournée.
 4. Une panne du canal est reprise avec backoff (1, 2, 4 min…) sans perte ni doublon ; épuisement = `FAILED` + événement ; rebond = `BOUNCED` + suppression ; un worker tué est repris à l'expiration du bail.
-5. Une échéance en retard reçoit J+3, J+10, J+30 une seule fois chacun ; un job en retard n'envoie que le palier le plus récent ; un paiement arrête les relances (y compris en attente).
+5. Une échéance en retard reçoit J+7, J+21, J+45 une seule fois chacun ; un job en retard n'envoie que le palier le plus récent ; un paiement arrête les relances (y compris en attente).
 6. Chaque gabarit livré se rend sans variable résiduelle ; une variable inconnue, mal typée ou manquante est refusée ; les versions sont immuables et le journal porte la version utilisée.
 7. Le journal ne contient ni adresse complète ni contenu une fois terminal ; l'API ne restitue que le masque.
 8. Isolation A/B sur les 11 tables avec de vraies données.
