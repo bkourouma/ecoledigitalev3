@@ -69,6 +69,8 @@ export const LEGACY_TO_V2_HREF: Readonly<Record<string, string>> = Object.freeze
   "/admin/higher/rattrapages": "/v2/higher/resit",
   "/admin/higher/prerequis": "/v2/higher/prerequisites",
   "/admin/higher/signataires": "/v2/higher/signatories",
+  "/admin/higher/dispenses": "/v2/higher/exemptions",
+  "/admin/higher/ue-annuelles": "/v2/higher/annual-ues",
   "/v2/admissions/workflow": "/v2/admissions/settings/workflow",
 });
 

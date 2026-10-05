@@ -47,7 +47,8 @@ describe("manifeste du module higher", () => {
     for (const k of keys) expect(k).toMatch(PERMISSION_KEY_RE);
     expect([...Object.values(HIGHER_PERMISSIONS)].sort()).toEqual([...keys].sort());
     const sensitive = manifest.permissions.filter((p) => p.sensitive).map((p) => p.key).sort();
-    expect(sensitive).toEqual(["higher.award.create", "higher.award.force", "higher.award.revoke", "higher.document.issue", "higher.slot.manage"]);
+    // O-11 (UE annuelle) et O-14 (dispense) : actes qui changent un résultat ou le registre de crédits -> sensibles.
+    expect(sensitive).toEqual(["higher.annual_ue.manage", "higher.award.create", "higher.award.force", "higher.award.revoke", "higher.document.issue", "higher.exemption.grant", "higher.slot.manage"]);
     // Spec §9 : les 11 permissions de référence existent telles quelles.
     for (const k of [
       "higher.diploma.read", "higher.diploma.manage", "higher.award.read", "higher.award.create", "higher.award.force", "higher.award.revoke",
@@ -76,9 +77,9 @@ describe("manifeste du module higher", () => {
     }
   });
 
-  it("allowlist d'isolation : aucune table globale, 12 tables de tenant attendues", () => {
+  it("allowlist d'isolation : aucune table globale, 16 tables de tenant attendues (12 + 3 d'UE annuelle O-11 + 1 de dispense O-14)", () => {
     expect(allowlist).toEqual([]);
-    expect(higherTenantTables).toHaveLength(12);
+    expect(higherTenantTables).toHaveLength(16);
   });
 });
 

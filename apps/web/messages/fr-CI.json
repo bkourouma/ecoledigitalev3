@@ -8279,6 +8279,108 @@
       "12": "décembre"
     }
   },
+  "v2HigherExemptions": {
+    "nav": "Dispenses d'UE",
+    "title": "Dispenses d'UE",
+    "description": "La direction dispense un étudiant d'une UE, avec un motif. La dispense est tracée (auteur, date, journal d'audit) et peut être révoquée.",
+    "featureOff": "Les diplômes ne sont pas inclus dans l'offre de l'établissement.",
+    "listTitle": "Dispenses",
+    "filter": "Afficher",
+    "status": {
+      "ALL": "Toutes",
+      "ACTIVE": "Accordée",
+      "REVOKED": "Révoquée"
+    },
+    "grant": "Accorder une dispense",
+    "caption": "Liste des dispenses d'UE",
+    "empty": "Aucune dispense",
+    "columns": {
+      "student": "Étudiant",
+      "ue": "UE",
+      "credits": "Crédits",
+      "reason": "Motif",
+      "date": "Accordée le",
+      "status": "État",
+      "actions": "Actions"
+    },
+    "creditsGranted": "{value} crédits inscrits au registre",
+    "creditsNone": "Aucun effet sur les crédits",
+    "revokedBecause": "révoquée : {reason}",
+    "revoke": "Révoquer",
+    "revokeFor": "Révoquer la dispense de {name}",
+    "revokeTitle": "Révoquer la dispense",
+    "revokeDescription": "Si la dispense avait inscrit les crédits de l'UE au registre, cette écriture est révoquée (sauf si un diplôme octroyé s'y appuie). Le motif est conservé.",
+    "reasonLabel": "Motif",
+    "granted": "La dispense est accordée.",
+    "revoked": "La dispense est révoquée.",
+    "policy": {
+      "title": "Effet d'une dispense sur les crédits",
+      "intro": "Paramètre de l'établissement : il dit si une dispense inscrit les crédits de l'UE au registre. Il s'applique aux dispenses accordées après le changement ; les dispenses existantes gardent la politique qui leur a été appliquée.",
+      "label": "Politique de crédits",
+      "options": {
+        "RECORD_ONLY": "Enregistrer seulement",
+        "GRANT_CREDITS": "Inscrire les crédits de l'UE"
+      },
+      "hint": {
+        "RECORD_ONLY": "La dispense est tracée mais ne change ni les crédits, ni la validation, ni l'éligibilité au diplôme.",
+        "GRANT_CREDITS": "L'UE dispensée compte comme acquise : prérequis, attestation et éligibilité au diplôme."
+      },
+      "frozen": "Changer ce paramètre ne réécrit aucune dispense déjà accordée."
+    },
+    "dialog": {
+      "title": "Accorder une dispense d'UE",
+      "description": "Décision de la direction. Le motif est obligatoire (10 caractères au moins) et conservé dans l'historique et le journal d'audit.",
+      "submit": "Accorder la dispense",
+      "student": "Étudiant",
+      "studentPlaceholder": "Rechercher un étudiant",
+      "studentRequired": "Choisissez un étudiant.",
+      "enrollment": "Inscription",
+      "chooseEnrollment": "Choisir l'inscription",
+      "noEnrollment": "Cet étudiant n'a aucune inscription active.",
+      "ue": "UE dispensée",
+      "chooseUe": "Choisir l'UE",
+      "noUe": "Aucune UE n'est proposée pour cette inscription.",
+      "period": "Semestre de rattachement",
+      "choosePeriod": "Choisir le semestre",
+      "periodHint": "Semestre auquel la dispense est rattachée au registre de crédits.",
+      "reason": "Motif de la dispense",
+      "reasonHint": "10 caractères au moins."
+    }
+  },
+  "v2HigherAnnualUes": {
+    "nav": "UE annuelles",
+    "title": "UE annuelles",
+    "description": "Une UE offerte sur deux semestres (ou plus) a un résultat commun. Déclarez l'UE principale et l'UE de chaque semestre : les crédits ne sont inscrits au registre qu'une fois tous les semestres clôturés.",
+    "featureOff": "Les diplômes ne sont pas inclus dans l'offre de l'établissement.",
+    "rulesNote": "La moyenne commune, la validation et l'état de l'UE sont calculés par les règles de calcul de l'établissement (RuleSet), jamais par cet écran. Une UE annuelle compte pour une seule exigence de diplôme.",
+    "declare": "Déclarer une UE annuelle",
+    "empty": "Aucune UE annuelle",
+    "emptyHint": "Toutes les UE sont traitées semestre par semestre.",
+    "listLabel": "UE annuelles déclarées",
+    "semesters": "{count} semestres",
+    "members": "UE des semestres",
+    "declaredOn": "Déclarée le {date} — {reason}",
+    "declared": "L'UE annuelle est déclarée.",
+    "remove": "Retirer",
+    "removeTitle": "Retirer la déclaration",
+    "removeDescription": "Possible seulement tant qu'aucun résultat de semestre n'a été reçu pour cette UE.",
+    "reasonLabel": "Motif",
+    "removed": "La déclaration est retirée.",
+    "dialog": {
+      "title": "Déclarer une UE annuelle",
+      "description": "Choisissez l'UE principale (celle qui porte les crédits au registre) puis l'UE du second semestre.",
+      "submit": "Déclarer",
+      "mainUe": "UE principale (semestre 1)",
+      "mainHint": "Son identité sert de référence au registre de crédits, aux prérequis et aux diplômes.",
+      "mainRequired": "Choisissez l'UE principale.",
+      "secondUe": "UE du second semestre (facultatif)",
+      "secondHint": "Laissez vide si la même UE est offerte sur les deux semestres.",
+      "parts": "Nombre de semestres",
+      "partsHint": "Le résultat commun est calculé quand tous ces semestres sont clôturés.",
+      "partsOption": "{count} semestres",
+      "reason": "Motif de la déclaration"
+    }
+  },
   "v2Rollover": {
     "nav": "Reconduction",
     "featureOff": "La reconduction annuelle n'est pas incluse dans l'offre de votre établissement.",

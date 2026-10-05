@@ -25,6 +25,7 @@ import type { DiplomaAward, DocumentKind, DocumentSlot, IsoDate, OfficialDocumen
 import * as diplomas from "../infrastructure/diplomas-repository";
 import * as repo from "../infrastructure/documents-repository";
 import * as ledger from "../infrastructure/ledger-repository";
+import { foldCurriculumUes } from "./annual-ue";
 import { EventBuffer, currentYear, inTx, insertOrConflict, lockKey, todayOf, type HigherDeps } from "./deps";
 import type { CycleResults, RuleScope, SignatoryInfo } from "./ports";
 
@@ -286,7 +287,7 @@ export interface AttestationRosterRow {
 export async function getAttestationRoster(deps: HigherDeps, ctx: RequestContext, input: { programNodeId: Uuid; classroomId?: Uuid | undefined }): Promise<Result<AttestationRosterRow[], AppError>> {
   const node = await deps.ports.curriculum.getNode(ctx, input.programNodeId);
   if (!node) return err(notFound(HigherCode.CURRICULUM_NODE_NOT_FOUND, "Programme", input.programNodeId));
-  const ues = await deps.ports.curriculum.listProgramUe(ctx, input.programNodeId);
+  const ues = await foldCurriculumUes(deps, ctx, await deps.ports.curriculum.listProgramUe(ctx, input.programNodeId)); // O-11 : UE annuelle = une UE
   if (ues.length === 0) return err(validation(HigherCode.ATTESTATION_NO_UE, "Aucune UE n'est configurée pour ce programme.", "programNodeId"));
   const enrollments = (await deps.ports.enrollments.listCycleEnrollments(ctx, input.programNodeId)).filter((e) => !input.classroomId || e.classroomId === input.classroomId);
   const latest = new Map<Uuid, (typeof enrollments)[number]>();
@@ -328,7 +329,7 @@ export async function issueSuccessAttestation(deps: HigherDeps, ctx: RequestCont
   const issuer = ctx.userId;
   const node = await deps.ports.curriculum.getNode(ctx, input.programNodeId);
   if (!node) return err(notFound(HigherCode.CURRICULUM_NODE_NOT_FOUND, "Programme", input.programNodeId));
-  const ues = await deps.ports.curriculum.listProgramUe(ctx, input.programNodeId);
+  const ues = await foldCurriculumUes(deps, ctx, await deps.ports.curriculum.listProgramUe(ctx, input.programNodeId)); // O-11 : UE annuelle = une UE
   if (ues.length === 0) return err(validation(HigherCode.ATTESTATION_NO_UE, "Aucune UE n'est configurée pour ce programme.", "programNodeId"));
   const identity = await deps.ports.students.getIdentity(ctx, input.studentId);
   if (!identity) return err(notFound(HigherCode.STUDENT_NOT_FOUND, "Étudiant", input.studentId));

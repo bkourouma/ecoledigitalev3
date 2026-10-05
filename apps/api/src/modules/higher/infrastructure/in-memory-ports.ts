@@ -15,6 +15,8 @@ import { portUnavailable } from "../domain/errors";
 import type { DecimalString, Uuid } from "../domain/types";
 import type {
   ActorDirectory,
+  AnnualUeEvaluation,
+  AnnualUeEvaluationInput,
   CreditsSourcePort,
   CurriculumNodeInfo,
   CurriculumPort,
@@ -292,6 +294,7 @@ export const SCRIPTED_RULE_REF: RuleRef = Object.freeze({
 
 type EligibilityInput = { exigences: ReadonlyArray<{ valide: boolean; obligatoire: boolean; uv: number }>; uvRequises: number; scope: RuleScope };
 type CycleInput = { semestres: ReadonlyArray<{ moyenne: DecimalString | null; credits: number }>; scope: RuleScope };
+type AnnualUeScript = (input: AnnualUeEvaluationInput) => Omit<AnnualUeEvaluation, "rule">;
 
 /**
  * Port de règles « scénarisé » : le test fournit les décisions (`onEligibility`, `onCycle`). Sans script il échoue fermé
@@ -300,6 +303,9 @@ type CycleInput = { semestres: ReadonlyArray<{ moyenne: DecimalString | null; cr
 export class ScriptedRules implements DiplomaRulesPort {
   onEligibility: ((input: EligibilityInput) => boolean) | null = null;
   onCycle: ((input: CycleInput) => { average: DecimalString | null; mentionCode: string }) | null = null;
+  /** O-11 : décision de la règle de l'UE annuelle, dictée par le test (aucune formule ici). */
+  onAnnualUe: AnnualUeScript | null = null;
+  readonly annualUeCalls: AnnualUeEvaluationInput[] = [];
   /** Panne injectée (test d'isolation capitalisation / éligibilité). */
   failWith: AppError | null = null;
   readonly eligibilityCalls: EligibilityInput[] = [];
@@ -318,6 +324,13 @@ export class ScriptedRules implements DiplomaRulesPort {
     if (!this.onCycle) return Promise.reject(portUnavailable("DiplomaRulesPort.evaluateCycle (non scénarisé)"));
     const r = this.onCycle(input);
     return ok({ average: r.average, mentionCode: r.mentionCode, rule: SCRIPTED_RULE_REF });
+  }
+
+  async evaluateAnnualUe(_ctx: RequestContext, input: AnnualUeEvaluationInput): Promise<Result<AnnualUeEvaluation, AppError>> {
+    this.annualUeCalls.push(input);
+    if (this.failWith) return err(this.failWith);
+    if (!this.onAnnualUe) return Promise.reject(portUnavailable("DiplomaRulesPort.evaluateAnnualUe (non scénarisé)"));
+    return ok({ ...this.onAnnualUe(input), rule: SCRIPTED_RULE_REF });
   }
 }
 

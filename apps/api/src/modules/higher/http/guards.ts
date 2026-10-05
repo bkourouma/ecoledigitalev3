@@ -25,6 +25,9 @@ export const PERMISSIONS = {
   resitManage: "higher.resit.manage",
   slotManage: "higher.slot.manage",
   settingsManage: "higher.settings.manage",
+  annualUeManage: "higher.annual_ue.manage",
+  exemptionRead: "higher.exemption.read",
+  exemptionGrant: "higher.exemption.grant",
   selfRead: "higher.self.read",
   childRead: "higher.child.read",
 } as const;

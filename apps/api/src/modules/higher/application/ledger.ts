@@ -19,6 +19,8 @@ import { HigherEvents } from "../domain/events";
 import type { AcquiredVia, IsoDate, LedgerEntry, UeDebt, Uuid } from "../domain/types";
 import * as repo from "../infrastructure/ledger-repository";
 import { EventBuffer, inTx, todayOf, type HigherDeps } from "./deps";
+import { resolveAnnualLines } from "./annual-ue";
+import * as annualRepo from "../infrastructure/annual-ue-repository";
 import type { UeResultLine } from "./ports";
 import * as resitRepo from "../infrastructure/resit-repository";
 
@@ -40,6 +42,11 @@ export interface CapitalizeReport {
   readonly debtsCleared: number;
   readonly rejected: number;
   readonly resitSettled: number;
+  /**
+   * O-11 : présent SEULEMENT quand la clôture a porté sur une UE annuelle — `pending` : UE annuelles auxquelles il manque encore
+   * un semestre (rien n'est capitalisé), `evaluated` : résultats communs évalués par les règles puis capitalisés.
+   */
+  readonly annual?: { readonly pending: number; readonly evaluated: number };
 }
 
 const EMPTY: CapitalizeReport = Object.freeze({
@@ -76,7 +83,19 @@ export async function capitalizePeriod(deps: HigherDeps, ctx: RequestContext, in
     const r = { acquired: 0, alreadyAcquired: 0, replacedExpired: 0, revoked: 0, revocationBlocked: 0, debtsOpened: 0, debtsCleared: 0, rejected: 0, resitSettled: 0 };
     const maxVersion = ordered.reduce((m, l) => Math.max(m, l.resultsVersion), 0);
 
-    for (const line of ordered) {
+    // O-11 : les parties d'UE annuelle sont enregistrées, puis remplacées par UNE ligne commune quand tous les semestres sont reçus.
+    // Sans UE annuelle déclarée, `effective` est `ordered` à l'identique (parité du comportement d'origine).
+    let effective: readonly UeResultLine[] = ordered;
+    let annual: { pending: number; evaluated: number } | undefined;
+    const annualDefs = await annualRepo.listDefs(tx);
+    if (annualDefs.length > 0) {
+      const resolved = await resolveAnnualLines(deps, ctx, tx, ordered, annualDefs);
+      if (!resolved.ok) return resolved;
+      effective = [...resolved.value.lines].sort((a, b) => a.studentId.localeCompare(b.studentId) || a.ueNodeId.localeCompare(b.ueNodeId));
+      if (resolved.value.pending + resolved.value.evaluated > 0) annual = { pending: resolved.value.pending, evaluated: resolved.value.evaluated };
+    }
+
+    for (const line of effective) {
       if (line.validated) {
         const norm = normalizeAcquisition(line);
         if (!norm) {
@@ -145,7 +164,9 @@ export async function capitalizePeriod(deps: HigherDeps, ctx: RequestContext, in
       // --- UE non validée ----------------------------------------------------------------------------------------
       // 1) une écriture issue d'une version PRÉCÉDENTE de ce résultat n'est plus fondée : révocation (sauf diplôme).
       const stale = await repo.findAcquired(tx, line.studentId, line.ueNodeId, true);
-      if (stale && stale.academicPeriodId === line.academicPeriodId && stale.sourceResultsVersion < line.resultsVersion) {
+      // Une écriture issue d'une dispense (EXEMPTION) ou d'un transfert ne vient d'aucun résultat : un résultat non validé ne la révoque jamais.
+      // Une ligne commune d'UE annuelle remplace l'écriture quel que soit le semestre de la dernière clôture.
+      if (stale && (stale.acquiredVia === "DIRECT" || stale.acquiredVia === "RESIT" || stale.acquiredVia === "JURY_OVERRIDE") && (line.annual === true || stale.academicPeriodId === line.academicPeriodId) && stale.sourceResultsVersion < line.resultsVersion) {
         const awards = await repo.listAwardsUsingLedger(tx, stale.studentId, stale.id);
         if (awards.length > 0) {
           r.revocationBlocked += 1;
@@ -201,7 +222,7 @@ export async function capitalizePeriod(deps: HigherDeps, ctx: RequestContext, in
       });
     }
     await events.flush(tx);
-    return ok({ linesRead: ordered.length, ...r });
+    return ok({ linesRead: ordered.length, ...r, ...(annual ? { annual } : {}) });
   });
 }
 

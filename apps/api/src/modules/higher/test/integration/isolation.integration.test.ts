@@ -2,7 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertTenantIsolation, checkTenantIsolation } from "@ecoledigitale/database";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { higherIsolationAllowlistTables, higherIsolationFixtures, higherTenantTables } from "../../../isolation-allowlist.higher";
+import { declareAnnualUe, listAnnualUes } from "../../application/annual-ue";
 import { awardDiploma, getAward, listAwards, revokeAward } from "../../application/awards";
+import { grantExemption, listExemptions } from "../../application/exemptions";
 import { createDiploma, getDiploma } from "../../application/diplomas";
 import { assignSlot, getDocument, issueAwardDocument, listDocuments, listSlots } from "../../application/documents";
 import { capitalizePeriod, getCreditSummary, listAcquiredUe, listDebts } from "../../application/ledger";
@@ -52,6 +54,15 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
       candidates: [{ enrollmentId: s2!.enrollmentId, studentId: s2!.studentId, ecueNodeId: newId(), ueNodeId: a.ues[1]!.nodeId, session1Average: "7.5" }],
     });
     windowA = unwrap(await openResitWindow(world.deps, ctx, { classroomId: a.classroomId, academicPeriodId: a.periodId, opensOn: "2026-10-05", closesOn: "2026-10-19" })).window.id;
+    // O-11 : une UE annuelle (deux UE hors cycle des diplômes) et la partie d'un semestre reçue ; O-14 : une dispense.
+    const annualA = { nodeId: newId(), code: "UEA1", label: "UE annuelle A1", credits: 4 };
+    const annualB = { nodeId: newId(), code: "UEA2", label: "UE annuelle A2", credits: 4 };
+    world.ports.curriculum.addUe({ ...annualA, programNodeId: a.programNodeId });
+    world.ports.curriculum.addUe({ ...annualB, programNodeId: a.programNodeId });
+    unwrap(await declareAnnualUe(world.deps, ctx, { ueNodeId: annualA.nodeId, memberNodeIds: [annualB.nodeId], reason: "UE annuelle d'isolation" }));
+    world.ports.credits.setFinalLines(a.classroomId, a.period2Id, [ueLine(a, s1!, annualA, { academicPeriodId: a.period2Id })]);
+    unwrap(await capitalizePeriod(world.deps, ctx, { classroomId: a.classroomId, academicPeriodId: a.period2Id }));
+    unwrap(await grantExemption(world.deps, ctx, { studentId: s2!.studentId, enrollmentId: s2!.enrollmentId, ueNodeId: a.ues[2]!.nodeId, academicPeriodId: a.periodId, reason: "Dispense d'isolation accordée" }));
   });
   afterAll(async () => {
     await db.drop();
@@ -76,7 +87,7 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
     expect(noRls).toEqual([]);
   });
 
-  it("sous le tenant B, AUCUNE ligne du tenant A n'est visible ni modifiable dans AUCUNE des 12 tables", async () => {
+  it("sous le tenant B, AUCUNE ligne du tenant A n'est visible ni modifiable dans AUCUNE des 16 tables", async () => {
     const b = ctxFor(tenantB);
     for (const table of higherTenantTables) {
       const own = Number((await adminOne<{ n: string }>(db, `SELECT count(*) AS n FROM ${table} WHERE tenant_id = $1`, [a.tenantId])).n);
@@ -125,7 +136,12 @@ describeIntegration("isolation multi-tenant et invariants de la base (Postgres r
     expect(unwrap(await listDebts(world.deps, b, a.students[1]!.studentId))).toHaveLength(0);
     expect(unwrap(await getPrerequisites(world.deps, b, a.ues[1]!.nodeId))).toHaveLength(0);
     expect(unwrap(await getHigherSettings(world.deps, b))).toEqual({ creditValidityMonths: null });
+    // O-11 / O-14 : ni UE annuelle ni dispense visibles depuis B
+    expect(unwrap(await listAnnualUes(world.deps, b))).toHaveLength(0);
+    expect(unwrap(await listExemptions(world.deps, b))).toHaveLength(0);
     // Côté A, tout est intact.
+    expect(unwrap(await listAnnualUes(world.deps, a.admin.ctx))).toHaveLength(1);
+    expect(unwrap(await listExemptions(world.deps, a.admin.ctx))).toHaveLength(1);
     expect(unwrap(await getAward(world.deps, a.admin.ctx, awardA)).status).toBe("OBTAINED");
     expect(unwrap(await getHigherSettings(world.deps, a.admin.ctx))).toEqual({ creditValidityMonths: 60 });
   });

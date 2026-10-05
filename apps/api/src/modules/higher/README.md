@@ -4,7 +4,7 @@ Registre de crédits (capitalisation), prérequis entre UE, rattrapage (session 
 octrois (automatique, manuel, forcé), révocation et ré-octroi exceptionnel, documents officiels (**données** immuables),
 signataires à emplacements **datés**, compteurs de numérotation sans trou, dettes d'UE.
 
-- Pack `HIGHER`, schéma Postgres `higher`, migrations **1400-1408**, préfixe d'API `/api/v1/higher`.
+- Pack `HIGHER`, schéma Postgres `higher`, migrations **1400-1410**, préfixe d'API `/api/v1/higher`.
 - `dependsOn: ["rbac", "rules"]` : `requirePermission` (rbac) et l'API d'évaluation de règles `app.rules` (rules). Curriculum,
   inscriptions, étudiants, résultats et signataires sont des **UUID sans clé étrangère**, lus par des **ports**.
 - **Aucune formule ni seuil réglementaire** : l'éligibilité au diplôme, la moyenne de cycle, la mention et l'état d'UE sont des
@@ -21,7 +21,7 @@ signataires à emplacements **datés**, compteurs de numérotation sans trou, de
 | Structure du curriculum, inscriptions, classes | `academic` (004) |
 | Frais de rattrapage | 014 (événement `higher.resit.registered`) |
 
-## Modèle de données (12 tables, toutes `tenant_id` + RLS forcée, allowlist vide)
+## Modèle de données (12 tables d'origine + 4 des décisions O-11 et O-14, voir plus bas ; toutes `tenant_id` + RLS forcée, allowlist vide)
 
 | Table | Rôle | Invariants en base |
 |---|---|---|
@@ -35,6 +35,21 @@ signataires à emplacements **datés**, compteurs de numérotation sans trou, de
 | `diploma_awards` | octrois : snapshot des exigences, sorties de règles, version de règle | un seul `OBTAINED` par (définition, étudiant) ; révocation terminale et motivée (≥ 10 car.) ; forcé motivé (≥ 20) ; contenu figé ; ré-octroi exige prédécesseur + décision écrite |
 | `official_documents` | snapshots immuables `diploma/1`, `attestation-success/1`, `attestation-authenticity/1` + SHA-256 + code de vérification | immuable hors statut / scellement (une fois) / rendu / publication / révocation ; la révocation d'un octroi révoque ses documents (déclencheur) |
 | `official_document_slots` | emplacements `DIPLOMA_LEFT`, `DIPLOMA_RIGHT`, `ATTESTATION_SUCCESS`, `AUTHENTICITY` → signataire, avec dates | `EXCLUDE` anti-chevauchement ; historique conservé (clôture, jamais de suppression) |
+
+## Décisions métier O-11 et O-14 (spec §15, migrations 1409-1410, **16 tables**)
+
+| Table | Rôle | Invariants en base |
+|---|---|---|
+| `annual_ues`, `annual_ue_members` | **O-11** UE annuelle : ancre (identité au registre) et lignées membres, nombre de semestres attendus (2 à 4), motif | une lignée n'alimente qu'**une** UE annuelle |
+| `annual_ue_parts` | résultat FINAL d'un semestre reçu de `results`, par étudiant et année | un résultat par (UE annuelle, étudiant, année, semestre) ; jamais supprimé ; une version ancienne n'écrase pas une récente |
+| `ue_exemptions` | **O-14** dispense d'UE manuelle (motif ≥ 10 car., politique appliquée figée, écriture de registre éventuelle) | une dispense **active** par (étudiant, UE) ; contenu figé, jamais supprimée, révocation terminale et motivée |
+| `settings.exemption_credit_policy` | paramètre : `RECORD_ONLY` (défaut) ou `GRANT_CREDITS` | |
+
+- **UE annuelle (O-11)** : une UE offerte sur deux semestres a UN résultat commun. `capitalizePeriod` enregistre la partie de chaque semestre et n'écrit au registre (sous l'ancre) qu'une fois TOUS les semestres reçus ; le résultat commun est décidé par les règles **existantes** du contrat `credit-semester@1` (`moyenne_annuelle`, `credits_ue`, `ue_validee`, `etat_ue`, `session_validation_ue`) via `DiplomaRulesPort.evaluateAnnualUe` — aucune formule ni seuil ici. Sans UE annuelle déclarée, la capitalisation est inchangée (parité testée). Les exigences de diplôme et les attestations **replient** une UE annuelle en UNE exigence (crédits = somme des parties).
+- **Dispense (O-14)** : décision de la direction, motivée, tracée, révocable ; selon le paramètre d'établissement elle inscrit (`GRANT_CREDITS`, écriture `EXEMPTION`) ou non (`RECORD_ONLY`) les crédits de l'UE au registre. Une clôture ultérieure ne révoque jamais l'écriture d'une dispense.
+- Routes : `GET|POST /annual-ues`, `POST /annual-ues/:id/remove`, `GET|POST /exemptions`, `POST /exemptions/:id/revoke`, `GET|PUT /exemption-settings`.
+- **Permissions ajoutées** (à attribuer, voir le rapport) : `higher.annual_ue.manage` (sensible), `higher.exemption.read`, `higher.exemption.grant` (sensible). Les rôles `owner` et `directeur` les reçoivent par le motif `higher.*` ; **aucune** pour l'enseignant (parité 029).
+- Événements ajoutés : `higher.ue.exempted`, `higher.ue.exemption_revoked` ; une dispense `GRANT_CREDITS` publie aussi `higher.credits.capitalized` (`via: EXEMPTION`). Audit : `higher.annual_ue.declared|removed`, `higher.exemption.granted|revoked`, `higher.exemption_policy.updated` (tous sensibles).
 
 ## Ports (enregistrés par `registerHigherPorts(app, ports)` ; `registerHigherWorkerPorts(ports)` pour le worker)
 

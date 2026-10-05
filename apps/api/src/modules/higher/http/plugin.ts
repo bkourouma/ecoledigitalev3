@@ -18,6 +18,12 @@ import { ZodError, type ZodTypeAny, type z } from "zod";
 import { ForbiddenError, UnauthorizedError, ValidationError, toAppError, toErrorBody, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import {
   higherAssignSlotBodySchema,
+  higherDeclareAnnualUeBodySchema,
+  higherGrantExemptionBodySchema,
+  higherListExemptionsQuerySchema,
+  higherRemoveAnnualUeBodySchema,
+  higherRevokeExemptionBodySchema,
+  higherUpdateExemptionSettingsBodySchema,
   higherAttestationRosterQuerySchema,
   higherAwardBodySchema,
   higherChildParamsSchema,
@@ -45,6 +51,7 @@ import {
 } from "@ecoledigitale/contracts/src/v2/higher";
 import type { ModuleRuntime } from "../../../platform/runtime";
 import { getRequestCtx } from "../../rbac";
+import { declareAnnualUe, listAnnualUes, removeAnnualUe } from "../application/annual-ue";
 import { awardDiploma, getAward, listAwards, recomputeDiploma, revokeAward } from "../application/awards";
 import { createHigherDeps, type CallerCaps, type HigherDeps } from "../application/deps";
 import {
@@ -61,6 +68,7 @@ import {
 } from "../application/diplomas";
 import { assignSlot, getAttestationRoster, getDocument, issueAwardDocument, issueSuccessAttestation, listDocuments, listSlots, listStudentDocuments, publishDocument, revokeDocument } from "../application/documents";
 import { getDocumentDownload, requestDocumentRender } from "../application/files";
+import { describeUes, getExemptionSettings, grantExemption, listExemptions, revokeExemption, setExemptionCreditPolicy } from "../application/exemptions";
 import { getCreditSummary, getLedgerHistory, listDebts } from "../application/ledger";
 import type { HigherPorts } from "../application/ports";
 import { checkPrerequisites, getPrerequisites, setPrerequisites } from "../application/prerequisites";
@@ -482,6 +490,47 @@ export async function higherPlugin(app: FastifyInstance, options: HigherPluginOp
     scope.get("/children/:studentId/diplomas", { preHandler: kit.require(P.childRead) }, async (req) => present.studentDiplomasDto(unwrapOrThrow(await getStudentDiplomaView(deps, ctxOf(req), await guardedChild(req)))));
     scope.get("/children/:studentId/resits", { preHandler: kit.require(P.childRead) }, async (req) => ({ items: unwrapOrThrow(await listStudentResits(deps, ctxOf(req), await guardedChild(req))).map(present.studentResitDto) }));
     scope.get("/children/:studentId/documents", { preHandler: kit.require(P.childRead) }, async (req) => ({ items: unwrapOrThrow(await listStudentDocuments(deps, ctxOf(req), await guardedChild(req), true)).map(present.documentDto) }));
+
+    // ===== O-11 : UE annuelle (offerte sur plusieurs semestres, un résultat commun) =======================================
+    scope.get("/annual-ues", { preHandler: [...diplomas, kit.require(P.diplomaRead)] }, async (req) => {
+      const defs = unwrapOrThrow(await listAnnualUes(deps, ctxOf(req)));
+      const labels = await describeUes(deps, ctxOf(req), defs.flatMap((d) => d.memberNodeIds));
+      return { items: defs.map((d) => present.annualUeDto(d, labels)) };
+    });
+    scope.post("/annual-ues", { preHandler: [...diplomas, kit.require(P.annualUeManage)] }, async (req, reply) => {
+      const b = parse(higherDeclareAnnualUeBodySchema, req.body);
+      const def = unwrapOrThrow(await declareAnnualUe(deps, ctxOf(req), b));
+      return reply.status(201).send(present.annualUeDto(def, await describeUes(deps, ctxOf(req), def.memberNodeIds)));
+    });
+    scope.post("/annual-ues/:id/remove", { preHandler: [...diplomas, kit.require(P.annualUeManage)] }, async (req) => {
+      const { id } = parse(higherIdParamsSchema, req.params);
+      const b = parse(higherRemoveAnnualUeBodySchema, req.body);
+      return unwrapOrThrow(await removeAnnualUe(deps, ctxOf(req), { id, reason: b.reason }));
+    });
+
+    // ===== O-14 : dispense d'UE manuelle avec motif (direction) ============================================================
+    scope.get("/exemptions", { preHandler: [...diplomas, kit.require(P.exemptionRead)] }, async (req) => {
+      const q = parse(higherListExemptionsQuerySchema, req.query);
+      const items = unwrapOrThrow(await listExemptions(deps, ctxOf(req), q));
+      const labels = await describeUes(deps, ctxOf(req), items.map((e) => e.ueNodeId));
+      return { items: items.map((e) => present.exemptionDto(e, labels.get(e.ueNodeId))) };
+    });
+    scope.post("/exemptions", { preHandler: [...diplomas, kit.require(P.exemptionGrant)] }, async (req, reply) => {
+      const b = parse(higherGrantExemptionBodySchema, req.body);
+      const granted = unwrapOrThrow(await grantExemption(deps, ctxOf(req), b));
+      return reply.status(201).send(present.exemptionDto(granted, (await describeUes(deps, ctxOf(req), [granted.ueNodeId])).get(granted.ueNodeId)));
+    });
+    scope.post("/exemptions/:id/revoke", { preHandler: [...diplomas, kit.require(P.exemptionGrant)] }, async (req) => {
+      const { id } = parse(higherIdParamsSchema, req.params);
+      const b = parse(higherRevokeExemptionBodySchema, req.body);
+      const revoked = unwrapOrThrow(await revokeExemption(deps, ctxOf(req), { id, reason: b.reason }));
+      return present.exemptionDto(revoked, (await describeUes(deps, ctxOf(req), [revoked.ueNodeId])).get(revoked.ueNodeId));
+    });
+    scope.get("/exemption-settings", { preHandler: kit.require(P.settingsManage) }, async (req) => unwrapOrThrow(await getExemptionSettings(deps, ctxOf(req))));
+    scope.put("/exemption-settings", { preHandler: kit.require(P.settingsManage) }, async (req) => {
+      const b = parse(higherUpdateExemptionSettingsBodySchema, req.body);
+      return unwrapOrThrow(await setExemptionCreditPolicy(deps, ctxOf(req), b));
+    });
 
     // ===== Réglages ============================================================================================
     scope.get("/settings", { preHandler: kit.require(P.settingsManage) }, async (req) => unwrapOrThrow(await getHigherSettings(deps, ctxOf(req))));

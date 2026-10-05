@@ -11,6 +11,9 @@ export const HigherEvents = {
   CREDITS_EXPIRED: "higher.credits.expired",
   CREDITS_REVOCATION_BLOCKED: "higher.credits.revocation_blocked",
   UE_DEBT_DETECTED: "higher.ue.debt_detected",
+  /** O-14 : dispense d'UE accordée par la direction (motif tracé) ; révoquée ensuite. */
+  UE_EXEMPTED: "higher.ue.exempted",
+  UE_EXEMPTION_REVOKED: "higher.ue.exemption_revoked",
   RESIT_WINDOW_OPENED: "higher.resit.window_opened",
   RESIT_WINDOW_CLOSED: "higher.resit.window_closed",
   RESIT_REGISTERED: "higher.resit.registered",
