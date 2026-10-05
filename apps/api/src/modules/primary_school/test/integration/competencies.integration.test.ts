@@ -6,8 +6,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import type { PrimaryBulkLine } from "@ecoledigitale/contracts/src/v2/primary_school";
-import { bulkRecordCompetencies, getCompetencyCounters, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
+import { bulkRecordCompetencies, getCompetencyCounters, listMyClassrooms, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
 import { createFramework, publishFramework, putStructure } from "../../application/frameworks";
+import { isPeriodReleasedToFamilies, listPeriodReadiness, markPeriodReady, withdrawPeriodReady } from "../../application/readiness";
 import { instantiatePrimaryReferenceData } from "../../application/template";
 import { summarizeCompetencies } from "../../domain/competency";
 import { insertAssessmentRow, summaryRowsOf } from "../../infrastructure/assessments-repository";
@@ -241,10 +242,12 @@ describeIntegration("primary_school : évaluation par compétences (base réelle
     expect((await getCompetencyCounters(deps, teacherA(), { classroomId: "0192f0a4-7b1e-7c3a-8d2e-00000000dead", enrollmentIds: ids })).ok).toBe(false);
   });
 
-  it("famille : le parent ne voit les compétences d'une période qu'APRÈS publication du bulletin, et seulement pour son enfant", async () => {
+  it("famille (Q-P18) : le parent voit une période APRÈS validation de la grille (ou « prêts », ou bulletin publié), jamais un brouillon, et seulement pour son enfant", async () => {
     const e1 = w.students.s1.enrollmentId;
+    // période 1 : grille validée -> visible sans bulletin publié ; période 3 : un brouillon -> invisible ; période 2 : aucune ligne
     const before = unwrap(await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent1), { studentId: null, enrollmentId: e1 }));
-    expect(before).toMatchObject({ periodIds: [], summary: {} });
+    expect(before.periodIds).toEqual([w.periods[0]]);
+    expect(JSON.stringify(before.summary)).not.toContain("N1"); // le brouillon de la période 3 (niveau N1) n'apparaît pas
     w.world.publishedPeriods.set(e1, [w.periods[0] as string]);
     const after = unwrap(await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent1), { studentId: null, enrollmentId: e1 }));
     expect(after.periodIds).toEqual([w.periods[0]]);
@@ -253,9 +256,85 @@ describeIntegration("primary_school : évaluation par compétences (base réelle
     const intruder = await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent2), { studentId: null, enrollmentId: e1 });
     expect(intruder.ok).toBe(false);
     if (!intruder.ok) expect(intruder.error.httpStatus).toBe(404);
-    // un tuteur demande une période non publiée : rien
+    // un tuteur demande une période ni prête, ni validée, ni publiée (brouillon seulement) : rien
+    const draftOnly = unwrap(await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent1), { studentId: null, enrollmentId: e1, periodIds: [w.periods[2] as string] }));
+    expect(draftOnly).toMatchObject({ periodIds: [], summary: {} });
     const unpublished = unwrap(await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent1), { studentId: null, enrollmentId: e1, periodIds: [w.periods[1] as string] }));
     expect(unpublished.summary).toEqual({});
+  });
+
+  it("Q-P18 « prêts » : action d'enseignant auditée, saisie gelée, visible des familles, réversible tant que non publié, RLS A/B", async () => {
+    const e1 = w.students.s1.enrollmentId;
+    const p3 = w.periods[2] as string; // trois brouillons (niveau N1) de l'élève 1
+    const parent = ctxOf(tenantA, IDS.parent1);
+    const familyView = async () => unwrap(await getFamilyCompetencySummary(deps, parent, { studentId: null, enrollmentId: e1, periodIds: [p3] }));
+    const eventsOf = async (type: string) => (await db.admin.query(`SELECT payload FROM kernel.domain_events WHERE type = $1 AND tenant_id = $2`, [type, tenantA])).rows;
+
+    // avant : brouillon invisible, état « prêt » faux partout
+    expect(await familyView()).toMatchObject({ periodIds: [], summary: {} });
+    expect(unwrap(await isPeriodReleasedToFamilies(deps, teacherA(), { classroomId: w.classA, periodId: p3 }))).toBe(false);
+    const mine = unwrap(await listMyClassrooms(deps, teacherA(), TEACHER_CAPS));
+    expect(mine.flatMap((c) => c.periods).every((p) => p.ready === false)).toBe(true);
+
+    // un instituteur non affecté : 404 ; une période inconnue : refus de forme
+    const notMine = await markPeriodReady(deps, teacherB(), { classroomId: w.classA, periodId: p3 }, TEACHER_CAPS);
+    expect(notMine.ok).toBe(false);
+    if (!notMine.ok) expect(notMine.error.httpStatus).toBe(404);
+    expect((await markPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: "0192f0a4-7b1e-7c3a-8d2e-00000000dead" }, TEACHER_CAPS)).ok).toBe(false);
+    expect(await eventsOf("primary_school.period.marked_ready")).toHaveLength(0);
+
+    // marquer prêts : audité (identifiants et comptages, jamais de niveau), un événement ; idempotent
+    const ready = unwrap(await markPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3 }, TEACHER_CAPS));
+    expect(ready).toMatchObject({ classroomId: w.classA, periodId: p3, status: "READY" });
+    unwrap(await markPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3 }, TEACHER_CAPS));
+    const marked = await eventsOf("primary_school.period.marked_ready");
+    expect(marked).toHaveLength(1);
+    expect(marked[0].payload).toEqual({ v: 1, classroomId: w.classA, periodId: p3 });
+    const entry = audit.entries.find((e) => e.action === "primary_school.period.marked_ready");
+    expect(entry).toMatchObject({ resourceType: "classroom_period", metadata: { classroomId: w.classA, periodId: p3, draftCount: 3, validatedCount: 0 } });
+    expect(JSON.stringify(entry)).not.toContain(lv("N1"));
+    expect(unwrap(await isPeriodReleasedToFamilies(deps, teacherA(), { classroomId: w.classA, periodId: p3 }))).toBe(true);
+    expect(unwrap(await listPeriodReadiness(deps, teacherA(), w.classA, TEACHER_CAPS)).map((r) => [r.periodId, r.status])).toEqual([[p3, "READY"]]);
+    const mineReady = unwrap(await listMyClassrooms(deps, teacherA(), TEACHER_CAPS)).flatMap((c) => c.periods);
+    expect(mineReady.filter((p) => p.ready).map((p) => p.id)).toEqual([p3]);
+
+    // la famille voit désormais la période (ce que l'enseignant a déclaré prêt) ; un autre tuteur : 404
+    expect((await familyView()).summary).toEqual({ LANG: { N1: 2 }, MATH: { N1: 1 } });
+    expect((await getFamilyCompetencySummary(deps, ctxOf(tenantA, IDS.parent2), { studentId: null, enrollmentId: e1, periodIds: [p3] })).ok).toBe(false);
+
+    // la saisie est gelée : refus applicatif (409) ET, si le chemin était contourné, refus du déclencheur SQL
+    const frozen = await bulkRecordCompetencies(deps, teacherA(), { classroomId: w.classA, periodId: p3, frameworkId, lines: lines(lv("N2"), [w.students.s1.enrollmentId]) }, TEACHER_CAPS);
+    expect(frozen.ok).toBe(false);
+    if (!frozen.ok) expect(frozen.error.code).toBe("primary_school.period_ready");
+    await expect(
+      db.tenantDb.run(teacherA(), (tx) => tx.query(`UPDATE primary_school.competency_assessments SET rating_level_id = $2 WHERE classroom_id = $1 AND academic_period_id = $3`, [w.classA, lv("N3"), p3])),
+    ).rejects.toThrow(/period_ready/);
+
+    // retrait : motif obligatoire ; refusé si un bulletin de la période est publié aux familles
+    const short = await withdrawPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3, reason: "court" }, TEACHER_CAPS);
+    expect(short.ok).toBe(false);
+    w.world.publishedPeriods.set(e1, [w.periods[0] as string, p3]);
+    const published = await withdrawPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3, reason: "Marquage posé par erreur hier." }, TEACHER_CAPS);
+    expect(published.ok).toBe(false);
+    if (!published.ok) expect(published.error.code).toBe("primary_school.period_published");
+    w.world.publishedPeriods.set(e1, [w.periods[0] as string]);
+    // RLS A/B : le tenant B ne voit aucun état « prêt »
+    const otherRows = await db.tenantDb.run(ctxOf(tenantB, IDS.admin), (tx) => tx.many(`SELECT * FROM primary_school.period_readiness`), { readOnly: true });
+    expect(otherRows).toEqual([]);
+
+    const withdrawn = unwrap(await withdrawPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3, reason: "Marquage posé par erreur hier." }, TEACHER_CAPS));
+    expect(withdrawn).toMatchObject({ status: "NOT_READY" });
+    expect(await eventsOf("primary_school.period.ready_withdrawn")).toHaveLength(1);
+    expect(audit.entries.find((e) => e.action === "primary_school.period.ready_withdrawn")).toMatchObject({ reason: "Marquage posé par erreur hier." });
+    expect(unwrap(await isPeriodReleasedToFamilies(deps, teacherA(), { classroomId: w.classA, periodId: p3 }))).toBe(false);
+    // retirer deux fois : conflit ; le brouillon redevient invisible ; la saisie redevient possible
+    expect((await withdrawPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3, reason: "Marquage posé par erreur hier." }, TEACHER_CAPS)).ok).toBe(false);
+    expect(await familyView()).toMatchObject({ periodIds: [], summary: {} });
+    unwrap(await bulkRecordCompetencies(deps, teacherA(), { classroomId: w.classA, periodId: p3, frameworkId, lines: lines(lv("N2"), [w.students.s2.enrollmentId]) }, TEACHER_CAPS));
+    // re-marquer prêts après un retrait : possible (nouvel événement)
+    unwrap(await markPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3 }, TEACHER_CAPS));
+    expect(await eventsOf("primary_school.period.marked_ready")).toHaveLength(2);
+    unwrap(await withdrawPeriodReady(deps, teacherA(), { classroomId: w.classA, periodId: p3, reason: "Retrait de fin de test." }, TEACHER_CAPS));
   });
 
   it("isolation tenant : les données du tenant A sont invisibles du tenant B", async () => {

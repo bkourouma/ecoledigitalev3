@@ -9,6 +9,9 @@ export const PrimaryEvents = {
   FRAMEWORK_PUBLISHED: "primary_school.framework.published",
   COMPETENCY_VALIDATED: "primary_school.competency.validated",
   COMPETENCY_REVISED: "primary_school.competency.revised",
+  /** Q-P18 : l'enseignant a marqué la classe × période « prêtes » (visibles des familles) / a retiré ce marquage. */
+  PERIOD_MARKED_READY: "primary_school.period.marked_ready",
+  PERIOD_READY_WITHDRAWN: "primary_school.period.ready_withdrawn",
   COUNCIL_PREPARED: "primary_school.council.prepared",
   COUNCIL_MINUTES_REQUESTED: "primary_school.council.minutes_requested",
   ANNUAL_REVIEW_SEALED: "primary_school.annual_review.sealed",

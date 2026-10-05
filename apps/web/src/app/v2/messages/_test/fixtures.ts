@@ -21,6 +21,7 @@ export function myAudience(over: Record<string, unknown> = {}) {
     userId: IDS.me,
     canSend: true,
     canSendAny: false,
+    canSendAnyFamily: false,
     canPublishAnnouncements: false,
     canManageAnnouncements: false,
     canModerate: false,

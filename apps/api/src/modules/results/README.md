@@ -80,7 +80,9 @@ Pour `reportcards` / `higher` : `getFinalResult`, `listFinalLines`, `listResitCa
 `POST /recompute`, `POST /classrooms/:c/periods/:p/lock|deliberate|close|reopen`, `POST /periods/:id/repin`,
 `/overrides[/:id/approve|reject|revoke]`, `/decisions[/:id/confirm]`, `/deliberations`, `/appreciations`, `/settings`,
 `/me/results`, `/children/:studentId/results`. Les lectures famille ne renvoient que des résultats FINAL, sans surcharge, trace
-ni entrée de calcul.
+ni entrée de calcul. **Exception (Q-P18, primaire)** : le **rang provisoire** (rang et effectif seulement, `provisional: true`, aucune moyenne,
+mention, décision ni ligne) d'une période non encore FINAL dont l'enseignant a marqué la classe « prête », via le port facultatif `familyRelease`
+(`FamilyReleasePort`, adaptateur de plateforme sur `primary_school`). Port absent ou en échec : aucun rang provisoire (échec fermé).
 
 ## Événements (outbox, `{ v: 1 }`, aucune note ni moyenne)
 

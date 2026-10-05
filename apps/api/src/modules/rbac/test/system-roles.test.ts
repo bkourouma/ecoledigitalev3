@@ -946,6 +946,28 @@ describe("permissions de la passe O-01 / O-11 / O-14 / Q-E13 / Q-E15 : moindre p
   });
 });
 
+describe("Q-13 : messaging.send.any_family (écrire à toute famille) — permission explicite, moindre privilège, aucun nouveau rôle", () => {
+  const KEY = "messaging.send.any_family";
+  const holders = (): string[] => SYSTEM_ROLE_TEMPLATES.map((t) => t.key).filter((r) => granted(r).has(KEY));
+
+  it("est SENSIBLE dans le catalogue réel et détenue par la direction seulement : aucun rôle d'enseignement ni de portail ne la reçoit par défaut", () => {
+    expect(real.sensitive.has(KEY)).toBe(true);
+    expect(holders()).toEqual(["owner", "directeur"]);
+    for (const r of ["enseignant", "instituteur", "educateur", "secretariat", "directeur_etudes", "personnel", "parent", "eleve"]) {
+      expect(granted(r).has(KEY), r).toBe(false);
+    }
+  });
+
+  it("étend messaging.send sans le remplacer : les rôles qui écrivent déjà gardent exactement leur portée (aucun envoi supplémentaire implicite)", () => {
+    for (const r of ["enseignant", "instituteur", "educateur", "secretariat"]) expect(granted(r).has("messaging.send"), r).toBe(true);
+    expect(getSystemRoleTemplate("directeur")?.sensitiveJustifications?.["messaging.*"]).toMatch(/any_family/);
+  });
+
+  it("aucun rôle système n'a été ajouté pour elle : elle s'accorde par un rôle personnalisé que la direction attribue", () => {
+    expect(SYSTEM_ROLE_TEMPLATES.some((t) => /famil/i.test(t.key))).toBe(false);
+  });
+});
+
 describe("séparation des tâches", () => {
   /** Paires de côtés incompatibles : aucun rôle (hors owner/directeur) ne détient une permission de chaque côté. */
   const CONFLICTS: ReadonlyArray<{ name: string; left: string[]; right: string[] }> = [

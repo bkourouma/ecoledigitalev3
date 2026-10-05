@@ -368,6 +368,8 @@ export const messagingMyAudienceDtoSchema = z.object({
   userId: messagingUuidSchema,
   canSend: z.boolean(),
   canSendAny: z.boolean(),
+  /** Q-13 : permission explicite `messaging.send.any_family` accordée par la direction (écrire à toute famille, envois journalisés). */
+  canSendAnyFamily: z.boolean().default(false),
   canPublishAnnouncements: z.boolean(),
   canManageAnnouncements: z.boolean(),
   canModerate: z.boolean(),

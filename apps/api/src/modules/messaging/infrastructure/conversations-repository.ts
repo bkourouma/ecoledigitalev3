@@ -17,6 +17,8 @@ export interface ConversationRow {
   classroomId: Uuid | null;
   directKey: string | null;
   allowReplies: boolean;
+  /** Q-13 : règle d'exception qui a ouvert le fil (hors de la portée habituelle) ; `null` pour un fil ordinaire. */
+  scopeException: "SEND_ANY_FAMILY" | null;
   closedAt: Date | null;
   lastSeq: number;
   lastMessageAt: Date | null;
@@ -26,7 +28,7 @@ export interface ConversationRow {
 
 const CONV_COLS = `c.id, c.kind, c.subject, c.priority, c.broadcast_id AS "broadcastId", c.created_by AS "createdBy",
   c.about_student_id AS "aboutStudentId", c.classroom_id AS "classroomId", c.direct_key AS "directKey",
-  c.allow_replies AS "allowReplies", c.closed_at AS "closedAt", c.last_seq::int AS "lastSeq",
+  c.allow_replies AS "allowReplies", c.scope_exception AS "scopeException", c.closed_at AS "closedAt", c.last_seq::int AS "lastSeq",
   c.last_message_at AS "lastMessageAt", c.last_preview AS "lastPreview", c.created_at AS "createdAt"`;
 
 export interface NewConversation {
@@ -41,16 +43,18 @@ export interface NewConversation {
   directKey: string | null;
   allowReplies: boolean;
   createdAt: Date;
+  /** Q-13 : fil ouvert hors de la portée habituelle (permission `messaging.send.any_family`). */
+  scopeException?: "SEND_ANY_FAMILY" | null;
 }
 
 /** Insère des conversations ; une clé de fil direct déjà prise (course) n'est pas insérée et n'est pas renvoyée. */
 export async function insertConversations(tx: Tx, tenantId: Uuid, rows: readonly NewConversation[]): Promise<Array<{ id: Uuid; directKey: string | null }>> {
   if (rows.length === 0) return [];
   return tx.many<{ id: Uuid; directKey: string | null }>(
-    `INSERT INTO messaging.conversations (id, tenant_id, kind, subject, priority, broadcast_id, created_by, about_student_id, classroom_id, direct_key, allow_replies, created_at, updated_at)
-     SELECT u.id, $1, u.kind, u.subject, u.priority, u.broadcast_id, u.created_by, u.about_student_id, u.classroom_id, u.direct_key, u.allow_replies, u.created_at, u.created_at
-       FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::uuid[], $7::uuid[], $8::uuid[], $9::uuid[], $10::text[], $11::boolean[], $12::timestamptz[])
-            AS u(id, kind, subject, priority, broadcast_id, created_by, about_student_id, classroom_id, direct_key, allow_replies, created_at)
+    `INSERT INTO messaging.conversations (id, tenant_id, kind, subject, priority, broadcast_id, created_by, about_student_id, classroom_id, direct_key, allow_replies, created_at, updated_at, scope_exception)
+     SELECT u.id, $1, u.kind, u.subject, u.priority, u.broadcast_id, u.created_by, u.about_student_id, u.classroom_id, u.direct_key, u.allow_replies, u.created_at, u.created_at, u.scope_exception
+       FROM unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::uuid[], $7::uuid[], $8::uuid[], $9::uuid[], $10::text[], $11::boolean[], $12::timestamptz[], $13::text[])
+            AS u(id, kind, subject, priority, broadcast_id, created_by, about_student_id, classroom_id, direct_key, allow_replies, created_at, scope_exception)
      ON CONFLICT (tenant_id, direct_key) DO NOTHING
      RETURNING id, direct_key AS "directKey"`,
     [
@@ -66,8 +70,15 @@ export async function insertConversations(tx: Tx, tenantId: Uuid, rows: readonly
       rows.map((r) => r.directKey),
       rows.map((r) => r.allowReplies),
       rows.map((r) => r.createdAt),
+      rows.map((r) => r.scopeException ?? null),
     ],
   );
+}
+
+/** Q-13 : marque des fils déjà existants comme ouverts hors de la portée habituelle (jamais l'inverse : une exception ne se retire pas). */
+export async function markScopeException(tx: Tx, tenantId: Uuid, conversationIds: readonly Uuid[], rule: "SEND_ANY_FAMILY"): Promise<void> {
+  if (conversationIds.length === 0) return;
+  await tx.query("UPDATE messaging.conversations SET scope_exception = $3 WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND scope_exception IS NULL", [tenantId, [...conversationIds], rule]);
 }
 
 export async function findConversationsByKeys(tx: Tx, tenantId: Uuid, keys: readonly string[]): Promise<ConversationRow[]> {

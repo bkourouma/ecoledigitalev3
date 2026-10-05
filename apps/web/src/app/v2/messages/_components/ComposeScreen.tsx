@@ -127,6 +127,12 @@ export function ComposeScreen() {
     <form onSubmit={submit} className="space-y-6" noValidate aria-label={t("title")}>
       <PageHeader title={t("title")} description={t("description")} actions={<Link href="/v2/messages" className={buttonClass.secondary}>{tc("common.cancel")}</Link>} />
 
+      {me!.canSendAnyFamily ? (
+        <div data-testid="any-family-notice">
+          <Notice kind="info">{t("anyFamilyNotice")}</Notice>
+        </div>
+      ) : null}
+
       {kinds.length > 1 ? (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t("kind")}</legend>

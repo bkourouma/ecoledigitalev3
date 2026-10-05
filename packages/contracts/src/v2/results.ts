@@ -188,6 +188,8 @@ export const resultsYearResultDtoSchema = z.object({
 export type ResultsYearResultDto = z.infer<typeof resultsYearResultDtoSchema>;
 
 export const resultsFamilyResultDtoSchema = z.object({
+  /** Q-P18 : `true` = rang provisoire d'une classe du primaire marquée « prête » par l'enseignant (ni moyenne, ni mention, ni lignes). */
+  provisional: z.boolean().default(false),
   academicPeriodId: resultsUuidSchema.nullable(),
   scope: z.enum(["PERIOD", "YEAR"]),
   version: z.number().int(),

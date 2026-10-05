@@ -292,6 +292,18 @@ describe("ComposeScreen : composition avec destinataires autorisés", () => {
     expect(post.body).toMatchObject({ kind: "DIRECT", priority: "NORMAL", body: "Bonjour, une question sur les devoirs.", aboutStudentId: IDS.student, attachmentIds: [], recipients: { userIds: [IDS.teacher], classrooms: [], toAdministration: false } });
   });
 
+  it("Q-13 : l'enseignant habilité par la direction voit un avertissement (envois journalisés) ; sans la permission, rien", async () => {
+    setTestApi({ ...READ, [`GET ${M}/me/audience`]: myAudience({ isStaff: true, canSendAnyFamily: true }), [`GET ${M}/recipients`]: { items: [] } });
+    const { unmount } = renderWithProviders(<ComposeScreen />);
+    expect(await screen.findByTestId("any-family-notice")).toBeTruthy();
+    expect(screen.getByText(/Chaque envoi hors de vos classes est journalisé/)).toBeTruthy();
+    unmount();
+    setTestApi({ ...READ, [`GET ${M}/me/audience`]: myAudience({ isStaff: true }), [`GET ${M}/recipients`]: { items: [] } });
+    renderWithProviders(<ComposeScreen />);
+    await screen.findByLabelText(/Rechercher une personne/);
+    expect(screen.queryByTestId("any-family-notice")).toBeNull();
+  });
+
   it("recherche d'une personne : paramètre q envoyé, seules les personnes renvoyées sont proposées", async () => {
     const api = setTestApi({
       ...READ,

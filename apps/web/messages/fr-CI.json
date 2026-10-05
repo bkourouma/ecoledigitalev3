@@ -9928,6 +9928,7 @@
     },
     "compose": {
       "cannotSend": "Vous ne pouvez pas envoyer de message pour le moment.",
+      "anyFamilyNotice": "La direction vous a autorisé à écrire à toute famille de l'établissement, y compris hors de vos classes. Chaque envoi hors de vos classes est journalisé ; les plafonds d'envoi s'appliquent. Recherchez la famille par son nom.",
       "title": "Nouveau message",
       "description": "Vous ne pouvez écrire qu'aux personnes proposées : celles qui sont liées à vos enfants, à vos classes ou à l'administration.",
       "kind": "Type de message",
@@ -10439,6 +10440,8 @@
           "average": "Moyenne",
           "rank": "Rang",
           "rankOf": "{rank} sur {size}",
+          "provisional": "Rang provisoire",
+          "provisionalHint": "La classe a été marquée prête par l'enseignant : seul le rang est communiqué, avant la clôture de la période. Il peut encore changer.",
           "credits": "Crédits",
           "creditsOf": "{acquired} sur {required}",
           "mention": "Mention",
@@ -14073,6 +14076,8 @@
       "framework_not_published": "Seul un référentiel publié peut servir à évaluer.",
       "scale_mismatch": "Le niveau choisi n'appartient pas à l'échelle du référentiel.",
       "period_locked": "La saisie est arrêtée pour cette période : vos saisies restent affichées mais ne peuvent pas être enregistrées.",
+      "period_ready": "Cette période est marquée prête pour les familles : la saisie est gelée. Retirez le marquage dans « Ma classe » pour la modifier.",
+      "period_published": "Le bulletin de cette période est publié aux familles : le marquage « prêts » ne peut plus être retiré.",
       "validated_frozen": "Une compétence validée ne se corrige que par une révision motivée.",
       "review_needs_results": "Toutes les périodes de l'année doivent être closes avec un résultat d'année définitif.",
       "review_needs_decision": "La décision du conseil des maîtres doit être confirmée avant de sceller.",
@@ -14097,6 +14102,25 @@
     "noPeriod": "Aucune période n'est définie pour cette année.",
     "periodLocked": "verrouillée",
     "periodOpen": "ouverte",
+    "ready": {
+      "badge": "Prête pour les familles",
+      "mark": "Marquer {period} prête",
+      "withdraw": "Retirer le marquage de {period}",
+      "marked": "{period} : marquée prête, les familles voient désormais les compétences et le rang provisoire.",
+      "withdrawn": "{period} : marquage retiré, les familles ne voient plus que les périodes validées ou publiées.",
+      "markDialog": {
+        "title": "Marquer {period} prête ?",
+        "description": "Les parents et les élèves verront les compétences saisies et le rang provisoire de cette période. La saisie sera gelée tant que le marquage n'est pas retiré. Vous pourrez le retirer tant que le bulletin n'est pas publié.",
+        "confirm": "Marquer prête"
+      },
+      "withdrawDialog": {
+        "title": "Retirer le marquage de {period} ?",
+        "description": "Les familles ne verront plus les compétences en cours de saisie ni le rang provisoire. Refusé si le bulletin de la période est déjà publié.",
+        "reason": "Motif du retrait",
+        "reasonHint": "10 caractères au moins ; conservé dans le journal d'audit.",
+        "confirm": "Retirer le marquage"
+      }
+    },
     "dailyCall": "Appel du jour",
     "competencies": "Compétences",
     "council": "Conseil",
@@ -14666,9 +14690,9 @@
   },
   "v2PrimaryParent": {
     "title": "Bulletin et compétences de mon enfant",
-    "description": "Bilans annuels publiés et compétences des périodes dont le bulletin est publié.",
+    "description": "Bilans annuels publiés et compétences des périodes que l'enseignant a marquées prêtes, validées ou dont le bulletin est publié.",
     "titleSelf": "Mon bilan et mes compétences",
-    "descriptionSelf": "Mes bilans annuels publiés et mes compétences des périodes dont le bulletin est publié.",
+    "descriptionSelf": "Mes bilans annuels publiés et mes compétences des périodes que l'enseignant a marquées prêtes, validées ou dont le bulletin est publié.",
     "noAccess": "Votre profil n'a pas accès à cet espace.",
     "child": "Enfant",
     "chooseChild": "Choisir un enfant",
@@ -14689,8 +14713,8 @@
       "competencies": "Compétences de l'année (compteurs)"
     },
     "summary": {
-      "title": "Compétences des périodes publiées",
-      "hint": "Nombre de compétences par domaine et par niveau, pour les périodes dont le bulletin est publié."
+      "title": "Compétences des périodes prêtes ou validées",
+      "hint": "Nombre de compétences par domaine et par niveau, pour les périodes marquées prêtes par l'enseignant, validées ou dont le bulletin est publié. Jamais une saisie en cours."
     }
   },
   "v2Admissions": {

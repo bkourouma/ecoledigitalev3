@@ -9,6 +9,9 @@
  *   R3  `messaging.child.send` + tuteur le personnel affecté à une classe de SES enfants ; l'administration ; (Q-05) les enseignants
  *                                      de l'ANNÉE PRÉCÉDENTE de ses enfants pendant la fenêtre `previousYearWindowDays`
  *   R4  `messaging.self.send` + élève   selon la politique de l'établissement
+ *   R5  `messaging.send.any_family` + `messaging.send` + personnel   (Q-13) les tuteurs de TOUTE famille de l'établissement, hors de ses classes.
+ *                                      Permission explicite accordée par la direction ; évaluée EN DERNIER, pour que la portée habituelle
+ *                                      (R1 à R4) reste la raison d'un envoi ordinaire ; seul un envoi décidé par R5 est « hors portée » (audit).
  *
  * Les règles se CUMULENT (un enseignant qui est aussi parent) : un destinataire est autorisé si une règle applicable
  * l'autorise. Refus par défaut. Jamais de rôle codé en dur : le « personnel de l'administration » est un paramètre
@@ -16,7 +19,7 @@
  */
 import { hasAnySendCap, type ActorProfile, type CallerCaps, type DirectoryContact, type MessagingClassInclude, type MessagingSettings, type Uuid } from "./types";
 
-export type SendRule = "R1" | "R2" | "R3" | "R4";
+export type SendRule = "R1" | "R2" | "R3" | "R4" | "R5";
 
 export type DenyReason =
   | "NO_PERMISSION"
@@ -57,6 +60,8 @@ export function applicableRules(caps: CallerCaps, actor: ActorProfile, settings:
   if (caps.send && actor.staffId) rules.push("R2");
   if (caps.childSend && actor.childStudentIds.length > 0) rules.push("R3");
   if (caps.selfSend && actor.studentId && (settings.studentPolicy === "TEACHERS" || settings.studentPolicy === "TEACHERS_AND_ADMIN")) rules.push("R4");
+  // Q-13 : la permission étend l'envoi du personnel ; sans `messaging.send` ni fiche de personnel, elle n'ouvre rien.
+  if (caps.sendAnyFamily && caps.send && actor.staffId) rules.push("R5");
   return rules;
 }
 
@@ -109,6 +114,9 @@ export function evaluateRecipient(input: RecipientCheckInput): Decision {
     if (target.staffId && intersects(target.teachingClassroomIds, actor.studentClassroomIds)) return { allowed: true, via: "R4" };
     if (settings.studentPolicy === "TEACHERS_AND_ADMIN" && adminContacts.has(target.userId)) return { allowed: true, via: "R4" };
   }
+
+  // Q-13 : tuteur d'une famille de l'établissement (au moins un enfant), hors de la portée habituelle ci-dessus.
+  if (rules.includes("R5") && target.childStudentIds.length > 0) return { allowed: true, via: "R5" };
 
   if (rules.length === 0) return { allowed: false, reason: canInitiate(caps, actor, settings) ?? "NOT_LINKED" };
   if (actor.studentId && !actor.staffId && actor.childStudentIds.length === 0 && (target.studentId || target.childStudentIds.length > 0)) {

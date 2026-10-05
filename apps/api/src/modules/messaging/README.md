@@ -1,6 +1,6 @@
 # Module `messaging` — messagerie interne, annonces ciblées, notifications in-app
 
-Spec : `specs/v2/016-communications/` (`spec.md`, `data-model.md`, `plan.md`, `parity.md`, `open-questions.md`). Schéma Postgres `messaging`, migrations **1700-1799** (1700 livrée). Packs PRIMARY, SECONDARY, HIGHER, VIRTUAL. `dependsOn: []` : les liens (tutelle, affectation, rôles) arrivent par des **ports**. Les canaux externes (e-mail, SMS, WhatsApp, push) sont un autre chantier : seul le port `NotificationChannel` est déclaré.
+Spec : `specs/v2/016-communications/` (`spec.md`, `data-model.md`, `plan.md`, `parity.md`, `open-questions.md`). Schéma Postgres `messaging`, migrations **1700-1799** (1700 à 1702 livrées). Packs PRIMARY, SECONDARY, HIGHER, VIRTUAL. `dependsOn: []` : les liens (tutelle, affectation, rôles) arrivent par des **ports**. Les canaux externes (e-mail, SMS, WhatsApp, push) sont un autre chantier : seul le port `NotificationChannel` est déclaré.
 
 ## Ce que fait le module
 
@@ -22,12 +22,23 @@ Spec : `specs/v2/016-communications/` (`spec.md`, `data-model.md`, `plan.md`, `p
 * **Échec fermé** : sans année précédente connue, sans horloge ou à 0 jour, la fenêtre est fermée. L'ancrage est calculé par l'adaptateur `platform/adapters/people-messaging.ts` (academic + people), jamais fourni par le client ; le sélecteur de destinataires (recherche, classe de l'an dernier, contacts naturels) applique la même règle (`previousYearOpen`).
 * **Q-06** : `max_messages_per_hour` vaut **120** par défaut (code et colonne SQL) ; les lignes de réglages qui portaient encore l'ancien défaut (60) sont passées à 120 par la migration 1701, un autre choix de l'établissement n'est pas modifié. Autres plafonds inchangés.
 
+## Écrire à toute famille de l'école (Q-13, 2026-10-05) — permission explicite de la direction
+
+Par défaut un enseignant n'écrit qu'aux élèves et tuteurs de **ses** classes (R2). La permission **`messaging.send.any_family`** (**sensible**, MFA) l'étend aux **tuteurs de toute famille de l'établissement** (règle **R5**, `domain/policy.ts`).
+
+* **Accordée par la direction, au moindre privilège** : détenue par `owner` et `directeur` seulement (motif `messaging.*`, justifié) ; **aucun nouveau rôle système**, aucun rôle d'enseignement ne la reçoit. La direction l'accorde à un enseignant par un rôle personnalisé qu'elle lui attribue (voir `rbac`).
+* **Étend `messaging.send`, ne le remplace pas** : sans `messaging.send`, ou sans fiche de personnel, elle n'ouvre rien (échec fermé). Un parent, un élève ou l'administration n'en tirent rien de plus.
+* **Périmètre strict** : destinataires **explicites** qui sont des tuteurs d'au moins un élève de l'établissement. Ni élèves d'une autre classe, ni comptes sans lien, ni écriture en bloc vers une autre classe, ni audience, ni plafond de participants relevé.
+* **Hors portée = journalisé** : R5 n'est évaluée qu'en dernier ; un destinataire déjà joignable par la portée habituelle (R1 à R4) n'est pas « hors portée ». Chaque envoi qui contient au moins un destinataire admis **par R5 seule** écrit, dans la même transaction, l'audit `messaging.message.sent_out_of_scope` (sensible : règle, nombre, identifiants des destinataires hors portée — 100 au plus —, jamais le texte, le sujet ni un nom). Le fil porte `conversations.scope_exception = 'SEND_ANY_FAMILY'` (migration **1702**) : les messages **suivants** de celui qui l'a ouvert sont audités aussi ; la réponse du parent ne l'est pas. Un fil existant réutilisé reçoit la marque et l'audit.
+* **Plafonds inchangés** : envois par heure (120 par défaut), nouvelles conversations par jour, limiteur HTTP, quotas de participants.
+* `GET /me/audience` expose `canSendAnyFamily` ; le sélecteur de destinataires (`GET /recipients?q=`) propose les familles à l'habilité seulement.
+
 ## Arborescence
 
 ```
 manifest.ts          permissions, menus, événements publiés / consommés
 index.ts             API publique (seul point d'import pour les autres modules)
-migrations/          1700_messaging_init.sql, 1701_messaging_previous_year_and_rate.sql
+migrations/          1700_messaging_init.sql, 1701_messaging_previous_year_and_rate.sql, 1702_messaging_scope_exception.sql
 domain/              policy (autorisation), announcements, text, magic-bytes, system-templates, errors, events, types — purs
 application/         conversations, announcements, attachments, notifications, moderation, recipients, settings, consumers (cas d'usage)
                      ports.ts, port-registry.ts, deps.ts (transaction, outbox, audit), views.ts, support.ts
@@ -44,7 +55,7 @@ test/                unit (56), integration (RLS A/B, matrice, HTTP)
 
 ## Permissions
 
-`messaging.read`, `.send`, `.send.any` (administration), `.child.read|send` (parent), `.self.read|send` (élève), `.announcement.publish|publish_class|manage`, `.moderation.read|manage|supervise` (**sensibles**, MFA), `.settings.manage`.
+`messaging.read`, `.send`, `.send.any` (administration), `.send.any_family` (**sensible**, Q-13 : étend `.send` à toute famille, envois hors portée audités), `.child.read|send` (parent), `.self.read|send` (élève), `.announcement.publish|publish_class|manage`, `.moderation.read|manage|supervise` (**sensibles**, MFA), `.settings.manage`.
 
 > **À faire dans le module rbac (hors périmètre de cette livraison)** : accorder aux modèles de rôles `messaging.read` + `messaging.send` (`enseignant`, `educateur`, `secretariat`, `directeur_etudes`, `personnel`), `messaging.announcement.publish_class` (`enseignant`), `messaging.announcement.publish` (`secretariat`, `directeur_etudes`). `owner` / `directeur` (`*`), `parent` (`*.child.*`) et `eleve` (`*.self.*`) fonctionnent déjà par convention. Un test de rbac vérifie que `parent` / `eleve` reçoivent EXACTEMENT les permissions `child` / `self` du catalogue.
 

@@ -57,31 +57,39 @@ function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-base font-semibold">{period}</h3>
                 <span className="flex flex-wrap gap-1">
+                  {r.provisional ? <StatusBadge label={t("provisional")} tone="info" /> : null}
                   {r.validated === true ? <StatusBadge label={t("validated")} tone="success" /> : null}
                   {r.validated === false ? <StatusBadge label={t("notValidated")} tone="warning" /> : null}
                   {r.decisionOutcome ? <StatusBadge label={outcomeLabel(tOutcome, r.decisionOutcome)} tone={r.decisionOutcome === "ADMITTED" || r.decisionOutcome === "PROMOTED" ? "success" : "info"} /> : null}
                 </span>
               </div>
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                <div>
-                  <dt className="text-muted-foreground">{t("average")}</dt>
-                  <dd className="text-xl font-semibold tabular-nums" title={r.average ?? undefined}>
-                    {showDecimal(r.averageDisplay ?? r.average)}
-                  </dd>
-                </div>
+                {r.provisional ? null : (
+                  <div>
+                    <dt className="text-muted-foreground">{t("average")}</dt>
+                    <dd className="text-xl font-semibold tabular-nums" title={r.average ?? undefined}>
+                      {showDecimal(r.averageDisplay ?? r.average)}
+                    </dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground">{t("rank")}</dt>
                   <dd className="tabular-nums">{r.rank !== null ? (r.cohortSize !== null ? t("rankOf", { rank: r.rank, size: r.cohortSize }) : String(r.rank)) : "—"}</dd>
                 </div>
-                <div>
-                  <dt className="text-muted-foreground">{t("credits")}</dt>
-                  <dd className="tabular-nums">{r.creditsRequired !== null ? t("creditsOf", { acquired: showDecimal(r.creditsAcquired), required: showDecimal(r.creditsRequired) }) : "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">{t("mention")}</dt>
-                  <dd>{mentionLabel(tMention, r.mentionCode)}</dd>
-                </div>
+                {r.provisional ? null : (
+                  <>
+                    <div>
+                      <dt className="text-muted-foreground">{t("credits")}</dt>
+                      <dd className="tabular-nums">{r.creditsRequired !== null ? t("creditsOf", { acquired: showDecimal(r.creditsAcquired), required: showDecimal(r.creditsRequired) }) : "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">{t("mention")}</dt>
+                      <dd>{mentionLabel(tMention, r.mentionCode)}</dd>
+                    </div>
+                  </>
+                )}
               </dl>
+              {r.provisional ? <p className="mt-2 text-sm text-muted-foreground">{t("provisionalHint")}</p> : null}
               {r.decisionCode ? <p className="mt-2 text-sm text-muted-foreground">{t("decision", { code: r.decisionCode })}</p> : null}
               {r.finalizedAt ? <p className="mt-1 text-xs text-muted-foreground">{t("finalizedOn", { date: date.instant(r.finalizedAt) })}</p> : null}
               <LinesDetails result={r} labels={labels} />

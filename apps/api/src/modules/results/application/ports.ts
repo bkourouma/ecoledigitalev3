@@ -165,6 +165,15 @@ export interface CompetencyCountersPort {
   getCompetencyCounters(ctx: RequestContext, input: { classroomId: string; academicYearId: string; enrollmentIds: readonly string[] }): Promise<ReadonlyMap<string, CompetencyCounters>>;
 }
 
+/**
+ * Libération aux familles d'une classe × période AVANT la clôture (décision Q-P18, primaire) : l'enseignant a marqué la classe
+ * « prête ». Port FACULTATIF (adaptateur de plateforme sur `primary_school`) : non branché ou en échec, AUCUN rang provisoire n'est
+ * exposé (échec fermé) ; les résultats FINAL restent lisibles comme avant.
+ */
+export interface FamilyReleasePort {
+  isReleased(ctx: RequestContext, input: { classroomId: string; academicPeriodId: string }): Promise<boolean>;
+}
+
 export interface ResultsPorts {
   readonly curriculum: CurriculumPort;
   readonly roster: RosterPort;
@@ -176,4 +185,6 @@ export interface ResultsPorts {
   readonly yearFacts?: YearFactsPort | undefined;
   /** Compteurs de compétences (contrat `competency-period@1`) ; facultatif. */
   readonly competencyCounters?: CompetencyCountersPort | undefined;
+  /** Libération anticipée des rangs aux familles (Q-P18) ; facultatif. */
+  readonly familyRelease?: FamilyReleasePort | undefined;
 }

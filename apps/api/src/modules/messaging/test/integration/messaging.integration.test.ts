@@ -1137,4 +1137,155 @@ describeIntegration("module messaging : base réelle", () => {
       }
     });
   });
+
+  // =========================================================================================================
+  describe("Q-13 : écrire à toute famille de l'école — permission explicite de la direction, envois hors portée journalisés", () => {
+    const TF = "0192f0a4-7b1e-7c3a-8d2e-000000000191"; // enseignant de 6A habilité
+    const TF_STAFF = "0192f0a4-7b1e-7c3a-8d2e-000000000491";
+    const NOPERM = "0192f0a4-7b1e-7c3a-8d2e-000000000192"; // enseignant de 6A SANS la permission
+    const NOPERM_STAFF = "0192f0a4-7b1e-7c3a-8d2e-000000000492";
+    const NOSEND = "0192f0a4-7b1e-7c3a-8d2e-000000000193"; // détient la permission d'extension mais PAS messaging.send
+    const NOSTAFF = "0192f0a4-7b1e-7c3a-8d2e-000000000194"; // permissions complètes mais aucune fiche de personnel
+    const capsQ13 = (id: string) => (id === TF ? { send: true, sendAnyFamily: true } : id === NOPERM ? { send: true } : id === NOSEND ? { sendAnyFamily: true } : id === NOSTAFF ? { send: true, sendAnyFamily: true } : capsOf(id));
+    const send = (from: string, to: string, subject: string, tenant = tenantA) =>
+      createConversation(deps, ctxOf(from, tenant), { kind: "DIRECT", subject, body: "Bonjour (hors classe)", priority: "NORMAL", recipients: { userIds: [to], classrooms: [], toAdministration: false }, attachmentIds: [], caps: capsQ13(from) });
+    const outOfScopeAudits = () => audit.entries.filter((e) => e.entry.action === "messaging.message.sent_out_of_scope").map((e) => e.entry);
+
+    beforeAll(() => {
+      world.addUser({ userId: TF, displayName: "HABILITE Enseignant", staffId: TF_STAFF, teachingClassroomIds: [IDS.C6A] });
+      world.addUser({ userId: NOPERM, displayName: "ORDINAIRE Enseignant", staffId: NOPERM_STAFF, teachingClassroomIds: [IDS.C6A] });
+      world.addUser({ userId: NOSEND, displayName: "SANS ENVOI", staffId: "0192f0a4-7b1e-7c3a-8d2e-000000000493", teachingClassroomIds: [IDS.C6A] });
+      world.addUser({ userId: NOSTAFF, displayName: "SANS FICHE" });
+    });
+
+    it("refus SANS la permission : un enseignant n'écrit pas à une famille hors de ses classes (parent d'un élève de 6B)", async () => {
+      expectErr(await send(NOPERM, IDS.parent3, "Sans permission"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      expect(outOfScopeAudits()).toHaveLength(0);
+      // la permission d'extension seule n'ouvre rien : elle étend `messaging.send`, elle ne le remplace pas
+      expectErr(await send(NOSEND, IDS.parent3, "Extension seule"), MessagingCode.FORBIDDEN);
+      // et sans fiche de personnel, rien non plus (échec fermé)
+      expectErr(await send(NOSTAFF, IDS.parent3, "Sans fiche"), MessagingCode.FORBIDDEN);
+      expect(await q("SELECT id FROM messaging.conversations WHERE created_by = ANY($1::uuid[])", [[NOPERM, NOSEND, NOSTAFF]])).toEqual([]);
+    });
+
+    it("AVEC la permission : écrit à toute famille ; l'envoi hors portée est journalisé (identifiants seulement), le fil le porte", async () => {
+      const before = audit.entries.length;
+      const out = unwrap(await send(TF, IDS.parent3, "Hors de mes classes"));
+      expect(out.conversation).not.toBeNull();
+      expect(out.recipientCount).toBe(1);
+      const entries = outOfScopeAudits();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        resourceType: "conversation",
+        resourceId: out.conversation!.id,
+        sensitive: true,
+        metadata: { rule: "SEND_ANY_FAMILY", permission: "messaging.send.any_family", kind: "DIRECT", outOfScopeCount: 1, recipientCount: 1, recipientUserIds: [IDS.parent3] },
+      });
+      // ni texte de message ni sujet ni nom dans l'audit
+      const serialized = JSON.stringify(audit.entries.slice(before).map((e) => e.entry));
+      expect(serialized).not.toContain("Bonjour (hors classe)");
+      expect(serialized).not.toContain("KOUASSI");
+      expect((await q("SELECT scope_exception FROM messaging.conversations WHERE id = $1", [out.conversation!.id]))[0]!.scope_exception).toBe("SEND_ANY_FAMILY");
+      // le parent reçoit le message
+      expect((await inbox(IDS.parent3)).map((c) => c.id)).toContain(out.conversation!.id);
+    });
+
+    it("un envoi DANS la portée habituelle n'est pas « hors portée » : ni audit, ni marque sur le fil (la portée ordinaire prime)", async () => {
+      const n = outOfScopeAudits().length;
+      const inScope = unwrap(await send(TF, IDS.parent1, "Ma classe"));
+      expect(outOfScopeAudits()).toHaveLength(n);
+      expect((await q("SELECT scope_exception FROM messaging.conversations WHERE id = $1", [inScope.conversation!.id]))[0]!.scope_exception).toBeNull();
+    });
+
+    it("la permission ne couvre que les familles (tuteurs) : ni élève d'une autre classe, ni compte sans lien, ni classe en bloc d'une autre classe", async () => {
+      expectErr(await send(TF, IDS.student3, "Élève d'une autre classe"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      expectErr(await send(TF, IDS.outsider, "Compte sans lien"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+      const blockOther = await createConversation(deps, ctxOf(TF), { kind: "BROADCAST", subject: "Autre classe", body: "x", priority: "NORMAL", recipients: { userIds: [], classrooms: [{ classroomId: IDS.C6B, include: ["GUARDIANS"] }], toAdministration: false }, attachmentIds: [], caps: capsQ13(TF) });
+      expectErr(blockOther, MessagingCode.RECIPIENT_NOT_ALLOWED);
+      // un compte inconnu est refusé comme un destinataire interdit (aucune énumération)
+      expectErr(await send(TF, "0192f0a4-7b1e-7c3a-8d2e-00000000dead", "Inconnu"), MessagingCode.RECIPIENT_NOT_ALLOWED);
+    });
+
+    it("chaque message SUIVANT de l'enseignant dans ce fil est journalisé aussi ; la réponse du parent ne l'est pas ; un renvoi vers le même fil l'est", async () => {
+      const thread = unwrap(await send(TF, IDS.parent3, "Suivi hors classe")).conversation!;
+      const n = outOfScopeAudits().length;
+      unwrap(await reply(IDS.parent3, thread.id, "Merci, je réponds"));
+      expect(outOfScopeAudits()).toHaveLength(n); // le parent n'est pas concerné
+      const second = unwrap(await postMessage(deps, ctxOf(TF), { conversationId: thread.id, body: "Suite", attachmentIds: [], caps: capsQ13(TF) }));
+      expect(outOfScopeAudits()).toHaveLength(n + 1);
+      expect(outOfScopeAudits().at(-1)).toMatchObject({ resourceId: thread.id, metadata: { messageId: second.message.id, rule: "SEND_ANY_FAMILY" } });
+      // même paire, même sujet : le fil existant est réutilisé, l'envoi reste journalisé
+      const again = unwrap(await send(TF, IDS.parent3, "Suivi hors classe"));
+      expect(again.reused).toBe(true);
+      expect(outOfScopeAudits()).toHaveLength(n + 2);
+    });
+
+    it("diffusion à plusieurs familles hors portée : UNE entrée d'audit avec le décompte exact ; les plafonds existants restent appliqués", async () => {
+      const n = outOfScopeAudits().length;
+      const { ctx } = as(TF);
+      const r = unwrap(
+        await createConversation(deps, ctx, {
+          kind: "BROADCAST",
+          subject: "Information à des familles",
+          body: "Information générale",
+          priority: "NORMAL",
+          recipients: { userIds: [IDS.parent3, IDS.parent2, IDS.parent1], classrooms: [], toAdministration: false },
+          attachmentIds: [],
+          caps: capsQ13(TF),
+        }),
+      );
+      expect(r.broadcastId).not.toBeNull();
+      const added = outOfScopeAudits().slice(n);
+      expect(added).toHaveLength(1);
+      // parent1 et parent2 sont dans la portée de 6A : seul parent3 est « hors portée »
+      expect(added[0]).toMatchObject({ resourceId: r.broadcastId, metadata: { outOfScopeCount: 1, recipientCount: 3, recipientUserIds: [IDS.parent3], kind: "BROADCAST" } });
+      // plafond d'envois par heure : la permission ne le contourne pas
+      clock.advance(2 * 3_600_000);
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { maxMessagesPerHour: 1, maxNewConversationsPerDay: 30 }));
+      unwrap(await send(TF, IDS.parent3, "Quota 1"));
+      expectErr(await send(TF, IDS.parent3, "Quota 2 (autre fil)"), MessagingCode.RATE_LIMITED);
+      // plafond de nouvelles conversations par jour
+      clock.advance(25 * 3_600_000);
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { maxMessagesPerHour: 100, maxNewConversationsPerDay: 1 }));
+      unwrap(await send(TF, IDS.parent3, "Plafond jour 1"));
+      expectErr(await send(TF, IDS.parent3, "Plafond jour 2"), MessagingCode.RATE_LIMITED);
+      unwrap(await updateMessagingSettings(deps, ctxOf(IDS.admin), { maxMessagesPerHour: 120, maxNewConversationsPerDay: 30 }));
+      clock.advance(25 * 3_600_000);
+    });
+
+    it("sélecteur et profil d'audience : la famille est proposée à l'habilité seulement ; `canSendAnyFamily` suit la permission", async () => {
+      const withPerm = unwrap(await listAllowedRecipients(deps, ctxOf(TF), { q: "KOUASSI", limit: 20, caps: capsQ13(TF) }));
+      expect(withPerm.items.map((i) => i.userId)).toEqual([IDS.parent3]);
+      const without = unwrap(await listAllowedRecipients(deps, ctxOf(NOPERM), { q: "KOUASSI", limit: 20, caps: capsQ13(NOPERM) }));
+      expect(without.items).toEqual([]);
+      expect(unwrap(await getMyAudience(deps, ctxOf(TF), { caps: capsQ13(TF) }))).toMatchObject({ canSend: true, canSendAnyFamily: true });
+      expect(unwrap(await getMyAudience(deps, ctxOf(NOPERM), { caps: capsQ13(NOPERM) }))).toMatchObject({ canSend: true, canSendAnyFamily: false });
+      // un enseignant sans fiche de personnel ou sans `messaging.send` ne l'a pas, même avec la permission d'extension
+      expect(unwrap(await getMyAudience(deps, ctxOf(NOSEND), { caps: capsQ13(NOSEND) })).canSendAnyFamily).toBe(false);
+      expect(unwrap(await getMyAudience(deps, ctxOf(NOSTAFF), { caps: capsQ13(NOSTAFF) })).canSendAnyFamily).toBe(false);
+    });
+
+    it("RLS A/B : le tenant B ne voit ni les fils hors portée, ni leur marque ; la permission d'un tenant n'ouvre rien chez l'autre", async () => {
+      const threads = await q<{ id: string }>("SELECT id FROM messaging.conversations WHERE tenant_id = $1 AND scope_exception IS NOT NULL", [tenantA]);
+      expect(threads.length).toBeGreaterThan(0);
+      const countUnder = async (tenant: string): Promise<number> => {
+        const client = await db.appPool.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenant]);
+          const res = await client.query("SELECT count(*)::int AS n FROM messaging.conversations WHERE scope_exception IS NOT NULL");
+          await client.query("ROLLBACK");
+          return res.rows[0].n as number;
+        } finally {
+          client.release();
+        }
+      };
+      expect(await countUnder(tenantB)).toBe(0);
+      expect(await countUnder(tenantA)).toBe(threads.length);
+      expectErr(await getConversationDetail(deps, ctxOf(TF, tenantB), { conversationId: threads[0]!.id, caps: capsQ13(TF) }), MessagingCode.CONVERSATION_NOT_FOUND);
+      // l'audit est rattaché au tenant de l'acteur
+      expect(audit.entries.filter((e) => e.entry.action === "messaging.message.sent_out_of_scope").every((e) => e.ctx.tenantId === tenantA)).toBe(true);
+    });
+  });
+
 });

@@ -131,6 +131,47 @@ describe("règles d'envoi : enseignant", () => {
   });
 });
 
+describe("Q-13 : écrire à toute famille de l'école (messaging.send.any_family)", () => {
+  const TEACHER = IDS.teacher6A; // enseignant de 6A
+  const caps = (extra: CallerCaps = {}): CallerCaps => ({ send: true, ...extra });
+  const check = (c: CallerCaps, actor: ActorProfile, to: string) => evaluateRecipient({ caps: c, actor, target: profile(to), settings: settings(), adminContacts: admins });
+
+  it("sans la permission : refus pour une famille hors de ses classes (comportement inchangé)", () => {
+    expect(check(caps(), profile(TEACHER), IDS.parent3)).toEqual({ allowed: false, reason: "NOT_LINKED" });
+    expect(applicableRules(caps(), profile(TEACHER), settings())).toEqual(["R2"]);
+  });
+  it("avec la permission : toute famille, par la règle R5 ; la portée habituelle garde sa propre règle (R2), donc n'est pas « hors portée »", () => {
+    const c = caps({ sendAnyFamily: true });
+    expect(applicableRules(c, profile(TEACHER), settings())).toEqual(["R2", "R5"]);
+    expect(check(c, profile(TEACHER), IDS.parent3)).toEqual({ allowed: true, via: "R5" }); // tuteur d'un élève de 6B
+    expect(check(c, profile(TEACHER), IDS.parent1)).toEqual({ allowed: true, via: "R2" }); // tuteur d'un élève de 6A
+    expect(check(c, profile(TEACHER), IDS.teacher6B)).toEqual({ allowed: true, via: "R2" }); // le personnel reste R2
+  });
+  it("ne couvre que les familles : ni élève d'une autre classe, ni compte sans lien, ni soi-même", () => {
+    const c = caps({ sendAnyFamily: true });
+    expect(check(c, profile(TEACHER), IDS.student3)).toEqual({ allowed: false, reason: "NOT_LINKED" });
+    expect(check(c, profile(TEACHER), IDS.outsider)).toEqual({ allowed: false, reason: "NOT_LINKED" });
+    expect(check(c, profile(TEACHER), TEACHER)).toEqual({ allowed: false, reason: "SELF" });
+  });
+  it("étend `messaging.send` sans le remplacer, et exige une fiche de personnel (échec fermé)", () => {
+    expect(applicableRules({ sendAnyFamily: true }, profile(TEACHER), settings())).toEqual([]);
+    expect(canInitiate({ sendAnyFamily: true }, profile(TEACHER), settings())).toBe("NO_PERMISSION");
+    expect(applicableRules(caps({ sendAnyFamily: true }), profile(IDS.outsider), settings())).toEqual([]);
+    expect(check(caps({ sendAnyFamily: true }), profile(IDS.outsider), IDS.parent3).allowed).toBe(false);
+  });
+  it("un parent, un élève ou l'administration n'obtiennent rien de plus de cette permission", () => {
+    expect(applicableRules({ childSend: true, sendAnyFamily: true }, profile(IDS.parent1), settings())).toEqual(["R3"]);
+    expect(applicableRules({ selfSend: true, sendAnyFamily: true }, profile(IDS.student1), settings())).toEqual(["R4"]);
+    expect(check({ sendAny: true, send: true, sendAnyFamily: true }, profile(IDS.admin), IDS.parent3)).toEqual({ allowed: true, via: "R1" });
+  });
+  it("n'étend NI l'écriture en bloc à une autre classe, NI les audiences, NI le plafond de participants", () => {
+    const c = caps({ sendAnyFamily: true });
+    expect(canTargetClassroom(c, profile(TEACHER), IDS.C6B, ["GUARDIANS"])).toEqual({ allowed: false, reason: "NOT_YOUR_CLASS" });
+    expect(canUseAudience(c)).toBe(false);
+    expect(participantLimit("GROUP", c, settings())).toBe(settings().maxGroupParticipants);
+  });
+});
+
 describe("règles d'envoi : élève (politique de l'établissement)", () => {
   it("DISABLED et REPLY_ONLY : aucune initiative", () => {
     for (const studentPolicy of ["DISABLED", "REPLY_ONLY"] as const) {

@@ -73,7 +73,7 @@ describe("migrations", () => {
   const files = readdirSync(resolve(MODULE_DIR, "migrations")).filter((f) => f.endsWith(".sql")).sort();
 
   it("sont dans la plage 1800-1899 réservée au module, nommées et ordonnées", () => {
-    expect(files).toEqual(["1800_primary_school_reference.sql", "1801_primary_school_competency_assessments.sql", "1802_primary_school_council_bilan.sql", "1803_primary_school_council_minutes.sql"]);
+    expect(files).toEqual(["1800_primary_school_reference.sql", "1801_primary_school_competency_assessments.sql", "1802_primary_school_council_bilan.sql", "1803_primary_school_council_minutes.sql", "1804_primary_school_period_readiness.sql"]);
     for (const f of files) {
       const n = Number(f.slice(0, 4));
       expect(n).toBeGreaterThanOrEqual(1800);
@@ -81,7 +81,7 @@ describe("migrations", () => {
     }
   });
 
-  it("sont IDENTIQUES au DDL de référence testé de la spec 005 (104 + 14 tests de comportement)", () => {
+  it("sont IDENTIQUES au DDL de référence testé de la spec 005 (104 + 14 + 18 tests de comportement)", () => {
     const norm = (s: string): string => s.replace(/\r\n/g, "\n");
     for (const f of files) expect(norm(readFileSync(resolve(MODULE_DIR, "migrations", f), "utf8")), f).toBe(norm(readFileSync(resolve(specDir, f), "utf8")));
   });
@@ -89,7 +89,7 @@ describe("migrations", () => {
   it("respectent les règles de plateforme : RLS forcée sur chaque table, aucune clé étrangère hors kernel.tenants", () => {
     const sql = files.map((f) => readFileSync(resolve(MODULE_DIR, "migrations", f), "utf8")).join("\n");
     const tables = [...sql.matchAll(/CREATE TABLE primary_school\.(\w+)/g)].map((m) => m[1] as string);
-    expect(tables.length).toBe(17);
+    expect(tables.length).toBe(18);
     for (const t of tables) expect(sql, t).toContain(`kernel.enable_tenant_rls('primary_school.${t}')`);
     const references = [...sql.matchAll(/REFERENCES\s+([\w.]+)/g)].map((m) => m[1] as string);
     for (const r of references) expect(r === "kernel.tenants" || r.startsWith("primary_school."), r).toBe(true);

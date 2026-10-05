@@ -30,7 +30,8 @@ describe("module messaging : manifeste", () => {
     const keys = manifest.permissions.map((p) => p.key);
     expect(keys).toEqual(expect.arrayContaining(["messaging.child.read", "messaging.child.send", "messaging.self.read", "messaging.self.send"]));
     const sensitive = manifest.permissions.filter((p) => p.sensitive).map((p) => p.key).sort();
-    expect(sensitive).toEqual(["messaging.moderation.manage", "messaging.moderation.read", "messaging.moderation.supervise"]);
+    // Q-13 : écrire à toute famille hors de ses classes est sensible (MFA + audit), comme la modération.
+    expect(sensitive).toEqual(["messaging.moderation.manage", "messaging.moderation.read", "messaging.moderation.supervise", "messaging.send.any_family"]);
   });
 
   it("publie des événements <module>.<entité>.<verbe> et consomme les événements de présence", () => {

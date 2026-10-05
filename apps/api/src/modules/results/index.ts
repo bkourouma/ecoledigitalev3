@@ -39,6 +39,7 @@ export type {
   RulesPort,
   RuleSession,
   CompetencyCountersPort,
+  FamilyReleasePort,
   YearFactsPort,
 } from "./application/ports";
 export { noopAudit as resultsNoopAudit, RecordingAudit as ResultsRecordingAudit } from "./application/ports";

@@ -2,8 +2,10 @@
  * Lectures : matrice de classe, résultat d'un élève, état de période, explicabilité, lecture famille, API publique pour
  * `reportcards` et `higher`.
  *
- *  - La famille ne lit que des résultats FINAL (jamais un brouillon), sans détail de surcharge ni trace ni commentaire
- *    interne (AC7.3) ; le lien tuteur ↔ élève est revérifié à CHAQUE lecture.
+ *  - La famille ne lit que des résultats FINAL, sans détail de surcharge ni trace ni commentaire interne (AC7.3) ; le lien
+ *    tuteur ↔ élève est revérifié à CHAQUE lecture. Seule exception (Q-P18, primaire) : le RANG PROVISOIRE d'une période dont la
+ *    classe a été marquée « prête » par l'enseignant (port `familyRelease`) ; jamais de moyenne, de mention ni de ligne, et rien
+ *    sans libération explicite (port absent ou en échec = rien).
  *  - « Pourquoi ce résultat ? » : la trace est stockée pour un FINAL ; un DRAFT est expliqué par REJEU avec les données
  *    courantes (rien n'est persisté).
  */
@@ -164,6 +166,8 @@ export async function explainResult(deps: ResultsDeps, ctx: RequestContext, inpu
 // ---------------------------------------------------------------------------------------------------------------------
 
 export interface FamilyResult {
+  /** `true` : rang provisoire d'une classe marquée prête (Q-P18) — moyenne, mention, décision et lignes ne sont pas exposés. */
+  provisional: boolean;
   academicPeriodId: string | null;
   scope: "PERIOD" | "YEAR";
   version: number;
@@ -193,6 +197,7 @@ async function familyResults(tx: Tx, studentId: string): Promise<FamilyResult[]>
     if (!header) continue;
     const lines = await listLines(tx, header.id);
     out.push({
+      provisional: false,
       academicPeriodId: header.academicPeriodId,
       scope: header.scope,
       version: header.version,
@@ -213,11 +218,81 @@ async function familyResults(tx: Tx, studentId: string): Promise<FamilyResult[]>
   return out;
 }
 
+/**
+ * Q-P18 : rangs PROVISOIRES (résultats DRAFT) des périodes dont la classe est libérée aux familles, hors périodes déjà FINAL.
+ * Échec fermé : pas de port, ou port en échec = aucun rang provisoire.
+ */
+async function provisionalFamilyResults(deps: ResultsDeps, ctx: RequestContext, studentId: string, finals: readonly FamilyResult[]): Promise<FamilyResult[]> {
+  const port = deps.ports.familyRelease;
+  if (!port) return [];
+  const drafts = await inTx(
+    deps,
+    ctx,
+    async (tx) =>
+      ok(
+        await tx.many(
+          `SELECT r.classroom_id, r.academic_period_id, r.version, r.rank, r.cohort_size
+             FROM results.period_results r
+            WHERE r.student_id = $1 AND r.status = 'DRAFT' AND r.scope = 'PERIOD' AND r.rank IS NOT NULL
+            ORDER BY r.computed_at, r.id`,
+          [studentId],
+        ),
+      ),
+    { readOnly: true },
+  );
+  if (!drafts.ok) return [];
+  const finalPeriods = new Set(finals.filter((f) => f.scope === "PERIOD").map((f) => f.academicPeriodId));
+  const verdicts = new Map<string, boolean>();
+  const out: FamilyResult[] = [];
+  for (const row of drafts.value) {
+    const classroomId = row.classroom_id as string;
+    const periodId = row.academic_period_id as string;
+    if (finalPeriods.has(periodId)) continue;
+    const key = `${classroomId}:${periodId}`;
+    let released = verdicts.get(key);
+    if (released === undefined) {
+      try {
+        released = await port.isReleased(ctx, { classroomId, academicPeriodId: periodId });
+      } catch (e) {
+        deps.logger.warn({ err: e instanceof Error ? e.message : "unknown" }, "results : libération aux familles illisible — aucun rang provisoire exposé");
+        released = false;
+      }
+      verdicts.set(key, released);
+    }
+    if (!released) continue;
+    out.push({
+      provisional: true,
+      academicPeriodId: periodId,
+      scope: "PERIOD",
+      version: row.version as number,
+      average: null,
+      averageDisplay: null,
+      rank: row.rank as number,
+      cohortSize: (row.cohort_size as number | null) ?? null,
+      mentionCode: null,
+      decisionCode: null,
+      decisionOutcome: null,
+      creditsAcquired: null,
+      creditsRequired: null,
+      validated: null,
+      finalizedAt: null,
+      lines: [],
+    });
+  }
+  return out;
+}
+
+async function familyView(deps: ResultsDeps, ctx: RequestContext, studentId: string): Promise<Result<FamilyResult[], AppError>> {
+  const finals = await inTx(deps, ctx, async (tx) => ok(await familyResults(tx, studentId)), { readOnly: true });
+  if (!finals.ok) return finals;
+  return ok([...finals.value, ...(await provisionalFamilyResults(deps, ctx, studentId, finals.value))]);
+}
+
 export async function listMyResults(deps: ResultsDeps, ctx: RequestContext): Promise<Result<FamilyResult[], AppError>> {
   if (!ctx.userId) return deny("Un utilisateur authentifié est requis.");
   const studentId = await deps.ports.guardianship.studentIdForUser(ctx, ctx.userId);
   if (!studentId) return err(forbidden(ResultsCode.NOT_VISIBLE, "Aucun profil d'élève n'est lié à votre compte."));
-  return inTx(deps, ctx, async (tx) => ok(await familyResults(tx, studentId)), { readOnly: true });
+  return familyView(deps, ctx, studentId);
 }
 
 export async function listChildResults(deps: ResultsDeps, ctx: RequestContext, input: { studentId: string }): Promise<Result<FamilyResult[], AppError>> {
@@ -225,7 +300,7 @@ export async function listChildResults(deps: ResultsDeps, ctx: RequestContext, i
   if (!(await deps.ports.guardianship.isGuardianOf(ctx, ctx.userId, input.studentId))) {
     return err(forbidden(ResultsCode.NOT_VISIBLE, "Vous n'êtes pas le tuteur de cet élève.", { studentId: input.studentId }));
   }
-  return inTx(deps, ctx, async (tx) => ok(await familyResults(tx, input.studentId)), { readOnly: true });
+  return familyView(deps, ctx, input.studentId);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
