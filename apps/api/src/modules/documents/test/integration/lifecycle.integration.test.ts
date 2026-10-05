@@ -3,7 +3,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createSystemContext } from "@ecoledigitale/kernel";
-import { updateCategory, updateSettings } from "../../application/categories";
+import { getSettings, updateCategory, updateSettings } from "../../application/categories";
 import { archiveDocument, expirationCounts, getDocument, getDownloadUrl, listDocuments, restoreDocument, updateDocument } from "../../application/documents";
 import { runHousekeeping, sweepExpirations } from "../../application/housekeeping";
 import { addVersion, createDocument } from "../../application/uploads";
@@ -29,6 +29,28 @@ describeIntegration("module documents : archivage, purge, expiration", () => {
   const manager = () => ({ userId: USERS.manager, caps: CAPS.manager });
   const today = (): string => isoDay(w.clock.now());
   const adminCtx = () => w.ctxA(USERS.manager);
+
+  describe("Q-03 : par défaut, les pièces ne sont JAMAIS purgées", () => {
+    it("rétention 0 par défaut : archiver ne programme aucune purge, le job ne détruit rien même des années plus tard ; isolation A/B du réglage", async () => {
+      expect(must(await getSettings(w.deps, adminCtx())).archiveRetentionDays).toBe(0);
+      const row = (await w.db.admin.query("SELECT archive_retention_days FROM documents.settings WHERE tenant_id = $1", [w.tenantA])).rows[0];
+      expect(row.archive_retention_days).toBe(0);
+      const id = await w.seedDocument({ ...manager(), fields: { title: "Conservée sans limite" } });
+      expect(must(await archiveDocument(w.deps, adminCtx(), { caps: CAPS.manager, documentId: id, reason: "test" })).purgeAfter).toBeNull();
+      w.clock.advanceDays(36500);
+      try {
+        expect((await runHousekeeping(w.deps, system())).documentsPurged).toBe(0);
+        expect((await w.db.admin.query("SELECT purged_at, purge_after, status FROM documents.documents WHERE id = $1", [id])).rows[0]).toMatchObject({ purged_at: null, purge_after: null, status: "ARCHIVED" });
+        expect((await w.db.admin.query("SELECT state FROM documents.versions WHERE document_id = $1", [id])).rows.map((r) => r.state)).toEqual(["ACTIVE"]);
+      } finally {
+        w.clock.advanceDays(-36500);
+      }
+      // Choisir un délai reste possible (acte explicite de l'établissement) : les tests suivants l'utilisent ; l'autre tenant garde le défaut.
+      must(await updateSettings(w.deps, adminCtx(), { body: { archiveRetentionDays: 365 } }));
+      const other = (await w.db.admin.query("SELECT archive_retention_days FROM documents.settings WHERE tenant_id = $1", [w.tenantB])).rows;
+      for (const r of other) expect(r.archive_retention_days).toBe(0);
+    });
+  });
 
   describe("AC-10 archivage, restauration, purge", () => {
     it("archiver exige la permission et masque le document (sauf à la gestion) ; restaurer est réservé à la gestion", async () => {

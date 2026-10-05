@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS: SettingsRow = Object.freeze({
   maxBytes: 15_728_640,
   storageQuotaBytes: null,
   defaultAlertDays: [30, 7, 1],
-  archiveRetentionDays: 365,
+  archiveRetentionDays: 0, // Q-03 : 0 = les pièces archivées ne sont JAMAIS purgées (aucune rétention légale)
   quarantineRetentionDays: 30,
   maxVersions: 50,
   updatedAt: null,

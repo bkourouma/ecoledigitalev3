@@ -701,7 +701,7 @@ describe("SettingsScreen", () => {
       maxBytes: 10 * 1024 * 1024,
       storageQuotaBytes: 1024 * 1024 * 1024,
       defaultAlertDays: [60, 30, 7],
-      archiveRetentionDays: 365,
+      archiveRetentionDays: 0,
       quarantineRetentionDays: 30,
       maxVersions: 50,
     }));

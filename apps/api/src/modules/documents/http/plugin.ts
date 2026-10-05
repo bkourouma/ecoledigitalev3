@@ -45,6 +45,7 @@ import { deleteQuarantine, listQuarantine, releaseQuarantine } from "../applicat
 import { listShares, shareDocument, unshareDocument } from "../application/shares";
 import { addVersion, createDocument, type UploadedFile } from "../application/uploads";
 import { DocumentsCode, HTTP_STATUS_BY_DOCUMENTS_CODE, forbidden, validation } from "../domain/errors";
+import { QUOTA_FEATURE_KEYS, planQuotaBytes, quotaTierFor } from "../domain/quota";
 import type { ActorCaps } from "../domain/types";
 import { documentsAuditAdapter } from "../infrastructure/audit-adapter";
 import { ALL_CAPS, ANY_DOCUMENTS_PERMISSION, createPermissionKit, PERMISSIONS as P, UPLOADERS, VIEWERS, type PermissionKit } from "./guards";
@@ -408,18 +409,12 @@ export function setup(app: FastifyInstance, _runtime: ModuleRuntime): void {
   if (!app.hasDecorator("documentsPorts")) app.decorate("documentsPorts", createDocumentsPortRegistry());
 }
 
-const GIB = 1024 * 1024 * 1024;
-
-/** Quota du PLAN : palier selon les features `documents.storage.*` (valeurs d'environnement, défauts 2 / 20 / 100 Gio). */
+/** Quota du PLAN (Q-05) : palier selon les features `documents.storage.*`, 5 / 50 / 250 Gio par défaut (`domain/quota.ts`). */
 function planQuotaFrom(runtime: ModuleRuntime): DocumentsPorts["planQuota"] {
-  const num = (key: string, fallback: number): number => {
-    const n = Number(runtime.env[key]);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-  };
   return async (ctx) => {
-    if (await runtime.entitlements.isFeatureEnabled(ctx, "documents.storage.large")) return num("DOCUMENTS_QUOTA_LARGE_BYTES", 100 * GIB);
-    if (await runtime.entitlements.isFeatureEnabled(ctx, "documents.storage.extended")) return num("DOCUMENTS_QUOTA_EXTENDED_BYTES", 20 * GIB);
-    return num("DOCUMENTS_QUOTA_BASE_BYTES", 2 * GIB);
+    const large = await runtime.entitlements.isFeatureEnabled(ctx, QUOTA_FEATURE_KEYS.large);
+    const extended = large ? true : await runtime.entitlements.isFeatureEnabled(ctx, QUOTA_FEATURE_KEYS.extended);
+    return planQuotaBytes(quotaTierFor({ large, extended }), runtime.env);
   };
 }
 

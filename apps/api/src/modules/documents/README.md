@@ -16,9 +16,9 @@ Pièces administratives des élèves, du personnel et de l'établissement : **ca
 | Téléchargement | `GET …/download-url` : contrôle, historique, audit, URL signée ≤ 5 min (60 s par défaut), `attachment` |
 | Prévisualisation | `GET …/preview` : octets servis par l'API (type réel, `nosniff`, CSP `sandbox` pour image et texte, `no-store`) ; images, PDF, texte ; **Office : port `DocumentConverter`, désactivé par défaut** (feature `documents.office-preview` + `DOCUMENTS_OFFICE_CONVERTER=libreoffice`) ; SHA-256 recalculé (écart = `409 documents.integrity_failed` + événement) |
 | Expiration | `expires_on`, seuils document > catégorie > établissement (`30, 7, 1`), job `documents.expiry-sweep` → `documents.document.expiring` (une fois par seuil) puis `documents.document.expired` ; réarmé par un changement d'échéance |
-| Archivage | supprimer = archiver (motif obligatoire) ; restauration par la gestion ; purge par rétention (job `documents.housekeeping`) : objets supprimés D'ABORD, contenu descriptif effacé, historique et empreintes conservés |
+| Archivage | supprimer = archiver (motif obligatoire) ; restauration par la gestion ; purge par rétention (job `documents.housekeeping`) : objets supprimés D'ABORD, contenu descriptif effacé, historique et empreintes conservés. **Q-03 : par défaut, les pièces ne sont JAMAIS purgées** (`archive_retention_days` = 0 = jamais, migration `2503` ; un délai ne s'applique que si l'établissement le choisit, ou par catégorie) |
 | Quarantaine | liste, libération motivée (rejoue le dépôt demandé, sans nouvelle analyse, MFA, audit) ou destruction ; rétention de 30 jours |
-| Quotas | paliers `documents.storage.extended` / `.large` (features), réglage plus strict par établissement, jauge `STORAGE_BYTES` vers `entitlements` |
+| Quotas | **Q-05 : 5 Gio (base) / 50 Gio (`documents.storage.extended`) / 250 Gio (`documents.storage.large`)** selon les features accordées par le plan (`domain/quota.ts`), réglage plus strict par établissement, jauge `STORAGE_BYTES` vers `entitlements` ; rattachement recommandé : STARTER = base, PROFESSIONAL = étendu, ENTERPRISE = large (console des entitlements) |
 | Audit et historique | `runtime.auditPort` (même transaction, en dernier) + `document_events` append-only ; **jamais de titre ni de nom de fichier** dans un événement, une métadonnée d'audit |
 
 ## Arborescence
@@ -77,7 +77,7 @@ Permissions sensibles (MFA) : `documents.read.confidential`, `documents.manage`,
 | `DOCUMENTS_SCAN_FAIL_CLOSED` | vrai en production | antivirus injoignable : refuser (`503`) ou stocker `UNSCANNED` |
 | `DOCUMENTS_HARD_MAX_BYTES` | 52 428 800 (50 Mio, plafond 100 Mio) | taille maximale absolue d'un fichier |
 | `DOCUMENTS_SIGNED_URL_TTL_SECONDS` | 60 (≤ 300) | durée des URL de téléchargement |
-| `DOCUMENTS_QUOTA_BASE_BYTES`, `_EXTENDED_BYTES`, `_LARGE_BYTES` | 2 / 20 / 100 Gio | quota du plan selon les features |
+| `DOCUMENTS_QUOTA_BASE_BYTES`, `_EXTENDED_BYTES`, `_LARGE_BYTES` | 5 / 50 / 250 Gio | quota du plan selon les features (entier positif en octets, sinon défaut) |
 | `DOCUMENTS_OFFICE_CONVERTER` | `off` | `off` ou `libreoffice` (conteneur isolé sans réseau uniquement) |
 | `DOCUMENTS_SOFFICE_PATH`, `DOCUMENTS_OFFICE_TIMEOUT_MS` | `soffice`, 60000 | LibreOffice |
 

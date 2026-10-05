@@ -163,7 +163,7 @@ export function context(over: Partial<DocumentMyContextDto> = {}, caps: Partial<
 }
 
 export function settings(over: Partial<DocumentSettingsDto> = {}): DocumentSettingsDto {
-  return { maxBytes: 15 * 1024 * 1024, storageQuotaBytes: null, defaultAlertDays: [30, 7, 1], archiveRetentionDays: 365, quarantineRetentionDays: 30, maxVersions: 50, updatedAt: null, ...over };
+  return { maxBytes: 15 * 1024 * 1024, storageQuotaBytes: null, defaultAlertDays: [30, 7, 1], archiveRetentionDays: 0, quarantineRetentionDays: 30, maxVersions: 50, updatedAt: null, ...over };
 }
 
 export function usage(over: Partial<DocumentUsageDto> = {}): DocumentUsageDto {
