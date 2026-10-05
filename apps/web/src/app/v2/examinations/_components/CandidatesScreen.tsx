@@ -13,6 +13,7 @@ import { ErrorBlock, Notice } from "@/platform/ui/states";
 import { useDebounced } from "@/platform/ui/useDebounced";
 import { useClassroomOptions } from "@/platform/v2/lookups";
 import { useCandidatesFromClassroom, useEvaluateAll, useExamCandidates, useRegisterBatch } from "@/platform/v2/examinations";
+import { ExternalCandidatePanel } from "./ExternalCandidatePanel";
 import { BatchReport, eligibilityTone, outcomeTone, registrationTone, SessionScope, StatusPill, useExamLabels } from "./shared";
 
 const REGISTRATIONS = ["DRAFT", "PRE_REGISTERED", "REGISTERED", "WITHDRAWN"] as const;
@@ -20,6 +21,7 @@ const ELIGIBILITIES = ["NOT_EVALUATED", "ELIGIBLE", "INELIGIBLE", "NEEDS_REVIEW"
 
 function Panel({ session }: { session: ExamSessionDetailDto }) {
   const t = useTranslations("v2Examinations.candidates");
+  const tExt = useTranslations("v2ExaminationsExternal.list");
   const labels = useExamLabels();
   const [registration, setRegistration] = useState("");
   const [eligibility, setEligibility] = useState("");
@@ -47,9 +49,15 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
     {
       id: "select",
       header: <span className="sr-only">{t("columns.select")}</span>,
-      cell: (c) => <input type="checkbox" className="h-4 w-4 accent-primary" aria-label={t("selectOne", { name: c.displayName ?? c.studentId })} checked={selected.has(c.id)} onChange={() => toggle(c.id)} />,
+      cell: (c) => <input type="checkbox" className="h-4 w-4 accent-primary" aria-label={t("selectOne", { name: c.displayName ?? c.id })} checked={selected.has(c.id)} onChange={() => toggle(c.id)} />,
     },
-    { id: "name", header: t("columns.name"), rowHeader: true, cell: (c) => <Link className="font-medium text-primary underline-offset-2 hover:underline" href={`/v2/examinations/candidates/${c.id}`}>{c.displayName ?? c.studentId}</Link> },
+    { id: "name", header: t("columns.name"), rowHeader: true, cell: (c) => (
+        <>
+          <Link className="font-medium text-primary underline-offset-2 hover:underline" href={`/v2/examinations/candidates/${c.id}`}>{c.displayName ?? c.id}</Link>
+          {c.candidateKind === "EXTERNAL" ? <span className="ml-2"><StatusPill label={tExt("badge")} tone="info" /></span> : null}
+        </>
+      ),
+    },
     { id: "number", header: t("columns.number"), cell: (c) => c.candidateNumber ?? "—", className: "hidden sm:table-cell" },
     { id: "track", header: t("columns.track"), cell: (c) => c.trackCode ?? "—", className: "hidden md:table-cell" },
     { id: "registration", header: t("columns.registration"), cell: (c) => <StatusPill label={labels.registration(c.registrationStatus)} tone={registrationTone(c.registrationStatus)} /> },
@@ -82,6 +90,10 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
           {fromClassroom.isError ? <ErrorBlock error={fromClassroom.error} /> : null}
           {fromClassroom.data ? <BatchReport summary={t("add.report", { created: fromClassroom.data.created, skipped: fromClassroom.data.skipped.length })} failures={fromClassroom.data.failed.map((f) => ({ id: f.studentId, message: f.message, code: f.code }))} /> : null}
         </section>
+      </Can>
+
+      <Can permission="exam.external.manage">
+        <ExternalCandidatePanel session={session} />
       </Can>
 
       <div className="flex flex-wrap gap-2">
@@ -124,7 +136,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
   );
 }
 
-/** Candidats d'une session : ce sont les ÉLÈVES de l'établissement (aucun candidat libre) ; l'éligibilité vient de la règle. */
+/** Candidats d'une session : les ÉLÈVES de l'établissement et, pour une session officielle, les CANDIDATS LIBRES (Q-E15) ; l'éligibilité vient de la règle. */
 export function CandidatesScreen() {
   const t = useTranslations("v2Examinations.candidates");
   return (

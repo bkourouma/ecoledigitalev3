@@ -15,6 +15,7 @@ import { DecisionDialog } from "./DecisionDialog";
 import { EditApplicationDialog } from "./EditApplicationDialog";
 import { DossierAttach } from "./DossierAttach";
 import { DossierDocuments } from "./DossierDocuments";
+import { DossierExamResults } from "./DossierExamResults";
 import { DossierInterviews } from "./DossierInterviews";
 import { DossierDuplicates, DossierGuardians, DossierHistory, DossierPrivacy } from "./DossierMisc";
 import { DossierOffers } from "./DossierOffers";
@@ -101,6 +102,7 @@ function Dossier({ application, backLabel, onReload }: { application: Admissions
       <DossierAttach application={application} />
       <DossierInterviews application={application} />
       <DossierOffers application={application} />
+      <DossierExamResults application={application} />
       <DossierDuplicates application={application} />
       <DossierHistory applicationId={application.id} />
       <DossierPrivacy application={application} />
