@@ -149,3 +149,44 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-39 | Changement de classe : un bulletin par classe | Défaut conservé |
 | Q-40 | Heures validées d'un enseignant désactivé payées | Défaut conservé |
 | Q-03, Q-37 | Couverts par O-18 (pas de compensation) et par la contrainte de non-chevauchement des périodes de paie | Défaut conservé |
+
+## 015 — Paiements
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-PAY-30 | Établissement sans identifiants propres : utiliser les comptes de la PLATEFORME partagés | Écart à risque (fonds de plusieurs écoles sur un même compte : à cadrer — répartition, réconciliation par tenant, responsabilité juridique — avant implémentation) |
+| Q-PAY-31 | Gestion des fournisseurs : directeur et propriétaire, pas l'économe (MFA) | Défaut conservé |
+| Q-PAY-32 | Remboursement chez le fournisseur : TOUJOURS MANUEL (preuve auditée) | Écart (désactiver les remboursements automatiques livrés) |
+| Q-PAY-34 | Frais d'agrégation non modélisés (montant payé = facture) | Défaut conservé |
+| Q-PAY-35 | TresorPay : adaptateur livré, contrat à confirmer (désactivé) | Défaut conservé |
+| Q-PAY-36 | Secrets des fournisseurs dans l'environnement (trousseau, rotation) | Défaut conservé |
+| Q-PAY-37 | Paiement toujours en attente : signalé, reste PENDING | Défaut conservé |
+| Q-PAY-38 | Résolution manuelle d'un paiement bloqué : UNE SEULE personne habilitée (pas de second approbateur) | Écart |
+| Q-PAY-33, 39, 40, 41 | Questions techniques : défauts conservés | Défaut conservé |
+
+## 016 — Communications
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-02 | Conversations conservées sans suppression ; anonymisation sur demande | Défaut conservé |
+| Q-03 | Élève écrit aux enseignants et à l'établissement | Défaut conservé |
+| Q-04 | Contacts d'administration : directeur et secrétariat, 30 max | Défaut conservé |
+| Q-05 | Parent peut écrire aussi aux enseignants de l'année précédente | Écart |
+| Q-06 | Plafonds de messagerie PLUS LARGES (120 messages/h au lieu de 60) | Écart |
+| Q-07 | Aucun filtre de contenu, signalement manuel | Défaut conservé |
+| Q-08 | Pièces jointes : types réels PDF/JPEG/PNG/WebP, scanner branchable | Défaut conservé |
+| Q-09 | Accusé « vu » non exposé | Défaut conservé |
+| Q-11 | Groupe : liste figée à la création, départ possible | Défaut conservé |
+| Q-12 | Annonce programmée : audience figée à la programmation | Défaut conservé |
+| Q-13 | TOUT enseignant peut écrire à toute famille (pas seulement ses classes) | Écart (élargit la portée ; à examiner côté confidentialité) |
+| Q-14 | Supervision : permission sensible, MFA, motif, audit | Défaut conservé |
+| Q-18 | Fournisseur SMS = Orange | Décidé |
+| Q-19 | Consentement implicite par défaut (explicite possible par canal) | Défaut conservé |
+| Q-23 | Heures calmes 20h-07h Abidjan, urgence contourne | Défaut conservé |
+| Q-24 | Urgence ne contourne pas la liste de révocation par défaut | Défaut conservé |
+| Q-25 | Plafonds par canal : SMS 500, WhatsApp 1500, e-mail 3000, push 10k, in-app 20k par jour | Défaut conservé |
+| Q-26 | Relances d'impayés à J+7 / J+21 / J+45 (au lieu de J+3 / J+10 / J+30) | Écart |
+| Q-27 | Charge d'enseignement 800 h/an par défaut ; alerte de baisse désactivée | Défaut conservé |
+| Q-28 | Pas de rôle RH ; alerte documents expirant au secrétariat | Défaut conservé |
+| Q-29 | Journal de consentement conservé tant que l'établissement existe | Défaut conservé |
+| Q-01, 10, 15, 16, 17, 20, 21, 22 | Questions techniques ou déjà livrées : défauts conservés | Défaut conservé |
