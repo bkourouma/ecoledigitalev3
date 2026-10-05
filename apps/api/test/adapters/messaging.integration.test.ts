@@ -281,6 +281,59 @@ describeIntegration("messagerie : people + academic + rbac -> messaging (adaptat
     unwrap(await send(u.teacher, CAPS.teacher, { to: u.mother, subject: "Compte réactivé" }));
   });
 
+  it("Q-05 : un parent écrit aux enseignants de l'ANNÉE PRÉCÉDENTE de son enfant pendant la fenêtre ; ni avant l'affectation, ni après la fenêtre, ni pour un autre parent", async () => {
+    const dir = w.ports.messaging.directory!;
+    const classroom = school.ref.classroomId;
+    const year = (await adminRows<{ ends_on: string }>(w, "SELECT ends_on::text FROM academic.academic_years WHERE id = $1", [school.seed.yearId]))[0]!;
+    const realNow = w.clock.now();
+    const DAY = 86_400_000;
+    try {
+      // L'année en cours : aucune « année précédente » ; la règle classique s'applique (l'enseignant affecté est joignable).
+      expect((await dir.getProfiles(ctxOf(u.father), [u.father])).get(u.father)).toMatchObject({ childPreviousYearClassroomIds: [], previousYearWindowAnchorOn: null });
+
+      // L'année se termine : inscriptions terminées (COMPLETED), affectation de l'enseignant close ; aucune année suivante n'existe encore.
+      const endsAt = new Date(`${year.ends_on}T00:00:00Z`).getTime();
+      await w.db.admin.query("UPDATE academic.enrollments SET status = 'COMPLETED' WHERE classroom_id = $1", [classroom]);
+      await w.db.admin.query("UPDATE people.teaching_assignments SET status = 'ENDED', ends_on = LEAST(ends_on, $2::date) WHERE classroom_id = $1", [classroom, year.ends_on]);
+      w.clock.set(new Date(endsAt + 10 * DAY));
+
+      const father = (await dir.getProfiles(ctxOf(u.father), [u.father])).get(u.father)!;
+      expect(father.childClassroomIds).toEqual([]); // plus d'inscription active
+      expect(father).toMatchObject({ childPreviousYearClassroomIds: [classroom], previousYearWindowAnchorOn: year.ends_on });
+      const teacher = (await dir.getProfiles(ctxOf(u.teacher), [u.teacher])).get(u.teacher)!;
+      expect(teacher.teachingClassroomIds).toEqual([]); // n'enseigne plus aujourd'hui
+      expect(teacher.pastTeachingClassroomIds).toEqual([classroom]);
+      const out = (await dir.getProfiles(ctxOf(u.teacherOut), [u.teacherOut])).get(u.teacherOut)!;
+      expect(out.pastTeachingClassroomIds).toEqual([]);
+
+      // Fenêtre ouverte (10 jours sur 90) : le père écrit à l'ancien enseignant, pas à celui qui n'y a jamais enseigné ; la mère aussi.
+      unwrap(await send(u.father, CAPS.parent, { to: u.teacher, subject: "Ancien enseignant" }));
+      unwrap(await send(u.mother, CAPS.parent, { to: u.teacher, subject: "Ancien enseignant (mère)" }));
+      expectErr(await send(u.father, CAPS.parent, { to: u.teacherOut, subject: "Jamais enseigné" }), "messaging.recipient_not_allowed");
+      // Un tuteur sans lien avec cette classe (tuteur de l'élève 2... même classe : il l'est aussi) ; un compte sans enfant ne l'est pas.
+      expectErr(await send(u.ghost, CAPS.parent, { to: u.teacher, subject: "Sans lien" }), "messaging.forbidden"); // aucun enfant lié : aucune règle d'envoi ne s'ouvre
+      // Le sélecteur propose l'ancien enseignant dans la classe de l'an dernier.
+      const contacts = unwrap(await listAllowedRecipients(deps, ctxOf(u.father), { classroomId: classroom, limit: 20, caps: CAPS.parent }));
+      expect(contacts.items.map((i) => i.userId)).toContain(u.teacher);
+      // La même règle vaut pour la recherche par nom.
+      const byName = unwrap(await listAllowedRecipients(deps, ctxOf(u.father), { q: "ENSEIGNANT", limit: 20, caps: CAPS.parent }));
+      expect(byName.items.map((i) => i.userId)).toContain(u.teacher);
+
+      // Fenêtre dépassée (100 jours) : refus.
+      w.clock.set(new Date(endsAt + 100 * DAY));
+      expectErr(await send(u.father, CAPS.parent, { to: u.teacher, subject: "Trop tard" }), "messaging.recipient_not_allowed");
+      expect(unwrap(await listAllowedRecipients(deps, ctxOf(u.father), { classroomId: classroom, limit: 20, caps: CAPS.parent })).items).toEqual([]);
+
+      // Isolation : un autre tenant ne voit aucune année précédente ni affectation passée.
+      const otherTenant = newId();
+      await w.db.admin.query("INSERT INTO kernel.tenants (id, slug, name) VALUES ($1, $2, $3)", [otherTenant, `py-${otherTenant.slice(-8)}`, "Autre année"]);
+      const foreign = await dir.getProfiles(createRequestContext({ tenantId: otherTenant, userId: u.father }), [u.father, u.teacher]);
+      expect(foreign.size).toBe(0);
+    } finally {
+      w.clock.set(realNow);
+    }
+  });
+
   it("isolation : un autre tenant ne voit aucune conversation du tenant d'assemblage", async () => {
     const otherTenant = newId();
     await w.db.admin.query("INSERT INTO kernel.tenants (id, slug, name) VALUES ($1, $2, $3)", [otherTenant, `autre-${otherTenant.slice(-8)}`, "Autre"]);
