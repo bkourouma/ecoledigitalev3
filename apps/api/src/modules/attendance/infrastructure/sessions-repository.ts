@@ -4,7 +4,7 @@
  */
 import type { Tx } from "@ecoledigitale/database";
 import type { FinalMark } from "../domain/records";
-import type { AttendanceSession, IsoDate, RecordSource, SessionScope, SessionSource, SessionStatus, StudentRecord, Uuid } from "../domain/types";
+import type { AttendanceSession, DayPart, IsoDate, RecordSource, SessionScope, SessionSource, SessionStatus, StudentRecord, Uuid } from "../domain/types";
 import { RECORD_COLUMNS, SESSION_COLUMNS, decodeCursor, encodeCursor, toRecord, toSession, type RecordRow, type SessionRow } from "./rows";
 
 export interface NewSession {
@@ -17,6 +17,8 @@ export interface NewSession {
   readonly offeringId: Uuid | null;
   readonly occurrenceId: Uuid | null;
   readonly scope: SessionScope;
+  /** Demi-journée de l'appel journalier ; `FULL` ailleurs. */
+  readonly dayPart: DayPart;
   readonly sessionDate: IsoDate;
   readonly startsAt: Date | null;
   readonly endsAt: Date | null;
@@ -32,14 +34,14 @@ export async function insertSessionIfAbsent(tx: Tx, s: NewSession): Promise<Atte
   const rows = await tx.many<SessionRow>(
     `WITH ins AS (
        INSERT INTO attendance.sessions (id, tenant_id, institution_id, academic_year_id, classroom_id, curriculum_node_id, offering_id, occurrence_id,
-                                        scope, session_date, starts_at, ends_at, duration_minutes, taken_by_staff_id, taken_by_user_id, source, client_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                                        scope, session_date, starts_at, ends_at, duration_minutes, taken_by_staff_id, taken_by_user_id, source, client_id, day_part)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        ON CONFLICT DO NOTHING
        RETURNING *)
      SELECT ${SESSION_COLUMNS} FROM ins s`,
     [
       s.id, s.tenantId, s.institutionId, s.academicYearId, s.classroomId, s.curriculumNodeId, s.offeringId, s.occurrenceId,
-      s.scope, s.sessionDate, s.startsAt, s.endsAt, s.durationMinutes, s.takenByStaffId, s.takenByUserId, s.source, s.clientId,
+      s.scope, s.sessionDate, s.startsAt, s.endsAt, s.durationMinutes, s.takenByStaffId, s.takenByUserId, s.source, s.clientId, s.dayPart,
     ],
   );
   return rows[0] ? toSession(rows[0]) : null;
@@ -61,12 +63,27 @@ export async function findSessionByOccurrence(tx: Tx, occurrenceId: Uuid): Promi
   return r ? toSession(r) : null;
 }
 
-export async function findDailySession(tx: Tx, classroomId: Uuid, date: IsoDate): Promise<AttendanceSession | null> {
+/** Appel journalier d'une classe pour un jour ET une demi-journée (`FULL` = appel unique de la journée). */
+export async function findDailySession(tx: Tx, classroomId: Uuid, date: IsoDate, dayPart: DayPart = "FULL"): Promise<AttendanceSession | null> {
   const r = await tx.queryOne<SessionRow>(
-    `SELECT ${SESSION_COLUMNS} FROM attendance.sessions s WHERE s.scope = 'DAILY' AND s.classroom_id = $1 AND s.session_date = $2 AND s.status <> 'CANCELLED'`,
-    [classroomId, date],
+    `SELECT ${SESSION_COLUMNS} FROM attendance.sessions s WHERE s.scope = 'DAILY' AND s.classroom_id = $1 AND s.session_date = $2 AND s.day_part = $3 AND s.status <> 'CANCELLED'`,
+    [classroomId, date, dayPart],
   );
   return r ? toSession(r) : null;
+}
+
+/**
+ * Appels journaliers du même jour qui OCCUPENT déjà tout ou partie de cette demi-journée sans être exactement elle : un appel `FULL`
+ * recouvre le matin et l'après-midi, et inversement (la base l'interdit par `sessions_daily_parts_exclusive`).
+ */
+export async function findOverlappingDailySessions(tx: Tx, classroomId: Uuid, date: IsoDate, dayPart: DayPart): Promise<AttendanceSession[]> {
+  const rows = await tx.many<SessionRow>(
+    `SELECT ${SESSION_COLUMNS} FROM attendance.sessions s
+      WHERE s.scope = 'DAILY' AND s.classroom_id = $1 AND s.session_date = $2 AND s.status <> 'CANCELLED'
+        AND s.day_part <> $3 AND ($3 = 'FULL' OR s.day_part = 'FULL')`,
+    [classroomId, date, dayPart],
+  );
+  return rows.map(toSession);
 }
 
 export async function findSessionByClientId(tx: Tx, clientId: Uuid): Promise<AttendanceSession | null> {
@@ -335,6 +352,8 @@ export interface AbsenceRow {
   enrollmentId: Uuid;
   classroomId: Uuid;
   sessionDate: IsoDate;
+  /** Demi-journée de l'appel journalier (`FULL` ailleurs) : deux pointages d'un même jour se distinguent (primaire, Q-P17). */
+  dayPart: DayPart;
   statusCode: string;
   excused: boolean;
   countedMinutes: number | null;
@@ -377,10 +396,10 @@ export async function listAbsences(tx: Tx, f: AbsenceFilter): Promise<{ items: A
   const limit = Math.min(Math.max(f.limit ?? 50, 1), 200);
   params.push(limit + 1);
   const rows = await tx.many<{
-    id: Uuid; session_id: Uuid; student_id: Uuid; enrollment_id: Uuid; classroom_id: Uuid; session_date: string;
+    id: Uuid; session_id: Uuid; student_id: Uuid; enrollment_id: Uuid; classroom_id: Uuid; session_date: string; day_part: DayPart;
     status_code: string; excused: boolean; counted_minutes: number | null; minutes_late: number | null; justification_id: Uuid | null;
   }>(
-    `SELECT r.id, r.session_id, r.student_id, r.enrollment_id, s.classroom_id, s.session_date::text AS session_date,
+    `SELECT r.id, r.session_id, r.student_id, r.enrollment_id, s.classroom_id, s.session_date::text AS session_date, s.day_part,
             r.status_code, r.excused, r.counted_minutes, r.minutes_late, r.justification_id
        FROM attendance.student_records r
        JOIN attendance.sessions s ON s.tenant_id = r.tenant_id AND s.id = r.session_id
@@ -397,6 +416,7 @@ export async function listAbsences(tx: Tx, f: AbsenceFilter): Promise<{ items: A
     enrollmentId: r.enrollment_id,
     classroomId: r.classroom_id,
     sessionDate: r.session_date,
+    dayPart: r.day_part,
     statusCode: r.status_code,
     excused: r.excused,
     countedMinutes: r.counted_minutes,

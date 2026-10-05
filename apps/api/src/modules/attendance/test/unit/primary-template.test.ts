@@ -5,17 +5,18 @@ import { buildAttendanceTemplates, defaultAttendanceTemplates, getAttendancePack
 import ciPrimary from "../../templates/CI/primary.json";
 
 describe("modèle de pack PRIMARY (spec 005 §14.2 « 010 »)", () => {
-  it("le fichier déclare la politique PRIMARY_DAILY : portée DAILY, PRESCHOOL + PRIMARY, dailyMinutes null", () => {
+  it("le fichier déclare l'appel journalier de la maternelle et l'appel du matin ET de l'après-midi du primaire (Q-P17), sans durée supposée", () => {
     expect(ciPrimary.callPolicies).toEqual([
-      { code: "PRIMARY_DAILY", label: "Appel journalier", scope: "DAILY", educationLevels: ["PRESCHOOL", "PRIMARY"], dailyMinutes: null },
+      { code: "PRESCHOOL_DAILY", label: "Appel journalier (maternelle)", scope: "DAILY", educationLevels: ["PRESCHOOL"], dailyMinutes: null },
+      { code: "PRIMARY_HALF_DAYS", label: "Appel du matin et de l'après-midi (primaire)", scope: "DAILY", educationLevels: ["PRIMARY"], dailyMinutes: null, dailyCallMode: "HALF_DAYS" },
     ]);
   });
 
   it("le modèle chargé développe la politique par niveau, sans aucune durée supposée, et hérite du reste de la base", () => {
     const t = getAttendancePackTemplate("CI", "PRIMARY");
     expect(t.callPolicies).toEqual([
-      { code: "PRIMARY_DAILY", label: "Appel journalier", educationLevel: "PRESCHOOL", callScope: "DAILY", dailyMinutes: null },
-      { code: "PRIMARY_DAILY", label: "Appel journalier", educationLevel: "PRIMARY", callScope: "DAILY", dailyMinutes: null },
+      { code: "PRESCHOOL_DAILY", label: "Appel journalier (maternelle)", educationLevel: "PRESCHOOL", callScope: "DAILY", dailyMinutes: null },
+      { code: "PRIMARY_HALF_DAYS", label: "Appel du matin et de l'après-midi (primaire)", educationLevel: "PRIMARY", callScope: "DAILY", dailyMinutes: null, dailyCallMode: "HALF_DAYS" },
     ]);
     expect(t.statusDefinitions).toEqual(DEFAULT_ATTENDANCE_PACK.statusDefinitions);
     expect(t.justificationReasons).toEqual(DEFAULT_ATTENDANCE_PACK.justificationReasons);
@@ -56,11 +57,29 @@ describe("modèle de pack PRIMARY (spec 005 §14.2 « 010 »)", () => {
       expect(normalizeCallPolicies(bad).ok, JSON.stringify(bad)).toBe(false);
     }
     expect(normalizeCallPolicies(undefined)).toMatchObject({ ok: true, value: [] });
+    // Deux appels par jour : mode connu et appel journalier (ou mixte) seulement.
+    expect(normalizeCallPolicies([{ ...base, dailyCallMode: "TRIPLE" }]).ok).toBe(false);
+    expect(normalizeCallPolicies([{ ...base, scope: "SESSION", dailyCallMode: "HALF_DAYS" }]).ok).toBe(false);
+    expect(normalizeCallPolicies([{ ...base, scope: "BOTH", dailyCallMode: "HALF_DAYS" }])).toMatchObject({ ok: true, value: [{ dailyCallMode: "HALF_DAYS" }] });
+    // L'appel unique reste la valeur par défaut : rien n'est écrit dans la politique normalisée.
+    expect(normalizeCallPolicies([{ ...base, dailyCallMode: "SINGLE" }])).toMatchObject({ ok: true });
+    const single = normalizeCallPolicies([{ ...base, dailyCallMode: "SINGLE" }]);
+    expect(single.ok && single.value[0]).not.toHaveProperty("dailyCallMode");
     expect(normalizeCallPolicies([{ ...base, dailyMinutes: 300 }])).toMatchObject({ ok: true });
   });
 });
 
 describe("absences en journées (domaine pur)", () => {
+  it("les demi-journées valent 0,5 : 2,5 jours d'absence sur 19,5 jours d'appel donnent des entrées décimales exactes pour cas_absences", () => {
+    const counts = { calledDays: 19.5, presentDays: 17, absentDays: 2.5, excusedAbsentDays: 1, lateDays: 0.5 };
+    expect(buildAttendanceDays("11111111-1111-4111-8111-111111111111", { from: "2025-09-01", to: "2025-12-20" }, counts)).toMatchObject({
+      openDays: 19.5,
+      absentDays: 2.5,
+      unexcusedAbsentDays: 1.5,
+      ruleInputs: { absences_journees: 2.5, jours_ouverts: 19.5 },
+    });
+  });
+
   const window = { from: "2025-09-01", to: "2025-12-20" };
   const E = "11111111-1111-4111-8111-111111111111";
 

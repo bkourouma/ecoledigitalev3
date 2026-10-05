@@ -1,16 +1,24 @@
 {
   "section": "attendance",
   "schemaVersion": 1,
-  "templateVersion": 1,
+  "templateVersion": 2,
   "educationSystem": "CI",
   "pack": "PRIMARY",
   "callPolicies": [
     {
-      "code": "PRIMARY_DAILY",
-      "label": "Appel journalier",
+      "code": "PRESCHOOL_DAILY",
+      "label": "Appel journalier (maternelle)",
       "scope": "DAILY",
-      "educationLevels": ["PRESCHOOL", "PRIMARY"],
+      "educationLevels": ["PRESCHOOL"],
       "dailyMinutes": null
+    },
+    {
+      "code": "PRIMARY_HALF_DAYS",
+      "label": "Appel du matin et de l'après-midi (primaire)",
+      "scope": "DAILY",
+      "educationLevels": ["PRIMARY"],
+      "dailyMinutes": null,
+      "dailyCallMode": "HALF_DAYS"
     }
   ]
 }

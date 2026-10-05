@@ -81,7 +81,7 @@ export function snapshotFor(
 }
 
 /** Gabarits de BULLETINS et relevés (snapshot de résultats). Les gabarits de documents officiels d'autres modules ont leur propre jeu. */
-export const ALL_BUILTIN_KEYS = BUILTIN_TEMPLATES.filter((t) => t.documentKind === "REPORT_CARD" || t.documentKind === "TRANSCRIPT").map((t) => t.key);
+export const ALL_BUILTIN_KEYS = [...new Set(BUILTIN_TEMPLATES.filter((t) => t.documentKind === "REPORT_CARD" || t.documentKind === "TRANSCRIPT").map((t) => t.key))];
 export const OFFICIAL_BUILTIN_KEYS = BUILTIN_TEMPLATES.filter((t) => t.documentKind === "RECEIPT" || t.documentKind === "PAYSLIP").map((t) => t.key);
 
 /** Contexte d'impression d'un document officiel d'un autre module (reçu, bulletin de paie) + identité de l'établissement. */

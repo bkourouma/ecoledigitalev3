@@ -175,7 +175,8 @@ describeIntegration("HTTP /api/v1/rules", () => {
       expect(res.statusCode).toBe(200);
       const body = RulesListRuleSetsResponseSchema.parse(json(res));
       expect(body.items.map((s) => s.code).sort()).toEqual(["CI-CLASSIC-SEMESTRE", "CI-EXAM-PLACEHOLDER", "CI-HIGHER-BTS", "CI-HIGHER-LMD", "CI-PRIMARY-PLACEHOLDER", "CI-SECONDARY-PLACEHOLDER"]);
-      expect(body.items.every((s) => s.versions.every((v) => v.status === "published"))).toBe(true);
+      // Seule la version 1 du jeu du primaire est retirée (remplacée par la version 3 : mentions réglables, Q-P05) ; elle reste consultable.
+      expect(body.items.flatMap((s) => s.versions.filter((v) => v.status !== "published").map((v) => [s.code, v.versionNo, v.status]))).toEqual([["CI-PRIMARY-PLACEHOLDER", 1, "retired"]]);
       const filtered = await app.inject({ method: "GET", url: url("/rule-sets?code=CI-HIGHER-LMD&origin=national"), headers: hA() });
       expect(json(filtered).items).toHaveLength(1);
       expect((await app.inject({ method: "GET", url: url("/rule-sets?status=bogus"), headers: hA() })).statusCode).toBe(400);

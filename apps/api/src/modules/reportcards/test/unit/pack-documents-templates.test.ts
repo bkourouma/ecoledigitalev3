@@ -158,7 +158,7 @@ describe("bulletin `report-primary` : compétences, « Affecté(e) », règles d
   const competencies = { scaleLabel: "Échelle de démonstration", domains: [{ code: "D1", label: "Domaine 1 (démonstration)", evaluated: 2, expected: 3, levels: [{ code: "N3", label: "Acquis", count: 1 }, { code: "N2", label: "En cours", count: 1 }] }] };
 
   it("le gabarit est un gabarit du primaire, valide, de nature REPORT_CARD", () => {
-    expect(template).toMatchObject({ key: "report-primary", version: 1, documentKind: "REPORT_CARD", pack: "PRIMARY" });
+    expect(template).toMatchObject({ key: "report-primary", version: 2, documentKind: "REPORT_CARD", pack: "PRIMARY" });
     expect(validateTemplate({ body: template.body, css: template.css, partialNames: PARTIAL_NAMES }).problems).toEqual([]);
   });
 

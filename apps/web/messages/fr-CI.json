@@ -13770,6 +13770,36 @@
       "downloadAria": "Télécharger {kind} de {name}"
     }
   },
+  "v2AttendanceHalfDays": {
+    "parts": {
+      "MORNING": "Matin",
+      "AFTERNOON": "Après-midi"
+    },
+    "doCall": {
+      "MORNING": "Appel du matin",
+      "AFTERNOON": "Appel de l'après-midi"
+    },
+    "listHint": "Cette classe fait l'appel le matin et l'après-midi.",
+    "withPart": "{label} · {part}",
+    "otherPart": "Demi-journée",
+    "otherPartFull": "Journée entière",
+    "otherPartHint": "Pour un cycle à deux appels par jour, choisissez le matin ou l'après-midi.",
+    "sessionPart": {
+      "FULL": "Journée",
+      "MORNING": "Matin",
+      "AFTERNOON": "Après-midi"
+    }
+  },
+  "v2PrimaryRules": {
+    "mentions": {
+      "INSUFFICIENT": "Insuffisant",
+      "PASSABLE": "Passable",
+      "FAIRLY_GOOD": "Assez bien",
+      "GOOD": "Bien",
+      "VERY_GOOD": "Très bien",
+      "EXCELLENT": "Excellent"
+    }
+  },
   "v2PrimaryNav": {
     "label": "Pack Primaire",
     "classe": "Ma classe",

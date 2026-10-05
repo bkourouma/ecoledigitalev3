@@ -28,6 +28,7 @@ type Row = z.infer<typeof attendanceAbsenceRowDtoSchema>;
  */
 export function AbsencesScreen() {
   const t = useTranslations("v2Attendance.absences");
+  const tPart = useTranslations("v2AttendanceHalfDays.sessionPart");
   const tStatus = useTranslations("v2Attendance.status");
   const date = useDateFormat();
   const flash = useFlash();
@@ -70,7 +71,7 @@ export function AbsencesScreen() {
   }
 
   const columns: DataTableColumn<Row>[] = [
-    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => date.civil(r.sessionDate) },
+    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => (r.dayPart === "FULL" ? date.civil(r.sessionDate) : `${date.civil(r.sessionDate)} · ${tPart(r.dayPart)}`) },
     {
       id: "student",
       header: t("columns.student"),

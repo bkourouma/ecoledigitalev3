@@ -10,7 +10,7 @@ import { parseAlertRules, type AlertRule } from "../domain/alerts";
 import { AttendanceCode, validation } from "../domain/errors";
 import { DEFAULT_ATTENDANCE_PACK, validatePackTemplate, type AttendancePackTemplate } from "../domain/reference-pack";
 import { resolveStatusUpsert, type StatusUpsertInput } from "../domain/status";
-import type { AttachmentType, CallPolicy, CallScope, StatusDefinition, SubjectKind, Uuid } from "../domain/types";
+import type { AttachmentType, CallPolicy, CallScope, DailyCallMode, StatusDefinition, SubjectKind, Uuid } from "../domain/types";
 import {
   getSettings,
   hasReferenceData,
@@ -137,9 +137,13 @@ export async function upsertLeaveTypeDefinition(
 export async function upsertCallPolicy(
   deps: AttendanceDeps,
   ctx: RequestContext,
-  input: { institutionId: Uuid; educationLevelCode: string; callScope: CallScope; editWindowMinutes?: number | null; lateRequiresMinutes?: boolean; dailyMinutes?: number | null },
+  input: { institutionId: Uuid; educationLevelCode: string; callScope: CallScope; editWindowMinutes?: number | null; lateRequiresMinutes?: boolean; dailyMinutes?: number | null; dailyCallMode?: DailyCallMode },
 ): Promise<Result<CallPolicy, AppError>> {
   if (input.educationLevelCode.trim() === "") return err(validation(AttendanceCode.INVALID_INPUT, "Niveau d'enseignement obligatoire ('*' = défaut).", "educationLevelCode"));
+  // Deux appels par jour (matin et après-midi) n'ont de sens que pour l'appel journalier : jamais pour un cycle en appel par séance seulement.
+  if (input.dailyCallMode === "HALF_DAYS" && input.callScope === "SESSION") {
+    return err(validation(AttendanceCode.INVALID_INPUT, "Deux appels par jour exigent l'appel journalier (portée DAILY ou BOTH).", "dailyCallMode"));
+  }
   return inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     const policy = await repoUpsertCallPolicy(tx, ctx.tenantId, {
@@ -149,6 +153,7 @@ export async function upsertCallPolicy(
       editWindowMinutes: input.editWindowMinutes ?? null,
       lateRequiresMinutes: input.lateRequiresMinutes ?? false,
       dailyMinutes: input.dailyMinutes ?? null,
+      dailyCallMode: input.dailyCallMode ?? "SINGLE",
     });
     events.audit({ action: "attendance.call_policy.upserted", resourceType: "call_policy", resourceId: `${policy.institutionId}:${policy.educationLevelCode}`, after: policy });
     await events.flush(tx);

@@ -250,6 +250,43 @@ describe("CallScreen : l'appel en deux gestes", () => {
     expect(screen.getByRole("button", { name: "Réessayer" })).toBeTruthy();
     expect(screen.getByTestId("offline-indicator")).toBeTruthy();
   });
+
+  it("primaire, deux appels par jour (Q-P17) : l'ouverture et le lot envoyé portent la demi-journée ; le titre l'indique", async () => {
+    const { manager } = await makeManager();
+    const r = routes({ detail: sessionDetail({ session: { scope: "DAILY", dayPart: "MORNING", occurrenceId: null, startsAt: null, endsAt: null, durationMinutes: null } }) });
+    const api = setTestApi(r.routes);
+    renderWithProviders(
+      <OutboxProvider manager={manager}>
+        <CallScreen kind="daily" id={IDS.classroom} date="2026-10-01" dayPart="MORNING" />
+      </OutboxProvider>,
+    );
+    await screen.findByText("KOUASSI Awa");
+    expect(api.calls.find((c) => c.method === "POST" && c.path === `${BASE}/sessions`)!.body).toEqual({ scope: "DAILY", classroomId: IDS.classroom, date: "2026-10-01", dayPart: "MORNING" });
+    expect(await screen.findByText(/Matin/)).toBeTruthy();
+    fireEvent.click(toggleOf("TRAORE Moussa"));
+    await waitFor(() => expect(within(toggleOf("TRAORE Moussa")).getByText("Absent")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Soumettre l'appel" }));
+    await screen.findByText("Appel soumis.");
+    expect(r.sent[0]!.sessions[0]!.target).toEqual({ scope: "DAILY", classroomId: IDS.classroom, date: "2026-10-01", dayPart: "MORNING" });
+  });
+
+  it("appel journalier unique (non-régression) : aucune demi-journée dans l'ouverture ni dans le lot", async () => {
+    const { manager } = await makeManager();
+    const r = routes({ detail: sessionDetail({ session: { scope: "DAILY", occurrenceId: null, startsAt: null, endsAt: null, durationMinutes: null } }) });
+    const api = setTestApi(r.routes);
+    renderWithProviders(
+      <OutboxProvider manager={manager}>
+        <CallScreen kind="daily" id={IDS.classroom} date="2026-10-01" />
+      </OutboxProvider>,
+    );
+    await screen.findByText("KOUASSI Awa");
+    expect(api.calls.find((c) => c.method === "POST" && c.path === `${BASE}/sessions`)!.body).toEqual({ scope: "DAILY", classroomId: IDS.classroom, date: "2026-10-01" });
+    fireEvent.click(toggleOf("TRAORE Moussa"));
+    await waitFor(() => expect(within(toggleOf("TRAORE Moussa")).getByText("Absent")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Soumettre l'appel" }));
+    await screen.findByText("Appel soumis.");
+    expect(r.sent[0]!.sessions[0]!.target).toEqual({ scope: "DAILY", classroomId: IDS.classroom, date: "2026-10-01" });
+  });
 });
 
 void uuid;

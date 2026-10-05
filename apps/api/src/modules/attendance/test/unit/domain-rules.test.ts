@@ -52,7 +52,7 @@ describe("machine d'états de la séance d'appel", () => {
 
   it("politique d'appel : niveau, sinon défaut de l'établissement, sinon aucune ; portée autorisée", () => {
     const I = newId();
-    const mk = (level: string, scope: CallPolicy["callScope"]): CallPolicy => ({ institutionId: I, educationLevelCode: level, callScope: scope, editWindowMinutes: null, lateRequiresMinutes: false, dailyMinutes: null });
+    const mk = (level: string, scope: CallPolicy["callScope"]): CallPolicy => ({ institutionId: I, educationLevelCode: level, callScope: scope, editWindowMinutes: null, lateRequiresMinutes: false, dailyMinutes: null, dailyCallMode: "SINGLE" });
     const policies = [mk("PRIMARY", "DAILY"), mk("*", "SESSION"), { ...mk("PRIMARY", "BOTH"), institutionId: newId() }];
     expect(selectPolicy(policies, I, "PRIMARY")?.callScope).toBe("DAILY");
     expect(selectPolicy(policies, I, "LYCEE")?.callScope).toBe("SESSION");

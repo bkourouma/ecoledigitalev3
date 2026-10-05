@@ -20,7 +20,7 @@ import { AttendanceEvents } from "../domain/events";
 import { prepareMark, type MarkEntryInput, type PreparedMark } from "../domain/records";
 import { checkEditable } from "../domain/session";
 import { decideSyncRecord, effectiveClientTime, type ExistingMarkForSync } from "../domain/sync";
-import type { IsoDate, SessionStatus, StudentRecord, Uuid } from "../domain/types";
+import type { DayPart, IsoDate, SessionStatus, StudentRecord, Uuid } from "../domain/types";
 import {
   getConflict,
   getOp,
@@ -54,7 +54,12 @@ export interface SyncRecordInput {
   readonly clientMarkedAt: Date;
 }
 
-export type SyncTarget = { readonly occurrenceId: Uuid } | { readonly scope: "DAILY"; readonly classroomId: Uuid; readonly date: IsoDate };
+/**
+ * Cible d'une séance hors-ligne : une occurrence planifiée, ou l'appel JOURNALIER d'une classe. Avec deux appels par jour (Q-P17), la
+ * demi-journée fait partie de la cible : la clé d'idempotence (`clientId` de la séance) est donc propre à chaque demi-journée, et
+ * le même `clientId` ne peut pas servir au matin puis à l'après-midi (`attendance.idempotency_key_reused`).
+ */
+export type SyncTarget = { readonly occurrenceId: Uuid } | { readonly scope: "DAILY"; readonly classroomId: Uuid; readonly date: IsoDate; readonly dayPart?: DayPart | undefined };
 
 export interface SyncSessionInput {
   readonly clientId: Uuid;
@@ -223,7 +228,7 @@ async function processSession(deps: AttendanceDeps, ctx: RequestContext, tx: Tx,
     const openInput: OpenSessionInput =
       "occurrenceId" in s.target
         ? { kind: "occurrence", occurrenceId: s.target.occurrenceId, caps }
-        : { kind: "daily", classroomId: s.target.classroomId, date: s.target.date, caps };
+        : { kind: "daily", classroomId: s.target.classroomId, date: s.target.date, dayPart: s.target.dayPart, caps };
     const opened = await openSessionInTx(deps, ctx, tx, events, openInput, { source: "OFFLINE_SYNC", clientId: s.clientId });
     if (!opened.ok) throw new SessionAbort(opened.error);
     sessionId = opened.value.session.id;

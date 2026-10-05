@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { GradeSyncProvider } from "@/platform/offline/GradeSyncProvider";
+import type { HalfDay } from "@/platform/offline/attendance-outbox";
 import { OutboxProvider } from "@/platform/offline/OutboxProvider";
 import { useAttendanceSessions } from "@/platform/v2/attendance";
 import { addDays, todayCivil } from "@/platform/v2/dates";
@@ -46,6 +47,7 @@ export function TeacherAttendance() {
 function CallHistory() {
   const t = useTranslations("v2Portal.teacher.attendance.history");
   const tSession = useTranslations("v2Attendance.call.session");
+  const tPart = useTranslations("v2AttendanceHalfDays.sessionPart");
   const date = useDateFormat();
   const me = useMyStaff();
   const classrooms = useClassroomDirectory();
@@ -56,14 +58,14 @@ function CallHistory() {
   const columns: DataTableColumn<SessionRow>[] = [
     { id: "date", header: t("columns.date"), rowHeader: true, cell: (s) => date.civil(s.sessionDate) },
     { id: "classroom", header: t("columns.classroom"), cell: (s) => classrooms.name(s.classroomId) },
-    { id: "scope", header: t("columns.scope"), cell: (s) => (s.scope === "DAILY" ? t("daily") : t("session")), className: "hidden sm:table-cell" },
+    { id: "scope", header: t("columns.scope"), cell: (s) => (s.scope === "DAILY" ? (s.dayPart === "FULL" ? t("daily") : `${t("daily")} · ${tPart(s.dayPart)}`) : t("session")), className: "hidden sm:table-cell" },
     { id: "status", header: t("columns.status"), cell: (s) => <StatusBadge label={tSession(s.status)} tone={s.status === "OPEN" ? "info" : s.status === "CANCELLED" ? "neutral" : "success"} /> },
     {
       id: "open",
       header: <span className="sr-only">{t("columns.actions")}</span>,
       align: "right",
       cell: (s) => {
-        const href = s.occurrenceId ? `${TEACHER_CALL_BASE}/occurrence/${s.occurrenceId}` : `${TEACHER_CALL_BASE}/daily/${s.classroomId}?date=${s.sessionDate}`;
+        const href = s.occurrenceId ? `${TEACHER_CALL_BASE}/occurrence/${s.occurrenceId}` : `${TEACHER_CALL_BASE}/daily/${s.classroomId}?date=${s.sessionDate}${s.dayPart === "FULL" ? "" : `&part=${s.dayPart}`}`;
         return (
           <Link href={href} className={buttonClass.ghost}>
             {t("open")}
@@ -94,6 +96,6 @@ function CallHistory() {
 }
 
 /** Appel d'une séance ou d'une classe, dans le portail : le retour mène à « Mes appels ». */
-export function TeacherCall({ kind, id, date }: { kind: "occurrence" | "daily"; id: string; date: string }) {
-  return <CallScreen kind={kind} id={id} date={date} backHref={`${TEACHER_ROOT}/attendance`} />;
+export function TeacherCall({ kind, id, date, dayPart }: { kind: "occurrence" | "daily"; id: string; date: string; dayPart?: HalfDay }) {
+  return <CallScreen kind={kind} id={id} date={date} {...(dayPart ? { dayPart } : {})} backHref={`${TEACHER_ROOT}/attendance`} />;
 }

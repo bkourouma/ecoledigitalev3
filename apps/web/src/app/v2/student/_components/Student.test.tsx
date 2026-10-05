@@ -91,6 +91,23 @@ describe("portail élève : lui-même uniquement", () => {
     expect(within(grades).getByText("14,5 / 20")).toBeTruthy();
   });
 
+  it("résultats du primaire : rang (classement de compétition) et mention traduite ; sans rang, un tiret ; code inconnu affiché tel quel (Q-P04, Q-P05)", async () => {
+    setTestApi(
+      base({
+        "GET /api/v1/results/me/results": {
+          items: [familyResult({ rank: 1, cohortSize: 30, mentionCode: "GOOD" }), familyResult({ academicPeriodId: PERIOD_1, version: 2, rank: null, cohortSize: null, mentionCode: "CODE_INCONNU" })],
+        },
+        "GET /api/v1/academic/me/labels": familyLabels(),
+        "GET /api/v1/assess/me/grades": gradesPage([]),
+      }),
+    );
+    renderWithProviders(<StudentResults />);
+    expect(await screen.findByText("Bien")).toBeTruthy();
+    expect(screen.queryByText("GOOD")).toBeNull();
+    expect(screen.getByText("CODE_INCONNU")).toBeTruthy();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
   it("résultats non visibles (403 de l'API) : message affiché", async () => {
     setTestApi(
       base({
@@ -135,6 +152,27 @@ describe("portail élève : lui-même uniquement", () => {
     b.unmount();
     renderWithProviders(<StudentAttendance />);
     expect(await screen.findByText("À justifier")).toBeTruthy();
+  });
+
+  it("présences du primaire (Q-P17) : l'absence du matin et celle de l'après-midi d'un même jour se distinguent ; l'appel unique reste une simple date", async () => {
+    setTestApi(
+      base({
+        "GET /api/v1/attendance/me/attendance": {
+          studentId: MARIAM,
+          records: [
+            absenceRow(MARIAM, { recordId: fid(8301), dayPart: "MORNING", sessionDate: "2026-09-29" }),
+            absenceRow(MARIAM, { recordId: fid(8302), dayPart: "AFTERNOON", sessionDate: "2026-09-29" }),
+            absenceRow(MARIAM, { recordId: fid(8303), sessionDate: "2026-09-28" }),
+          ],
+          justifications: [],
+          summary: summaryDto(MARIAM),
+        },
+      }),
+    );
+    renderWithProviders(<StudentAttendance />);
+    expect(await screen.findByText(/29 sept\.? 2026 · Matin/)).toBeTruthy();
+    expect(screen.getByText(/29 sept\.? 2026 · Après-midi/)).toBeTruthy();
+    expect(screen.getByText(/^28 sept\.? 2026$/)).toBeTruthy();
   });
 
   it("scolarité : relevé et reçus sur les routes /finance/me/* avec l'identifiant de SON dossier", async () => {

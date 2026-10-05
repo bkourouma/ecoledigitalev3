@@ -33,6 +33,14 @@ export interface Report {
 
 const yesNo = (v: boolean): string => (v ? "Oui" : "Non");
 
+/** Libellé d'une colonne du registre d'appel : le jour du mois, suivi de la demi-journée quand l'appel se fait le matin et l'après-midi (Q-P17). */
+export function registerColumnLabel(slot: string): string {
+  const day = slot.slice(8, 10);
+  if (slot.endsWith(":MORNING")) return `${day} matin`;
+  if (slot.endsWith(":AFTERNOON")) return `${day} après-midi`;
+  return day;
+}
+
 /** CSV (séparateur `;`, guillemets doublés, BOM pour Excel). Une cellule qui commence par `= + - @` est neutralisée (injection de formule). */
 export function reportToCsv(report: Report): string {
   const esc = (v: ReportCell): string => {
@@ -88,7 +96,7 @@ export async function buildReport(deps: PrimarySchoolDeps, ctx: RequestContext, 
       return ok({
         ...base,
         title: `Registre d'appel — ${q.month}`,
-        columns: [{ key: "student", label: "Élève" }, ...reg.days.map((d) => ({ key: d, label: d.slice(8) }))],
+        columns: [{ key: "student", label: "Élève" }, ...reg.days.map((d) => ({ key: d, label: registerColumnLabel(d) }))],
         rows: reg.rows.map((r) => ({ student: r.displayName, ...Object.fromEntries(reg.days.map((d) => [d, r.days[d] ?? ""])) })),
       });
     }

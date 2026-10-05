@@ -252,7 +252,7 @@ export async function attendancePlugin(app: FastifyInstance, options: Attendance
                 kind: "external", classroomId: b.classroomId, date: b.date, curriculumNodeId: b.curriculumNodeId, offeringId: b.offeringId, source: b.source,
                 startsAt: toDate(b.startsAt), endsAt: toDate(b.endsAt), durationMinutes: b.durationMinutes, caps: c,
               }
-            : { kind: "daily", classroomId: b.classroomId, date: b.date, takenByStaffId: b.takenByStaffId, clientId: b.clientId, caps: c };
+            : { kind: "daily", classroomId: b.classroomId, date: b.date, dayPart: b.dayPart, takenByStaffId: b.takenByStaffId, clientId: b.clientId, caps: c };
       const r = unwrapOrThrow(await openAttendanceSession(deps, ctxOf(req), input));
       return reply.status(r.created ? 201 : 200).send({ session: present.sessionDto(r.session), created: r.created });
     });

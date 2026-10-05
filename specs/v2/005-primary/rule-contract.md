@@ -26,8 +26,8 @@ Convention (012) : `n?` = nombre pouvant être absent (note non saisie ⇒ `null
 | `moyenne_periode` | `period_average` | `matieres: liste<{score: number?, coef: number}>` | `number?` | `wavg(score, coef)` ; une matière sans score est **ignorée** (ni 0, ni coefficient compté) ; **valeur non arrondie** |
 | `moyenne_section` | `period_average` | idem, par groupe de matières (`section_key` du nœud) | `number?` | **Optionnelle** (bulletins qui présentent des sous-moyennes) |
 | `rang_matiere` | `ranking` | `moyenne: number?`, `cohorte: liste<number?>` | `number?` | `rank(moyenne, cohorte, 4)` : classement « compétition » (ex æquo, rang suivant sauté), égalité à 4 décimales (ADR-003) |
-| `rang_periode` | `ranking` | idem | `number?` | idem ; rang **calculé**, son **affichage** est un réglage de gabarit (question Q-P04) |
-| `mention_periode` | `mention` | `moyenne: number?` | `string` ∈ `PENDING, INSUFFICIENT, PASSABLE, FAIRLY_GOOD, GOOD, VERY_GOOD, EXCELLENT` | **Optionnelle** ; le primaire a-t-il des mentions ? (Q-P05) |
+| `rang_periode` | `ranking` | idem | `number?` | idem ; rang **calculé**, son **affichage** est un réglage de gabarit : **affiché par défaut** (décision Q-P04, 2026-10-05), jamais à la maternelle |
+| `mention_periode` | `mention` | `moyenne: number?` | `string` ∈ `PENDING, INSUFFICIENT, PASSABLE, FAIRLY_GOOD, GOOD, VERY_GOOD, EXCELLENT` | **Optionnelle** ; **définie par `CI-PRIMARY-PLACEHOLDER` v3** : seuils réglables par l'établissement (variante privée, bornes 0..20), valeurs de départ fictives non officielles, **désactivable** par le paramètre `actif` (0 : aucune mention, code `PENDING` = « pas de mention ») (décision Q-P05, 2026-10-05) |
 | `appreciation_periode` | `mention` | `moyenne: number?` | `string` (7 codes `WORK_*`, comme `appreciation_conseil` de 012) | **Optionnelle** ; suggestion de texte, jamais appliquée sans validation |
 | `arrondi_affichage` | `rounding` | `valeur: number?` | `number?` | `round_half_up(valeur, params.decimales)` — **affichage uniquement, jamais en entrée d'une autre règle** |
 

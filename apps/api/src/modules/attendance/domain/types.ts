@@ -11,6 +11,13 @@ export type IsoDate = string;
 
 export type SubjectKind = "STUDENT" | "STAFF";
 export type SessionScope = "DAILY" | "SESSION";
+/**
+ * Demi-journée d'un appel JOURNALIER (décision Q-P17) : `FULL` = appel unique de la journée (secondaire, établissement qui le préfère),
+ * `MORNING` / `AFTERNOON` = appels du matin et de l'après-midi du primaire. Un appel par séance planifiée est toujours `FULL`.
+ */
+export type DayPart = "FULL" | "MORNING" | "AFTERNOON";
+/** Mode d'appel journalier d'un cycle : un appel par jour (`SINGLE`, historique) ou deux (`HALF_DAYS`). */
+export type DailyCallMode = "SINGLE" | "HALF_DAYS";
 export type SessionStatus = "OPEN" | "SUBMITTED" | "VALIDATED" | "CANCELLED";
 export type SessionSource = "MANUAL" | "OFFLINE_SYNC" | "LIVE_CLASS" | "IMPORT";
 export type RecordSource = "TEACHER" | "ADMIN" | "LIVE_CLASS" | "OFFLINE_SYNC" | "IMPORT" | "JUSTIFICATION";
@@ -59,8 +66,10 @@ export interface CallPolicy {
   /** Minutes pendant lesquelles un enseignant corrige une séance SUBMITTED ; `null` = jusqu'à la validation. */
   readonly editWindowMinutes: number | null;
   readonly lateRequiresMinutes: boolean;
-  /** Durée comptée pour une absence constatée à l'appel JOURNALIER ; `null` = on ne compte que des jours. */
+  /** Durée comptée pour une absence constatée à l'appel JOURNALIER ; `null` = on ne compte que des jours. Pour un appel d'une demi-journée : la moitié. */
   readonly dailyMinutes: number | null;
+  /** `HALF_DAYS` : l'appel journalier se fait le matin ET l'après-midi (deux appels par jour) ; `SINGLE` : un seul. Sans effet sur l'appel par séance. */
+  readonly dailyCallMode: DailyCallMode;
 }
 
 /** Séance d'appel (vue domaine). */
@@ -73,6 +82,8 @@ export interface AttendanceSession {
   readonly offeringId: Uuid | null;
   readonly occurrenceId: Uuid | null;
   readonly scope: SessionScope;
+  /** Demi-journée de l'appel journalier ; `FULL` pour un appel par séance et pour l'appel unique de la journée. */
+  readonly dayPart: DayPart;
   readonly sessionDate: IsoDate;
   readonly startsAt: Date | null;
   readonly endsAt: Date | null;

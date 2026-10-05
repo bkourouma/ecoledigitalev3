@@ -36,6 +36,7 @@ export function FamilyResults({ subject, title }: { subject: FamilySubject; titl
 function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: LabelLookup }) {
   const t = useTranslations("v2Portal.family.results.official");
   const tOutcome = useTranslations("v2Results.outcome");
+  const tMention = useTranslations("v2PrimaryRules.mentions");
   const date = useDateFormat();
   const query = useFamilyResults(subject);
 
@@ -78,7 +79,7 @@ function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: 
                 </div>
                 <div>
                   <dt className="text-muted-foreground">{t("mention")}</dt>
-                  <dd>{r.mentionCode ?? "—"}</dd>
+                  <dd>{mentionLabel(tMention, r.mentionCode)}</dd>
                 </div>
               </dl>
               {r.decisionCode ? <p className="mt-2 text-sm text-muted-foreground">{t("decision", { code: r.decisionCode })}</p> : null}
@@ -90,6 +91,14 @@ function OfficialResults({ subject, labels }: { subject: FamilySubject; labels: 
       </ul>
     </section>
   );
+}
+
+const MENTION_CODES = ["INSUFFICIENT", "PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "EXCELLENT"] as const;
+
+/** Libellé d'une mention produite par le jeu de règles (code connu traduit ; code inconnu affiché tel quel, jamais inventé ; `PENDING` = pas de mention). */
+function mentionLabel(t: (key: never) => string, code: string | null): string {
+  if (code === null || code === "PENDING") return "—";
+  return (MENTION_CODES as readonly string[]).includes(code) ? t(code as never) : code;
 }
 
 function outcomeLabel(t: (key: never) => string, outcome: string): string {

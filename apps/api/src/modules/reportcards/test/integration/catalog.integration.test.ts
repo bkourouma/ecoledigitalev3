@@ -32,26 +32,26 @@ describeIntegration("catalogue de gabarits de plateforme : amorçage, publicatio
   });
 
   it("nouvelle version d'un gabarit : numéro suivant, l'ancienne reste PUBLISHED et rendable ; hash de contenu distinct", async () => {
-    const base = BUILTIN_TEMPLATES.find((t) => t.key === "primary-bulletin")!;
+    const base = BUILTIN_TEMPLATES.find((t) => t.key === "secondary-bulletin")!;
     const v2 = unwrap(await publishPlatformTemplate(world.deps, { key: base.key, documentKind: base.documentKind, pack: base.pack, title: `${base.title} v2`, body: `${base.body}\n<p>Mention complémentaire</p>`, css: base.css, optionsSchema: base.optionsSchema, signatureSlots: base.signatureSlots }));
     expect(v2.version).toBe(2);
-    const all = await adminRows<any>(db, "SELECT version, status, content_hash FROM reportcards.platform_templates WHERE key = 'primary-bulletin' ORDER BY version");
+    const all = await adminRows<any>(db, "SELECT version, status, content_hash FROM reportcards.platform_templates WHERE key = 'secondary-bulletin' ORDER BY version");
     expect(all.map((r) => [r.version, r.status])).toEqual([[1, "PUBLISHED"], [2, "PUBLISHED"]]);
     expect(all[0].content_hash).not.toBe(all[1].content_hash);
     // Une configuration sans version précise prend la dernière version publiée.
-    const cfg = unwrap(await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "PRIMARY", templateKey: "primary-bulletin", options: {}, signatureAssignments: [] }));
+    const cfg = unwrap(await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin", options: {}, signatureAssignments: [] }));
     expect(cfg.templateVersion).toBe(2);
   });
 
   it("retrait d'une version : refusée pour une NOUVELLE configuration, mais les bulletins déjà émis continuent de se rendre", async () => {
-    unwrap(await retirePlatformTemplate(world.deps, { key: "primary-bulletin", version: 2, actorId: "00000000-0000-4000-8000-000000000009" }));
-    const refused = await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "PRIMARY", templateKey: "primary-bulletin", templateVersion: 2 });
+    unwrap(await retirePlatformTemplate(world.deps, { key: "secondary-bulletin", version: 2, actorId: "00000000-0000-4000-8000-000000000009" }));
+    const refused = await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin", templateVersion: 2 });
     expect(refused.ok).toBe(false);
     if (!refused.ok) expect(refused.error.code).toBe("reportcards.template_not_found");
-    const latest = unwrap(await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "PRIMARY", templateKey: "primary-bulletin", options: {}, signatureAssignments: [] }));
+    const latest = unwrap(await putTemplateConfig(world.deps, ctx, { documentKind: "REPORT_CARD", pack: "SECONDARY", templateKey: "secondary-bulletin", options: {}, signatureAssignments: [] }));
     expect(latest.templateVersion).toBe(1); // dernière version PUBLIÉE
     // Un gabarit retiré est terminal.
-    await expect(db.systemDb.run("test-retired-terminal", (tx) => tx.query("UPDATE reportcards.platform_templates SET status = 'PUBLISHED' WHERE key = 'primary-bulletin' AND version = 2"))).rejects.toThrow(/template_retired/);
+    await expect(db.systemDb.run("test-retired-terminal", (tx) => tx.query("UPDATE reportcards.platform_templates SET status = 'PUBLISHED' WHERE key = 'secondary-bulletin' AND version = 2"))).rejects.toThrow(/template_retired/);
   });
 
   it("validation à la publication : un gabarit hostile ou un schéma d'options invalide est refusé, rien n'est écrit", async () => {

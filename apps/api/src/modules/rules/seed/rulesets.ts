@@ -17,7 +17,7 @@ import { SECONDARY_ANNUAL_ID } from "../contracts/secondary-annual";
 import { coefSemesterRules } from "./coef-semester-rules";
 import { creditSemesterRules } from "./credit-semester-rules";
 import { examPlaceholderRules } from "./exam-placeholder-rules";
-import { coefPeriodPlaceholderRules, competencyPeriodPlaceholderRules } from "./primary-placeholder-rules";
+import { coefPeriodPlaceholderRules, coefPeriodPlaceholderRulesV3, competencyPeriodPlaceholderRules } from "./primary-placeholder-rules";
 import { secondaryAnnualPlaceholderRules, secondaryCoefSemesterPlaceholderRules } from "./secondary-placeholder-rules";
 import type { SeedRuleSet } from "./types";
 
@@ -126,6 +126,21 @@ export const SEED_RULE_SETS: readonly SeedRuleSet[] = Object.freeze([
         },
         notes: "Règles de démonstration : la règle ne décide jamais seule, le conseil décide.",
         rules: competencyPeriodPlaceholderRules,
+      },
+      {
+        versionNo: 3,
+        contractId: COEF_PERIOD_ID,
+        effectiveFrom: PLACEHOLDER_EFFECTIVE_FROM,
+        supersedes: 1,
+        source: {
+          kind: "placeholder",
+          reference: "Jeu de démonstration 005-primary — aucune valeur officielle",
+          description:
+            "Jeu FICTIF qui exerce le mécanisme. Remplace la version 1 : ajoute les mentions de période par seuils de moyenne RÉGLABLES (décision Q-P05) ; " +
+            "le rang de compétition (1, 1, 3) est calculé et affiché par défaut (décision Q-P04). Seuils de départ non officiels.",
+        },
+        notes: "Règles de démonstration : seuils de mention fictifs, à régler par l'établissement (variante) ; règle de mention optionnelle donc désactivable.",
+        rules: coefPeriodPlaceholderRulesV3,
       },
     ],
   },

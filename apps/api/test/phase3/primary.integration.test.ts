@@ -307,6 +307,54 @@ describeIntegration.skipIf(!REDIS_URL)("PHASE 3 — Primary : provisionnement av
       const register = await dir().get(`/api/v1/primary_school/reports/attendance-register?classroomId=${W.classroomId}&month=${month}`);
       expect(JSON.stringify(register.body), JSON.stringify(register.body).slice(0, 900)).toContain(W.pupils[1]!.name.split(" ")[0] as string);
     });
+
+    it("appel du MATIN et de l'APRÈS-MIDI (Q-P17) : politique HALF_DAYS, demi-journée obligatoire, deux appels le même jour, registre mensuel par demi-journée", async () => {
+      const tomorrow = addDays(isoDay(new Date()), 1);
+      const setMode = async (mode: string) =>
+        (await dir().put("/api/v1/attendance/reference/call-policies", { institutionId: T().institutionId, educationLevelCode: "PRESCHOOL", callScope: "DAILY", dailyCallMode: mode })).body;
+      expect((await setMode("HALF_DAYS")).dailyCallMode).toBe("HALF_DAYS");
+      try {
+        const open = (extra: Record<string, unknown>) => inst().raw("POST", "/api/v1/attendance/sessions", { scope: "DAILY", classroomId: W.classroomId, date: tomorrow, ...extra });
+        // La demi-journée est obligatoire (jamais devinée) ; la journée entière est refusée par la politique.
+        const missing = await open({});
+        expect(missing.status).toBe(400);
+        expect(JSON.stringify(missing.body)).toContain("attendance.day_part_required");
+        const full = await open({ dayPart: "FULL" });
+        expect(full.status).toBe(409);
+        expect(JSON.stringify(full.body)).toContain("attendance.day_part_not_allowed");
+        // Deux appels le même jour : le matin (un absent) puis l'après-midi (tous présents) ; chacun soumis puis validé.
+        const ids: Record<string, string> = {};
+        for (const part of ["MORNING", "AFTERNOON"] as const) {
+          const opened = await inst().post("/api/v1/attendance/sessions", { scope: "DAILY", classroomId: W.classroomId, date: tomorrow, dayPart: part }, [200, 201]);
+          expect(opened.body.session).toMatchObject({ dayPart: part, scope: "DAILY", status: "OPEN" });
+          ids[part] = opened.body.session.id as string;
+          const entries = W.pupils.map((pupil, i) => ({ studentId: pupil.studentId, statusCode: part === "MORNING" && i === 1 ? "ABSENT" : "PRESENT" }));
+          await inst().put(`/api/v1/attendance/sessions/${ids[part]}/records`, { entries });
+          expect((await inst().post(`/api/v1/attendance/sessions/${ids[part]}/submit`, {})).body.session.status).toBe("SUBMITTED");
+          expect((await dir().post(`/api/v1/attendance/sessions/${ids[part]}/validate`, {})).body.status).toBe("VALIDATED");
+        }
+        expect(ids.MORNING).not.toBe(ids.AFTERNOON);
+        const again = await inst().post("/api/v1/attendance/sessions", { scope: "DAILY", classroomId: W.classroomId, date: tomorrow, dayPart: "MORNING" }, [200, 201]);
+        expect(again.body.created).toBe(false);
+        expect(again.body.session.id).toBe(ids.MORNING);
+        // Le registre d'appel mensuel du pack : une colonne par demi-journée.
+        const register = await dir().get(`/api/v1/primary_school/reports/attendance-register?classroomId=${W.classroomId}&month=${tomorrow.slice(0, 7)}`);
+        const columns = (register.body.columns as Array<{ key: string; label: string }>).map((c) => c.key);
+        expect(columns).toEqual(expect.arrayContaining([`${tomorrow}:MORNING`, `${tomorrow}:AFTERNOON`]));
+        const day = tomorrow.slice(8, 10);
+        expect((register.body.columns as Array<{ label: string }>).map((c) => c.label)).toEqual(expect.arrayContaining([`${day} matin`, `${day} après-midi`]));
+        const absentName = W.pupils[1]!.name.split(" ")[0] as string;
+        const row = (register.body.rows as Array<Record<string, string>>).find((r) => String(r.student).includes(absentName));
+        expect(row?.[`${tomorrow}:MORNING`]).toBe("ABSENT");
+        expect(row?.[`${tomorrow}:AFTERNOON`]).toBe("PRESENT");
+        // Isolation : un autre tenant ne voit aucune de ces séances (RLS), même en connaissant les identifiants.
+        const foreign = await p.db.admin.query("SELECT count(*)::int AS n FROM attendance.sessions WHERE tenant_id <> $1 AND id = ANY($2::uuid[])", [T().tenantId, Object.values(ids)]);
+        expect(foreign.rows[0].n).toBe(0);
+      } finally {
+        // L'appel unique reste le choix de la maternelle pour la suite du parcours.
+        expect((await setMode("SINGLE")).dailyCallMode).toBe("SINGLE");
+      }
+    });
   });
 
   // ===========================================================================================================

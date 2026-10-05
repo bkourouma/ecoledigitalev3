@@ -46,8 +46,10 @@ describeIntegration("données de départ du catalogue national", () => {
       ["CI-EXAM-PLACEHOLDER", 1, "published", "exam-national@1", "2026-09-01", "placeholder"],
       ["CI-HIGHER-BTS", 1, "published", "coef-semester@1", "2024-09-01", "platform"],
       ["CI-HIGHER-LMD", 1, "published", "credit-semester@1", "2024-09-01", "platform"],
-      ["CI-PRIMARY-PLACEHOLDER", 1, "published", "coef-period@1", "2026-09-01", "placeholder"],
+      // La version 1 est REMPLACÉE par la version 3 (mentions réglables, Q-P05) : retirée, jamais modifiée (son hash reste celui des données).
+      ["CI-PRIMARY-PLACEHOLDER", 1, "retired", "coef-period@1", "2026-09-01", "placeholder"],
       ["CI-PRIMARY-PLACEHOLDER", 2, "published", "competency-period@1", "2026-09-01", "placeholder"],
+      ["CI-PRIMARY-PLACEHOLDER", 3, "published", "coef-period@1", "2026-09-01", "placeholder"],
       ["CI-SECONDARY-PLACEHOLDER", 1, "published", "coef-semester@1", "2026-09-01", "placeholder"],
       ["CI-SECONDARY-PLACEHOLDER", 2, "published", "secondary-annual@1", "2026-09-01", "placeholder"],
     ]);

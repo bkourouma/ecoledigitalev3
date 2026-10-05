@@ -42,6 +42,7 @@ export const sessionDto = (s: AttendanceSession): z.infer<typeof attendanceSessi
   offeringId: s.offeringId,
   occurrenceId: s.occurrenceId,
   scope: s.scope,
+  dayPart: s.dayPart,
   sessionDate: s.sessionDate,
   startsAt: iso(s.startsAt),
   endsAt: iso(s.endsAt),

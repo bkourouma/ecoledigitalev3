@@ -55,6 +55,7 @@ export function ChildrenAttendanceList() {
 /** Absences d'un élève (`self`) ou d'un enfant (`child`) : récapitulatif, absences à justifier, justificatifs, dépôt. */
 export function PortalScreen({ via, studentId }: { via: "self" | "child"; studentId?: string }) {
   const t = useTranslations("v2Attendance.portal");
+  const tPart = useTranslations("v2AttendanceHalfDays.sessionPart");
   const tStatus = useTranslations("v2Attendance.status");
   const date = useDateFormat();
   const flash = useFlash();
@@ -68,7 +69,7 @@ export function PortalScreen({ via, studentId }: { via: "self" | "child"; studen
   const label = (code: string) => (["PRESENT", "ABSENT", "LATE", "EXCUSED", "EARLY_LEAVE"].includes(code) ? tStatus(code) : code);
 
   const columns: DataTableColumn<Row>[] = [
-    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => date.civil(r.sessionDate) },
+    { id: "date", header: t("columns.date"), rowHeader: true, cell: (r) => (r.dayPart === "FULL" ? date.civil(r.sessionDate) : `${date.civil(r.sessionDate)} · ${tPart(r.dayPart)}`) },
     { id: "status", header: t("columns.status"), cell: (r) => <StatusBadge label={label(r.statusCode)} tone={statusTone(r.statusCode)} /> },
     { id: "minutes", header: t("columns.minutes"), align: "right", cell: (r) => (r.statusCode === "LATE" ? (r.minutesLate ?? "—") : (r.countedMinutes ?? "—")), className: "hidden sm:table-cell" },
     { id: "excused", header: t("columns.justification"), cell: (r) => (r.excused ? <StatusBadge label={t("excused")} tone="info" /> : <StatusBadge label={t("toJustify")} tone="warning" />) },

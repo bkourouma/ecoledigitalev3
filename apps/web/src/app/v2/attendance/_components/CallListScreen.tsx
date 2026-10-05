@@ -10,13 +10,15 @@ import { useClassroomDirectory } from "@/platform/v2/directory";
 import { useClassroomOptions } from "@/platform/v2/lookups";
 import { useMyClasses } from "@/platform/v2/people";
 import { useMyToday } from "@/platform/v2/scheduling";
+import type { HalfDay } from "@/platform/offline/attendance-outbox";
 import { useOutboxManager, useOutboxStatus } from "@/platform/offline/OutboxProvider";
 import { Can } from "@/platform/ui/AccessGate";
-import { FormField, TextControl } from "@/platform/ui/FormField";
+import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
+import { partQuery } from "./call-utils";
 import { useCallScope, type CallScopeKind } from "./call-scope";
 import { OfflineIndicator } from "./OfflineIndicator";
 
@@ -24,6 +26,7 @@ import { OfflineIndicator } from "./OfflineIndicator";
 export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?: string } = {}) {
   const t = useTranslations("v2Attendance.callList");
   const tSession = useTranslations("v2Attendance.call.session");
+  const tHalf = useTranslations("v2AttendanceHalfDays");
   const format = useFormatter();
   const canRead = usePermission("schedule.own.read");
   const today = useMyToday(canRead.allowed);
@@ -103,6 +106,35 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
         {dailyClasses.length > 0 ? (
           <ul className="space-y-2">
             {dailyClasses.map((c) => {
+              // Cycle à deux appels par jour (primaire, Q-P17) : une ligne par demi-journée, chacune avec son état ; sinon une seule ligne.
+              const parts = callScope.halfDays(levelOfClass.get(c.classroomId));
+              if (parts.length > 0) {
+                return (
+                  <li key={c.classroomId} className="space-y-2 rounded-lg border p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{classrooms.name(c.classroomId)}</p>
+                      <p className="text-xs text-muted-foreground">{tHalf("listHint")}</p>
+                    </div>
+                    <ul className="space-y-2">
+                      {parts.map((part) => {
+                        const done = dailySessions.find((s) => s.classroomId === c.classroomId && s.dayPart === part);
+                        return (
+                          <li key={part} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <span className="text-sm">{tHalf(`parts.${part}`)}</span>{" "}
+                              {done ? <StatusBadge label={tSession(done.status)} tone={done.status === "OPEN" ? "info" : "success"} /> : null}
+                            </div>
+                            <Link href={`${basePath}/daily/${c.classroomId}?date=${date}${partQuery(part)}`} className={buttonClass.secondary}>
+                              {tHalf(`doCall.${part}`)}
+                              <span className="sr-only"> — {classrooms.name(c.classroomId)}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </li>
+                );
+              }
               const done = dailySessions.find((s) => s.classroomId === c.classroomId);
               return (
                 <li key={c.classroomId} className="flex items-center justify-between gap-3 rounded-lg border p-3">
@@ -143,12 +175,29 @@ function OtherCall({ date }: { date: string }) {
   const t = useTranslations("v2Attendance.callList");
   const [classroom, setClassroom] = useState<SelectOption | null>(null);
   const [day, setDay] = useState(date);
+  const tHalf = useTranslations("v2AttendanceHalfDays");
+  // La direction ouvre l'appel de n'importe quelle classe : la demi-journée se choisit (vide = journée entière, cycle à appel unique).
+  const [part, setPart] = useState<"" | HalfDay>("");
   return (
-    <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
+    <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
       <FormField label={t("otherClass")}>{(c) => <SelectAsync {...c} value={classroom} onChange={setClassroom} useOptions={useClassroomOptions} placeholder={t("chooseClass")} />}</FormField>
       <FormField label={t("otherDate")}>{(c) => <TextControl {...c} type="date" value={day} onChange={setDay} />}</FormField>
+      <FormField label={tHalf("otherPart")} hint={tHalf("otherPartHint")}>
+        {(c) => (
+          <NativeSelect
+            {...c}
+            value={part}
+            onChange={(v) => setPart(v === "MORNING" || v === "AFTERNOON" ? v : "")}
+            options={[
+              { value: "", label: tHalf("otherPartFull") },
+              { value: "MORNING", label: tHalf("parts.MORNING") },
+              { value: "AFTERNOON", label: tHalf("parts.AFTERNOON") },
+            ]}
+          />
+        )}
+      </FormField>
       {classroom && day ? (
-        <Link href={`/v2/attendance/call/daily/${classroom.value}?date=${day}`} className={buttonClass.primary}>
+        <Link href={`/v2/attendance/call/daily/${classroom.value}?date=${day}${partQuery(part === "" ? undefined : part)}`} className={buttonClass.primary}>
           {t("open")}
         </Link>
       ) : (
@@ -176,7 +225,7 @@ function OutboxList({ basePath }: { basePath: string }) {
       <ul className="space-y-2">
         {status.calls.map((c) => {
           const count = Object.keys(c.records).length;
-          const href = c.target.kind === "occurrence" ? `${basePath}/occurrence/${c.target.occurrenceId}` : `${basePath}/daily/${c.target.classroomId}?date=${c.target.date}`;
+          const href = c.target.kind === "occurrence" ? `${basePath}/occurrence/${c.target.occurrenceId}` : `${basePath}/daily/${c.target.classroomId}?date=${c.target.date}${partQuery(c.target.dayPart)}`;
           return (
             <li key={c.key} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">

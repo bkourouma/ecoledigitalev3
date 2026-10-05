@@ -179,7 +179,7 @@ export {
 // Consommateurs et jobs (utilisables par les tests d'assemblage)
 export { onEnrollmentChanged, onOccurrenceCancelled, onPeriodChanged, onTenantProvisioned, readProvisionedEducationSystem, readProvisionedPacks, recomputeAllTenants } from "./application/consumers";
 
-// Modèles de pack (section `attendance`) : `CI/primary.json` = politique d'appel journalière `PRIMARY_DAILY`
+// Modèles de pack (section `attendance`) : `CI/primary.json` = appel journalier de la maternelle et appel du matin et de l'après-midi du primaire
 export { attendanceTemplateKey, buildAttendanceTemplates, defaultAttendanceTemplates, getAttendancePackTemplate, type AttendanceTemplates } from "./templates";
 
 // Domaine : événements, codes d'erreur, types

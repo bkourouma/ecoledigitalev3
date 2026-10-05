@@ -28,6 +28,7 @@ function tone(status: string) {
 /** Suivi des appels : séances ouvertes, soumises, validées ; validation (une ou plusieurs), réouverture et annulation motivées. */
 export function SessionsScreen() {
   const t = useTranslations("v2Attendance.sessions");
+  const tPart = useTranslations("v2AttendanceHalfDays.sessionPart");
   const date = useDateFormat();
   const flash = useFlash();
   const classrooms = useClassroomDirectory();
@@ -79,7 +80,7 @@ export function SessionsScreen() {
     if (ok > 0) flash.show(t("validatedCount", { count: ok }));
   }
 
-  const hrefOf = (s: Session) => (s.occurrenceId ? `/v2/attendance/call/occurrence/${s.occurrenceId}` : `/v2/attendance/call/daily/${s.classroomId}?date=${s.sessionDate}`);
+  const hrefOf = (s: Session) => (s.occurrenceId ? `/v2/attendance/call/occurrence/${s.occurrenceId}` : `/v2/attendance/call/daily/${s.classroomId}?date=${s.sessionDate}${s.dayPart === "FULL" ? "" : `&part=${s.dayPart}`}`);
 
   const columns: DataTableColumn<Session>[] = [
     {
@@ -94,7 +95,7 @@ export function SessionsScreen() {
     },
     { id: "date", header: t("columns.date"), rowHeader: true, cell: (s) => date.civil(s.sessionDate) },
     { id: "classroom", header: t("columns.classroom"), cell: (s) => classrooms.name(s.classroomId) },
-    { id: "kind", header: t("columns.kind"), cell: (s) => t(`scope.${s.scope}`), className: "hidden md:table-cell" },
+    { id: "kind", header: t("columns.kind"), cell: (s) => (s.scope === "DAILY" && s.dayPart !== "FULL" ? `${t(`scope.${s.scope}`)} · ${tPart(s.dayPart)}` : t(`scope.${s.scope}`)), className: "hidden md:table-cell" },
     { id: "by", header: t("columns.by"), cell: (s) => staff.name(s.takenByStaffId), className: "hidden lg:table-cell" },
     { id: "status", header: t("columns.status"), cell: (s) => <StatusBadge label={t(`status.${s.status}`)} tone={tone(s.status)} /> },
     {

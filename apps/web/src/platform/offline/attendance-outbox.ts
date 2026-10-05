@@ -20,10 +20,18 @@
 import { attendanceSyncBatchSchema, type AttendanceSyncBatch, type AttendanceSyncResultDto } from "@ecoledigitale/contracts/v2/attendance";
 import type { ObjectStore, OfflineDb } from "./idb";
 
-export type CallTarget = { kind: "occurrence"; occurrenceId: string } | { kind: "daily"; classroomId: string; date: string };
+/** Demi-journée d'un appel journalier du primaire (décision Q-P17) ; absente = appel unique de la journée. */
+export type HalfDay = "MORNING" | "AFTERNOON";
 
+export type CallTarget = { kind: "occurrence"; occurrenceId: string } | { kind: "daily"; classroomId: string; date: string; dayPart?: HalfDay };
+
+/**
+ * Identité d'un appel dans la file locale. Le matin et l'après-midi d'une même classe sont deux appels DISTINCTS (deux clés, donc deux
+ * clés d'idempotence de séance côté serveur) ; les clés de l'appel journalier unique restent celles d'avant (aucune entrée à migrer).
+ */
 export function callKey(target: CallTarget): string {
-  return target.kind === "occurrence" ? `occ:${target.occurrenceId}` : `day:${target.classroomId}:${target.date}`;
+  if (target.kind === "occurrence") return `occ:${target.occurrenceId}`;
+  return target.dayPart ? `day:${target.classroomId}:${target.date}:${target.dayPart}` : `day:${target.classroomId}:${target.date}`;
 }
 
 export interface OutboxRecord {
@@ -390,7 +398,10 @@ export class AttendanceOutbox {
         total += slice.length;
         sessions.push({
           clientId: call.sessionClientId,
-          target: call.target.kind === "occurrence" ? { occurrenceId: call.target.occurrenceId } : { scope: "DAILY", classroomId: call.target.classroomId, date: call.target.date },
+          target:
+            call.target.kind === "occurrence"
+              ? { occurrenceId: call.target.occurrenceId }
+              : { scope: "DAILY", classroomId: call.target.classroomId, date: call.target.date, ...(call.target.dayPart ? { dayPart: call.target.dayPart } : {}) },
           clientOpenedAt: call.openedAt,
           records: slice.map((r) => ({
             clientId: r.clientId,

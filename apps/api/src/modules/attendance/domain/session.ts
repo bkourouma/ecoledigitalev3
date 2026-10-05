@@ -8,8 +8,8 @@
  * produisent une erreur claire AVANT l'écriture.
  */
 import { err, ok, type AppError, type Result } from "@ecoledigitale/kernel";
-import { AttendanceCode, conflict } from "./errors";
-import type { AttendanceSession, CallPolicy, CallScope, SessionScope, SessionStatus } from "./types";
+import { AttendanceCode, conflict, validation } from "./errors";
+import type { AttendanceSession, CallPolicy, CallScope, DayPart, SessionScope, SessionStatus } from "./types";
 
 const TRANSITIONS: Readonly<Record<SessionStatus, readonly SessionStatus[]>> = Object.freeze({
   OPEN: ["SUBMITTED", "CANCELLED"],
@@ -74,6 +74,47 @@ export function checkEditable(
 
 export function callScopeAllows(policyScope: CallScope, scope: SessionScope): boolean {
   return policyScope === "BOTH" || policyScope === scope;
+}
+
+/** Demi-journées d'un cycle en appel `HALF_DAYS` (ordre de la journée). */
+export const HALF_DAY_PARTS: readonly DayPart[] = Object.freeze(["MORNING", "AFTERNOON"] as const);
+
+/**
+ * Demi-journée d'un appel JOURNALIER selon la politique du cycle (décision Q-P17) :
+ *  - `SINGLE` (ou aucune politique) : un seul appel par jour, `FULL` ; demander le matin ou l'après-midi est refusé ;
+ *  - `HALF_DAYS` : deux appels par jour, la demi-journée est OBLIGATOIRE (jamais devinée d'après l'heure) ; un appel `FULL` est refusé.
+ * Un appel par séance planifiée n'a pas de demi-journée : l'appelant ne passe pas par ici.
+ */
+export function resolveDayPart(policy: Pick<CallPolicy, "dailyCallMode"> | null, requested: DayPart | undefined): Result<DayPart, AppError> {
+  const mode = policy?.dailyCallMode ?? "SINGLE";
+  if (mode === "SINGLE") {
+    if (requested === undefined || requested === "FULL") return ok("FULL");
+    return err(
+      conflict(AttendanceCode.DAY_PART_NOT_ALLOWED, "La politique d'appel de ce cycle prévoit un seul appel par jour : l'appel du matin ou de l'après-midi n'est pas autorisé.", {
+        dailyCallMode: mode,
+        requested,
+      }),
+    );
+  }
+  if (requested === undefined) {
+    return err(validation(AttendanceCode.DAY_PART_REQUIRED, "Précisez la demi-journée de l'appel : matin ou après-midi.", "dayPart", { dailyCallMode: mode, allowed: [...HALF_DAY_PARTS] }));
+  }
+  if (requested === "FULL") {
+    return err(
+      conflict(AttendanceCode.DAY_PART_NOT_ALLOWED, "La politique d'appel de ce cycle demande deux appels par jour (matin et après-midi) : l'appel de la journée entière n'est pas autorisé.", {
+        dailyCallMode: mode,
+        requested,
+        allowed: [...HALF_DAY_PARTS],
+      }),
+    );
+  }
+  return ok(requested);
+}
+
+/** Minutes comptées pour une absence à l'appel journalier : la durée de la journée, ou sa moitié pour un appel d'une demi-journée. */
+export function dailyMinutesFor(dailyMinutes: number | null, dayPart: DayPart): number | null {
+  if (dailyMinutes === null) return null;
+  return dayPart === "FULL" ? dailyMinutes : Math.round(dailyMinutes / 2);
 }
 
 /**

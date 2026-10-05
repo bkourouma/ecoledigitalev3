@@ -6,7 +6,10 @@
  */
 import type { IsoDate, Uuid } from "./types";
 
-/** Comptes bruts d'une inscription (appels `DAILY` soumis ou validés de la fenêtre). */
+/**
+ * Comptes bruts d'une inscription (appels `DAILY` soumis ou validés de la fenêtre), en JOURNÉES. Avec l'appel du matin et de l'après-midi
+ * (Q-P17), une demi-journée vaut 0,5 : les valeurs sont des multiples de 0,5 (entiers avec l'appel journalier unique).
+ */
 export interface DailyDayCounts {
   readonly calledDays: number;
   readonly presentDays: number;

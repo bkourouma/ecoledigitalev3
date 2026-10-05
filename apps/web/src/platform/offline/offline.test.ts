@@ -143,6 +143,31 @@ describe("AttendanceOutbox", () => {
     expect(await outbox.prepareBatch()).toBeNull();
   });
 
+  it("matin et après-midi d'une classe : deux appels distincts, deux clés d'idempotence de séance, cible portant la demi-journée (Q-P17)", async () => {
+    const MORNING: CallTarget = { kind: "daily", classroomId: uuid(901), date: "2026-10-01", dayPart: "MORNING" };
+    const AFTERNOON: CallTarget = { kind: "daily", classroomId: uuid(901), date: "2026-10-01", dayPart: "AFTERNOON" };
+    // La clé de l'appel unique est celle d'avant (aucune entrée locale à migrer) ; chaque demi-journée a la sienne.
+    expect(callKey(DAILY)).toBe(`day:${uuid(901)}:2026-10-01`);
+    expect(new Set([callKey(DAILY), callKey(MORNING), callKey(AFTERNOON)]).size).toBe(3);
+    const { outboxOf } = setup();
+    const outbox = await outboxOf();
+    const am = await outbox.recordMark({ target: MORNING, date: "2026-10-01", studentId: uuid(11), statusCode: "ABSENT" });
+    const pm = await outbox.recordMark({ target: AFTERNOON, date: "2026-10-01", studentId: uuid(11), statusCode: "PRESENT" });
+    expect(am.sessionClientId).not.toBe(pm.sessionClientId);
+    expect(am.records[uuid(11)]!.clientId).not.toBe(pm.records[uuid(11)]!.clientId);
+    // Remarquer le matin renouvelle le pointage du matin sans toucher à l'après-midi.
+    const again = await outbox.recordMark({ target: MORNING, date: "2026-10-01", studentId: uuid(11), statusCode: "LATE", minutesLate: 5 });
+    expect(again.sessionClientId).toBe(am.sessionClientId);
+    expect(await outbox.list()).toHaveLength(2);
+    const prepared = (await outbox.prepareBatch())!;
+    expect(attendanceSyncBatchSchema.safeParse(prepared.batch).success).toBe(true);
+    const targets = prepared.batch.sessions.map((s) => s.target).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    expect(targets).toEqual([
+      { scope: "DAILY", classroomId: uuid(901), date: "2026-10-01", dayPart: "AFTERNOON" },
+      { scope: "DAILY", classroomId: uuid(901), date: "2026-10-01", dayPart: "MORNING" },
+    ]);
+  });
+
   it("découpe un appel de plus de 500 pointages et ne soumet qu'avec le dernier morceau", async () => {
     const { outboxOf } = setup();
     const outbox = await outboxOf();

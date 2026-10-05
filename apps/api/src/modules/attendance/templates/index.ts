@@ -3,9 +3,9 @@
  * Ajouter un pays ou un pack = ajouter un fichier JSON et l'inscrire ci-dessous ; aucune logique ne change.
  *
  * Un fichier ne déclare que ce qui DIFFÈRE du modèle de base (`DEFAULT_ATTENDANCE_PACK` : statuts, motifs, types de congé,
- * paramètres de pièces) : les sections absentes sont héritées de la base. Ici : la politique d'appel `PRIMARY_DAILY`
- * (appel journalier pour `PRESCHOOL` et `PRIMARY`, `dailyMinutes = null` : aucune conversion en minutes, les récapitulatifs
- * ne comptent que des jours). Rien n'est réglementaire (spec 005 §14.2, `pack-template.md` §3).
+ * paramètres de pièces) : les sections absentes sont héritées de la base. Ici : `PRESCHOOL_DAILY` (appel journalier unique de la
+ * maternelle) et `PRIMARY_HALF_DAYS` (primaire : appel du matin et de l'après-midi, décision Q-P17), `dailyMinutes = null` : aucune
+ * conversion en minutes, les récapitulatifs ne comptent que des jours). Rien n'est réglementaire (spec 005 §14.2, `pack-template.md` §3).
  *
  * Les packs `SECONDARY` et `HIGHER` n'ont pas de fichier : ils utilisent la base (appel par séance `*`, 120 min de fenêtre).
  */

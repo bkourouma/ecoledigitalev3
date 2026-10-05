@@ -42,6 +42,12 @@ const note = (max = 500) => z.string().trim().min(1).max(max);
 const reasonText = (min: number, max = 500) => z.string().trim().min(min, `Le motif doit faire au moins ${min} caractères.`).max(max);
 const minutes = z.number().int().min(1).max(24 * 60);
 
+/** Demi-journée d'un appel journalier (Q-P17) : `FULL` = appel unique de la journée, `MORNING` / `AFTERNOON` = appels du primaire. */
+export const ATTENDANCE_DAY_PARTS = ["FULL", "MORNING", "AFTERNOON"] as const;
+export const attendanceDayPartSchema = z.enum(ATTENDANCE_DAY_PARTS);
+/** Mode d'appel journalier d'un cycle : un appel par jour ou deux (matin et après-midi). */
+export const ATTENDANCE_DAILY_CALL_MODES = ["SINGLE", "HALF_DAYS"] as const;
+export const attendanceDailyCallModeSchema = z.enum(ATTENDANCE_DAILY_CALL_MODES);
 export const ATTENDANCE_SESSION_SCOPES = ["DAILY", "SESSION"] as const;
 export const attendanceSessionScopeSchema = z.enum(ATTENDANCE_SESSION_SCOPES);
 export const ATTENDANCE_SESSION_STATUSES = ["OPEN", "SUBMITTED", "VALIDATED", "CANCELLED"] as const;
@@ -112,6 +118,8 @@ const openDaily = z
     scope: z.literal("DAILY"),
     classroomId: attendanceUuidSchema,
     date: attendanceDateSchema,
+    /** Demi-journée : obligatoire quand la politique du cycle demande deux appels par jour ; omise (ou `FULL`) sinon. */
+    dayPart: attendanceDayPartSchema.optional(),
     /** Remplaçant occasionnel désigné par la direction (`attendance.manage`). */
     takenByStaffId: attendanceUuidSchema.optional(),
     clientId: attendanceUuidSchema.optional(),
@@ -219,7 +227,7 @@ export const attendanceSyncRecordSchema = z
 
 const syncTarget = z.union([
   z.object({ occurrenceId: attendanceUuidSchema }).strict(),
-  z.object({ scope: z.literal("DAILY"), classroomId: attendanceUuidSchema, date: attendanceDateSchema }).strict(),
+  z.object({ scope: z.literal("DAILY"), classroomId: attendanceUuidSchema, date: attendanceDateSchema, dayPart: attendanceDayPartSchema.optional() }).strict(),
 ]);
 
 export const attendanceSyncSessionSchema = z
@@ -473,6 +481,8 @@ export const attendanceSessionDtoSchema = z.object({
   offeringId: attendanceUuidSchema.nullable(),
   occurrenceId: attendanceUuidSchema.nullable(),
   scope: attendanceSessionScopeSchema,
+  /** Demi-journée de l'appel journalier ; `FULL` pour un appel par séance et pour l'appel unique de la journée (valeur par défaut d'une réponse qui ne la porte pas). */
+  dayPart: attendanceDayPartSchema.default("FULL"),
   sessionDate: attendanceDateSchema,
   startsAt: z.string().nullable(),
   endsAt: z.string().nullable(),
@@ -555,6 +565,8 @@ export const attendanceAbsenceRowDtoSchema = z.object({
   enrollmentId: attendanceUuidSchema,
   classroomId: attendanceUuidSchema,
   sessionDate: attendanceDateSchema,
+  /** Demi-journée de l'appel (`FULL` : appel unique ou séance planifiée). */
+  dayPart: attendanceDayPartSchema.default("FULL"),
   statusCode: z.string(),
   excused: z.boolean(),
   countedMinutes: z.number().int().nullable(),
@@ -723,6 +735,8 @@ export const attendanceUpsertCallPolicyBodySchema = z
     editWindowMinutes: z.number().int().min(0).max(10_000_000).nullable().optional(),
     lateRequiresMinutes: z.boolean().optional(),
     dailyMinutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
+    /** `HALF_DAYS` : appel du matin ET de l'après-midi (deux par jour). Défaut `SINGLE` (comportement historique). */
+    dailyCallMode: attendanceDailyCallModeSchema.optional(),
   })
   .strict();
 
@@ -768,6 +782,8 @@ export const attendanceCallPolicyDtoSchema = z.object({
   editWindowMinutes: z.number().int().nullable(),
   lateRequiresMinutes: z.boolean(),
   dailyMinutes: z.number().int().nullable(),
+  /** `HALF_DAYS` : appel du matin ET de l'après-midi ; `SINGLE` (défaut, aussi pour une réponse qui ne le porte pas) : un appel par jour. */
+  dailyCallMode: attendanceDailyCallModeSchema.default("SINGLE"),
 });
 export const attendanceSettingsDtoSchema = z.object({
   attachmentMaxBytes: z.number().int().nullable(),
@@ -797,7 +813,7 @@ export const attendancePortalDtoSchema = z.object({
 const ev = <T extends z.ZodRawShape>(shape: T) => z.object({ v: z.literal(1), ...shape });
 
 export const attendanceEventPayloadSchemas = {
-  "attendance.session.opened": ev({ sessionId: attendanceUuidSchema, classroomId: attendanceUuidSchema, date: attendanceDateSchema, scope: attendanceSessionScopeSchema, occurrenceId: attendanceUuidSchema.nullable(), source: attendanceSessionSourceSchema }),
+  "attendance.session.opened": ev({ sessionId: attendanceUuidSchema, classroomId: attendanceUuidSchema, date: attendanceDateSchema, scope: attendanceSessionScopeSchema, dayPart: attendanceDayPartSchema.optional(), occurrenceId: attendanceUuidSchema.nullable(), source: attendanceSessionSourceSchema }),
   "attendance.session.submitted": ev({ sessionId: attendanceUuidSchema, classroomId: attendanceUuidSchema, date: attendanceDateSchema, scope: attendanceSessionScopeSchema, occurrenceId: attendanceUuidSchema.nullable(), curriculumNodeId: attendanceUuidSchema.nullable(), takenByStaffId: attendanceUuidSchema.nullable(), absentCount: z.number().int(), lateCount: z.number().int(), recordCount: z.number().int() }),
   "attendance.session.validated": ev({ sessionId: attendanceUuidSchema, classroomId: attendanceUuidSchema, date: attendanceDateSchema, occurrenceId: attendanceUuidSchema.nullable() }),
   "attendance.session.reopened": ev({ sessionId: attendanceUuidSchema, classroomId: attendanceUuidSchema, date: attendanceDateSchema, occurrenceId: attendanceUuidSchema.nullable(), reopenedCount: z.number().int() }),

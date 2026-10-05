@@ -152,3 +152,61 @@ describe("CI-PRIMARY-PLACEHOLDER — golden de mécanisme", () => {
     expect(r.ok && r.value.value).toBe("REPEAT");
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Version 3 (décisions Q-P04 et Q-P05) : rang de compétition affiché par défaut, mentions réglables et désactivables.
+// ---------------------------------------------------------------------------------------------------------------------
+const coefV3 = new RuleRunner(compiledSeed("CI-PRIMARY-PLACEHOLDER", undefined, 3));
+
+describe("CI-PRIMARY-PLACEHOLDER v3 — rang de compétition et mentions réglables (Q-P04, Q-P05)", () => {
+  it("la version 3 reste un jeu de DÉMONSTRATION (placeholder), de même contrat que la version 1", () => {
+    expect(coefV3.compiled.version.source.kind).toBe("placeholder");
+    expect(coefV3.compiled.version.contractId).toBe(coef.compiled.version.contractId);
+  });
+
+  it("Q-P04 — classement « compétition » en cas d'égalité : 1, 1, 3 (jamais 1, 1, 2)", () => {
+    const cohorte = [15, 15, 12];
+    expect([15, 15, 12].map((m) => coefV3.value("rang_periode", { moyenne: m, cohorte }))).toEqual(["1", "1", "3"]);
+  });
+
+  it("Q-P05 — la mention est une règle OPTIONNELLE du contrat (absente de la version 1)", () => {
+    const rule = coefV3.compiled.rules.find((r) => r.key === "mention_periode");
+    expect(rule?.isOptional).toBe(true);
+    expect(coef.compiled.rules.some((r) => r.key === "mention_periode")).toBe(false);
+  });
+
+  it("Q-P05 — mentions par seuils (bornes inférieures incluses) ; valeur absente => en attente", () => {
+    const m = (moyenne: number | null) => coefV3.str("mention_periode", { moyenne });
+    expect([null, 5, 9.99, 10, 11.99, 12, 14, 16, 17.99, 18, 20].map(m)).toEqual([
+      "PENDING", "INSUFFICIENT", "INSUFFICIENT", "PASSABLE", "PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "VERY_GOOD", "EXCELLENT", "EXCELLENT",
+    ]);
+  });
+
+  it("Q-P05 — seuils de départ FICTIFS et bornés ; libellés marqués (fictif), aucune mention officielle", () => {
+    expect(["passable", "assez_bien", "bien", "tres_bien", "excellent"].map((p) => coefV3.param("mention_periode", p))).toEqual([10, 12, 14, 16, 18]);
+    const rule = coefV3.compiled.rules.find((r) => r.key === "mention_periode")!;
+    for (const [name, spec] of Object.entries(rule.parameters).filter(([n]) => n !== "actif")) {
+      expect(spec.type === "number" && spec.min === 0 && spec.max === 20, name).toBe(true);
+      expect(spec.description, name).toMatch(/non officiel/);
+    }
+    for (const code of ["PASSABLE", "FAIRLY_GOOD", "GOOD", "VERY_GOOD", "EXCELLENT", "INSUFFICIENT", "PENDING"]) expect(coefV3.label("mention_periode", code)).toMatch(/\(fictif\)$/);
+  });
+
+  it("Q-P05 — désactivable : avec `actif` = 0 (variante d'établissement), aucune mention n'est produite (PENDING = pas de mention)", () => {
+    expect(coefV3.param("mention_periode", "actif")).toBe(1);
+    expect(coefV3.str("mention_periode", { moyenne: 17 }, { actif: 0 })).toBe("PENDING");
+    expect(coefV3.str("mention_periode", { moyenne: 17 }, { actif: 1 })).toBe("VERY_GOOD");
+    const spec = coefV3.compiled.rules.find((r) => r.key === "mention_periode")!.parameters.actif!;
+    expect(spec.type === "number" && spec.min === 0 && spec.max === 1).toBe(true);
+  });
+
+  it("Q-P05 — l'établissement règle les seuils (surcharge bornée) sans nouveau code", () => {
+    expect(coefV3.str("mention_periode", { moyenne: 13 }, { bien: 13, assez_bien: 11 })).toBe("GOOD");
+    expect(coefV3.str("mention_periode", { moyenne: 13 })).toBe("FAIRLY_GOOD");
+  });
+
+  it("les règles de la version 1 sont reprises à l'identique (la version 3 n'ajoute que la mention)", () => {
+    const strip = (c: RuleRunner) => c.compiled.rules.filter((r) => r.key !== "mention_periode").map((r) => [r.key, r.expression]);
+    expect(strip(coefV3)).toEqual(strip(coef));
+  });
+});
