@@ -1,5 +1,7 @@
 # Guide de test de la démonstration EcoleDigitale v2
 
+> Guide utilisateur complet (non technique, par rôle, module et parcours, avec cases à cocher) : [`docs/GUIDE_UTILISATEUR_TEST.md`](GUIDE_UTILISATEUR_TEST.md). Le présent document reste la référence technique de la démonstration.
+
 Ce guide permet de tester l'application v2 sur votre machine en **une commande** (`pnpm demo:up`), avec trois établissements
 de démonstration, des comptes de test pour chaque rôle et des données riches (année en cours, notes, résultats, bulletins PDF,
 factures, admissions, conseils…). Tout est local : aucun envoi réel (e-mail, SMS, WhatsApp), aucun paiement réel, aucun appel
