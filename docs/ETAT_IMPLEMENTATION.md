@@ -1,6 +1,6 @@
 # État de l'implémentation EcoleDigitale v2
 
-Mis à jour le 2026-10-03 sur la branche `feat/v2-phase-0` (environ 680 commits, locale, rien n’est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
+Mis à jour le 2026-10-05 sur la branche `feat/v2-phase-0` (environ 680 commits, locale, rien n’est poussé). Référence de pilotage : `docs/PLAN_Mise_en_oeuvre_EcoleDigitale_SaaS.md`.
 Décisions métier validées : `specs/v2/DECISIONS-METIER.md`. Questions encore ouvertes (valeur par défaut appliquée) : `specs/v2/QUESTIONS-A-VALIDER.md`. Décisions d'architecture : `docs/adr/`. Contrat des modules : `docs/architecture/module-conventions.md`, `platform-assembly.md`, `new-module-guide.md`.
 
 ## Terminé et fusionné
@@ -15,7 +15,7 @@ Décisions métier validées : `specs/v2/DECISIONS-METIER.md`. Questions encore 
 | Web `/v2` | 285 pages : fondation, administration, cœur académique et personnes, authentification V2, portails parent/élève/enseignant, finance, paie, supérieur, documents, messagerie, imports, admissions (dont pages publiques), primaire, vie scolaire, élèves affectés par l'État, examens, conseils de classe |
 | Qualité | 113 migrations de modules, 442 fichiers de test API, 155 côté web ; caractérisation du legacy ; audit d'accessibilité axe (0 violation serious/critical sur 1127 écrans testés) |
 
-Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 violation), `check:secrets` propre, `type-check:v2` 0 erreur, web 127 fichiers / 1613 tests verts, tests de bout en bout Primary et Secondary (`pnpm test:phase3`) 74/74, `test:isolation` vert, RBAC 292 tests (+60 d'intégration sur base éphémère, verts selon l'agent). La suite complète de `apps/api` n'a pas été rejouée d'un seul bloc depuis les dernières fusions (trop longue sous charge) : seuls des groupes ciblés l'ont été.
+Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 violation), `check:secrets` propre, `type-check:v2` 0 erreur, web 127 fichiers / 1613 tests verts, tests de bout en bout Primary et Secondary (`pnpm test:phase3`) 74/74, `test:isolation` vert, RBAC 292 tests (+60 d'intégration sur base éphémère, verts selon l'agent). Suite complète de `apps/api` rejouée d'un seul bloc le 2026-10-05 : 452 fichiers, 6778 tests verts ; phases 1/2/3 : 81/91/75 ; web 1832/1832 ; démo `demo:smoke` 191/191.
 
 ## Phase par phase du prompt « phases restantes »
 
@@ -30,6 +30,10 @@ Mesures de contrôle de cette session : `check:boundaries` (1902 modules, 0 viol
 ## En cours
 
 Rien : tous les agents de la passe autonome sont terminés et fusionnés.
+
+## Décisions métier (2026-10-05)
+
+22 des 29 écarts demandés sont implémentés (liste : fin de `specs/v2/REPONSES-METIER.md`). Restent : 5 écarts à risque à cadrer (Q-P18, Q-PAY-30, Q-13 messagerie, O-11 imports .xls/.ods, Q-PAY-38) et 2 chantiers (O-05 générateur d'emploi du temps, Q-14 recherche dans les PDF).
 
 ## Démonstration locale
 

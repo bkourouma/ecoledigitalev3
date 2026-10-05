@@ -301,3 +301,11 @@ Chaque ligne est une demande de changement ; les lignes « à risque » demanden
 | O-11 (imp) | Import .xls et .ods | À RISQUE : conversion côté serveur, surface d'attaque |
 | O-13 (imp) | Import des inscriptions | Chantier |
 | L-02 | Directeur d'études publie les résultats d'examen | Moyen (séparation des tâches) |
+
+## État d'implémentation des écarts (2026-10-05)
+
+Fusionnés dans `feat/v2-phase-0` (suite API complète 6778 tests verts) : O-01, O-04, O-10, O-11 (UE sur deux semestres), O-14, Q-P04, Q-P05, Q-P17, Q-A03, Q-24, Q-PAY-32, Q-05 et Q-06 (msg), Q-26, Q-E13, Q-E15, Q-E18, Q-03 et Q-05 (doc), O-02 (imp), O-13 (imp), L-02.
+
+Pas encore faits :
+- À cadrer avant code (à risque) : Q-P18, Q-PAY-30, Q-13 (msg), O-11 (imp, .xls/.ods), Q-PAY-38.
+- Chantiers non lancés : O-05 (générateur d'emploi du temps complet), Q-14 (recherche dans le texte des PDF).
