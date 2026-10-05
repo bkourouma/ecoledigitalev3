@@ -102,6 +102,7 @@ describe("Rapports", () => {
     "GET /api/v1/finance/reports/receivables-by-group": { items: [receivableRow(), receivableRow({ key: null, label: null })] },
     "GET /api/v1/finance/reports/receivables-by-learner": { items: [learnerReceivable()], total: 1 },
     "GET /api/v1/finance/reports/aged-balance": agedBalance(),
+    "GET /api/v1/finance/reports/provider-accounts": { currency: "XOF", from: null, to: null, items: [] },
     "GET /api/v1/finance/reports/collections-trend": { items: [trendPoint(), trendPoint({ bucket: "2026-09-08", collected: xof(6000000) })] },
   };
 
@@ -115,6 +116,26 @@ describe("Rapports", () => {
     const overdue = screen.getByText("En retard", { selector: "dt" });
     expect(within(overdue.parentElement!).getByText(/7\D500\D000\sF\sCFA/)).toBeTruthy();
     expect(within(overdue.parentElement!).getByText("31 factures en retard")).toBeTruthy();
+  });
+
+  it("comptes fournisseurs (Q-PAY-30) : paiements de l'établissement par compte, libellés clairs, jamais de total plateforme", async () => {
+    setTestApi({
+      ...base,
+      "GET /api/v1/finance/reports/provider-accounts": {
+        currency: "XOF",
+        from: null,
+        to: null,
+        items: [
+          { provider: "wave", account: "TENANT", confirmedCount: 3, confirmed: xof(90000), refunded: xof(0), pendingCount: 0, pending: xof(0), flaggedCount: 0, failedCount: 1 },
+          { provider: "wave", account: "PLATFORM", confirmedCount: 1, confirmed: xof(25000), refunded: xof(0), pendingCount: 2, pending: xof(50000), flaggedCount: 1, failedCount: 0 },
+        ],
+      },
+    });
+    renderWithProviders(<ReportsScreen />);
+    const table = await screen.findByRole("table", { name: "Paiements en ligne par fournisseur et par compte" });
+    expect(await within(table).findByText("Compte de l'établissement")).toBeTruthy();
+    expect(within(table).getByText("Compte de la plateforme")).toBeTruthy();
+    expect(within(table).getAllByText("wave")).toHaveLength(2);
   });
 
   it("taux sans objet quand l'API renvoie null (rien à recouvrer)", async () => {

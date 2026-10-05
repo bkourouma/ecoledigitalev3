@@ -43,6 +43,8 @@ function wave(over: Partial<FinanceProviderDto> = {}): FinanceProviderDto {
     ],
     lastTest: null,
     updatedAt: AT,
+    activeAccount: "TENANT",
+    platformFallbackReady: false,
     ...over,
   };
 }
@@ -67,6 +69,8 @@ function orange(over: Partial<FinanceProviderDto> = {}): FinanceProviderDto {
     ],
     lastTest: null,
     updatedAt: null,
+    activeAccount: null,
+    platformFallbackReady: false,
     ...over,
   };
 }

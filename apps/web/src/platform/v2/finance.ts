@@ -13,6 +13,7 @@ import { z } from "zod";
 import { platformHooks as hooks } from "@/platform/api/default-client";
 import {
   financeAgedBalanceDtoSchema,
+  financeProviderAccountsReportDtoSchema,
   financeCashRegisterDtoSchema,
   financeCashSessionDtoSchema,
   financeCashSessionSummaryDtoSchema,
@@ -442,6 +443,11 @@ export function useCollectionsTrend(query: { from: string; to: string; granulari
     query: query as Query,
     enabled: options.enabled,
   });
+}
+
+/** Q-PAY-30 : paiements en ligne de l'école par fournisseur et par compte (propre / plateforme). */
+export function useProviderAccountsReport(query: { from?: string; to?: string } = {}) {
+  return hooks.useApiQuery(["finance", "reports", "provider-accounts"], `${FINANCE_BASE}/reports/provider-accounts`, { schema: financeProviderAccountsReportDtoSchema, query: query as Query });
 }
 
 export function useAgedBalance(query: ReportQuery & { byLearner?: number } = {}) {

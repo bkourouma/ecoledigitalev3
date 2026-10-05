@@ -34,6 +34,13 @@ export interface RequestContext {
    * les permissions sensibles (`PermissionDef.sensitive`, évaluées par le RBAC).
    */
   readonly mfa: boolean;
+  /**
+   * Fin de la fenêtre d'élévation d'authentification (step-up MFA : `iam.sessions.mfa_elevated_until`), si la session en a
+   * une ENCORE ouverte. Distincte de `mfa` : une session ouverte avec MFA a `mfa = true` sans élévation récente. Les actions
+   * qui exigent une MFA RÉCENTE (ex. résolution manuelle d'un paiement bloqué, Q-PAY-38) comparent cette date à l'horloge.
+   * Absente tant qu'aucune élévation n'est en cours.
+   */
+  readonly mfaElevatedUntil?: Date;
 }
 
 export interface RequestContextInput {
@@ -46,6 +53,8 @@ export interface RequestContextInput {
   actor?: ActorType;
   /** MFA satisfaite pour cette session (défaut `false`). */
   mfa?: boolean;
+  /** Fin de la fenêtre de step-up MFA encore ouverte (voir `RequestContext.mfaElevatedUntil`). */
+  mfaElevatedUntil?: Date | null;
 }
 
 const ACTORS: readonly ActorType[] = ["user", "system", "superAdmin"];
@@ -108,6 +117,7 @@ export function createRequestContext(input: RequestContextInput): RequestContext
     requestId: input.requestId?.trim() || ambientId() || newId(),
     actor,
     mfa: input.mfa === true,
+    ...(input.mfaElevatedUntil instanceof Date ? { mfaElevatedUntil: new Date(input.mfaElevatedUntil.getTime()) } : {}),
     ...(institutionId ? { institutionId } : {}),
     ...(campusId ? { campusId } : {}),
   });
@@ -144,6 +154,7 @@ export function deriveContext(
     userId: base.userId,
     actor: base.actor,
     mfa: patch.mfa ?? base.mfa,
+    mfaElevatedUntil: patch.mfa === undefined ? (base.mfaElevatedUntil ?? null) : null,
     roles: patch.roles ?? base.roles,
     requestId: patch.requestId ?? base.requestId,
     institutionId: patch.institutionId === undefined ? (base.institutionId ?? null) : patch.institutionId,

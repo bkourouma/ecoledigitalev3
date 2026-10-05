@@ -30,6 +30,7 @@ import {
 } from "@ecoledigitale/kernel";
 import {
   financeAgedBalanceQuerySchema,
+  financeProviderAccountsReportQuerySchema,
   financeAllocatePaymentBodySchema,
   financeApproveRefundBodySchema,
   financeCompleteRefundBodySchema,
@@ -172,10 +173,11 @@ import {
   listManualResolutions,
   listPendingReconciliations,
   rejectManualResolution,
-  requestManualResolution,
+  resolveManually,
 } from "../application/manual-resolution";
 import {
   getAgedBalance,
+  getProviderAccountsReport,
   getCollectionsTrend,
   getFinanceSummary,
   getReceivablesByGroup,
@@ -563,9 +565,11 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
         return reply.status(201).send({ creditNote: present.creditNoteDto(r.creditNote), invoice: present.invoiceDetailDto(r.invoice, todayOf(deps)) });
       });
 
-      // ----- Rapprochement : paiements en attente et résolutions manuelles (quatre yeux) -------------
-      // Lecture : `finance.payment.read`. Résolution : `finance.payment.reconcile` (SENSIBLE, MFA) ; l'approbateur est
-      // une AUTRE personne que le demandeur (contrôlé par le cas d'usage). « Vérifier maintenant » reste `POST /payments/:id/verify`.
+      // ----- Rapprochement : paiements en attente et résolution manuelle (UNE personne, MFA récente) ----
+      // Lecture : `finance.payment.read`. Résolution : `finance.payment.reconcile` (SENSIBLE, MFA) ET step-up MFA récent
+      // (403 `finance.mfa_required` sinon) ; une seule personne tranche (Q-PAY-38). `POST /resolutions` demande ET
+      // applique ; `approve` / `reject` ne servent plus qu'à clore les demandes ouvertes avant cette décision.
+      // « Vérifier maintenant » reste `POST /payments/:id/verify`.
       scope.get("/payments/pending", { preHandler: perm("finance.payment.read") }, async (req) => {
         const q = parse(financeListPendingPaymentsQuerySchema, req.query);
         const page = unwrapOrThrow(
@@ -620,7 +624,7 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
       scope.post("/resolutions", { preHandler: perm("finance.payment.reconcile") }, async (req, reply) => {
         const b = parse(financeRequestResolutionBodySchema, req.body);
         const row = unwrapOrThrow(
-          await requestManualResolution(deps, ctxOf(req), {
+          await resolveManually(deps, ctxOf(req), {
             ...(b.paymentId ? { paymentId: b.paymentId } : {}),
             ...(b.refundId ? { refundId: b.refundId } : {}),
             outcome: b.outcome,
@@ -1022,6 +1026,13 @@ export async function financePlugin(app: FastifyInstance, options: FinancePlugin
           await getCollectionsTrend(deps, ctxOf(req), { from: q.from, to: q.to, ...(q.granularity ? { granularity: q.granularity } : {}), ...(q.currency ? { currency: q.currency } : {}) }),
         );
         return { items: points.map(present.trendPointDto) };
+      });
+      // Q-PAY-30 : paiements en ligne de CETTE école, par fournisseur et par compte (propre / plateforme).
+      scope.get("/reports/provider-accounts", { preHandler: perm("finance.report.read") }, async (req) => {
+        const q = parse(financeProviderAccountsReportQuerySchema, req.query);
+        return present.providerAccountsReportDto(
+          unwrapOrThrow(await getProviderAccountsReport(deps, ctxOf(req), { ...(q.from ? { from: q.from } : {}), ...(q.to ? { to: q.to } : {}), ...(q.currency ? { currency: q.currency } : {}) })),
+        );
       });
       scope.get("/reports/aged-balance", { preHandler: perm("finance.report.read") }, async (req) => {
         const q = parse(financeAgedBalanceQuerySchema, req.query);

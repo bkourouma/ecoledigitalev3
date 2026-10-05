@@ -79,8 +79,6 @@ export interface FinanceConfig {
   webhookBaseUrl: string | null;
   /** Plafond de lignes d'un export CSV serveur (au-delà : fichier tronqué ET signalé `X-Export-Truncated`). */
   exportMaxRows: number;
-  /** Autorise le demandeur d'une résolution manuelle (paiement / remboursement indéterminé) à l'approuver lui-même (déconseillé). */
-  manualResolutionSelfApproval: boolean;
   reconciliation: ReconciliationConfig;
 }
 
@@ -94,7 +92,6 @@ export const DEFAULT_FINANCE_CONFIG: FinanceConfig = Object.freeze({
   cashVarianceTolerance: 0,
   webhookBaseUrl: null,
   exportMaxRows: 50_000,
-  manualResolutionSelfApproval: false,
   reconciliation: DEFAULT_RECONCILIATION_CONFIG,
 });
 

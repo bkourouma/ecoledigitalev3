@@ -13,7 +13,9 @@ import { useDateFormat } from "@/platform/ui/format";
 import { FormDialog } from "@/platform/ui/ModalDialog";
 import { useMoney } from "@/platform/ui/money";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
+import { StepUpDialog } from "@/platform/ui/StepUpDialog";
 import { ErrorBlock, Notice, useFlash } from "@/platform/ui/states";
+import { useStepUp } from "@/platform/ui/useStepUp";
 
 /** Motifs de signalement connus (codes courts de l'API) ; tout autre code retombe sur le libellé générique. */
 const KNOWN_REASONS = new Set([
@@ -32,7 +34,9 @@ type Filter = "all" | "flagged" | "progress";
  * « Paiements à rapprocher » : les paiements en ligne restés EN ATTENTE (webhook perdu, session abandonnée, réponse
  * d'initiation perdue). Le job de rapprochement du worker les interroge seul ; ceux qu'il ne peut pas conclure sont SIGNALÉS
  * et apparaissent en tête. Une personne peut alors vérifier à nouveau, ou demander une résolution MANUELLE motivée avec
- * preuve (permission sensible) que UNE AUTRE personne approuve (quatre yeux). Le web ne conclut jamais seul : seule l'API écrit.
+ * preuve (permission sensible). Q-PAY-38 : UNE seule personne habilitée tranche, après une MFA RÉCENTE (l'API répond
+ * `finance.mfa_required` : le dialogue de confirmation par code est alors proposé, puis la même requête est rejouée une fois).
+ * Le web ne conclut jamais seul : seule l'API écrit.
  */
 export function PendingPaymentsScreen() {
   const t = useTranslations("v2FinancePending");
@@ -155,7 +159,7 @@ export function PendingPaymentsScreen() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("description")} />
-      <Notice kind="info">{t("fourEyes")}</Notice>
+      <Notice kind="info">{t("singleActor")}</Notice>
       {flash.node}
       {verify.isError ? <ErrorBlock error={verify.error} /> : null}
       <FormField label={t("filters.state")} className="sm:max-w-xs">
@@ -211,6 +215,7 @@ function ResolveDialog({ target, onClose, onDone }: { target: FinancePendingPaym
   const t = useTranslations("v2FinancePending.resolve");
   const money = useMoney();
   const request = useRequestResolution();
+  const stepUp = useStepUp();
   const [outcome, setOutcome] = useState<"SUCCEEDED" | "FAILED">("SUCCEEDED");
   const [reason, setReason] = useState("");
   const [evidence, setEvidence] = useState("");
@@ -221,10 +226,12 @@ function ResolveDialog({ target, onClose, onDone }: { target: FinancePendingPaym
   function submit() {
     setSubmitted(true);
     if (reason.trim().length < 10 || evidence.trim().length < 3) return;
-    request.mutate({ paymentId: target.payment.id, outcome, reason: reason.trim(), evidenceRef: evidence.trim() }, { onSuccess: onDone });
+    // Q-PAY-38 : refusée en `*.mfa_required` faute de MFA récente => code TOTP, puis la même requête est rejouée UNE fois.
+    void stepUp.run(() => request.mutateAsync({ paymentId: target.payment.id, outcome, reason: reason.trim(), evidenceRef: evidence.trim() })).then(onDone, () => undefined);
   }
 
   return (
+    <>
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={t("title")} description={t("description", { amount: money.of(target.payment.amount) })} submitLabel={t("submit")} isPending={request.isPending} error={request.error} onSubmit={submit}>
       <FormField label={t("outcome")} required>
         {(c) => (
@@ -247,6 +254,8 @@ function ResolveDialog({ target, onClose, onDone }: { target: FinancePendingPaym
       </FormField>
       <Notice kind="warning">{t("warning")}</Notice>
     </FormDialog>
+    <StepUpDialog {...stepUp.dialogProps} />
+    </>
   );
 }
 
@@ -254,11 +263,13 @@ function DecisionDialog({ decision, onClose, onDone }: { decision: { kind: "appr
   const t = useTranslations("v2FinancePending.decision");
   const approve = useApproveResolution();
   const reject = useRejectResolution();
+  const stepUp = useStepUp();
   const [note, setNote] = useState("");
   const action = decision.kind === "approve" ? approve : reject;
   const r = decision.resolution;
 
   return (
+    <>
     <FormDialog
       open
       onOpenChange={(o) => !o && onClose()}
@@ -267,10 +278,12 @@ function DecisionDialog({ decision, onClose, onDone }: { decision: { kind: "appr
       submitLabel={t(`${decision.kind}.submit`)}
       isPending={action.isPending}
       error={action.error}
-      onSubmit={() => action.mutate({ id: r.id, ...(note.trim() ? { note: note.trim() } : {}) }, { onSuccess: () => onDone(t(`${decision.kind}.done`)) })}
+      onSubmit={() => void stepUp.run(() => action.mutateAsync({ id: r.id, ...(note.trim() ? { note: note.trim() } : {}) })).then(() => onDone(t(`${decision.kind}.done`)), () => undefined)}
     >
       <p className="text-sm text-muted-foreground">{t("reason", { reason: r.reason })}</p>
       <FormField label={t("note")}>{(c) => <TextAreaControl {...c} value={note} onChange={setNote} maxLength={500} rows={2} />}</FormField>
     </FormDialog>
+    <StepUpDialog {...stepUp.dialogProps} />
+    </>
   );
 }

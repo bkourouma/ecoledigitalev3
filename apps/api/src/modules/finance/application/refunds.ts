@@ -240,7 +240,7 @@ export async function planRefundRoute(deps: FinanceDeps, ctx: RequestContext, re
   if (payment.method !== "ONLINE" || !payment.provider) return { kind: "LEDGER" };
   // Q-PAY-32 : l'exécution chez le fournisseur est désactivée par défaut (réglage `providerRefundAutoExecution`).
   if (!deps.config.providerRefundAutoExecution) return { kind: "MANUAL_REQUIRED", reason: "auto_refund_disabled" };
-  const resolved = await deps.providers.resolve(ctx.tenantId, payment.provider);
+  const resolved = await deps.providers.resolve(ctx.tenantId, payment.provider, { account: payment.providerAccount });
   if (!resolved.ok) return { kind: "MANUAL_REQUIRED", reason: "provider_unavailable" };
   const provider = resolved.value;
   if (!provider.refund) return { kind: "MANUAL_REQUIRED", reason: "no_refund_api" };

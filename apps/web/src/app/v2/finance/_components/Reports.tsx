@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FINANCE_AGING_BUCKETS, type FinanceSummaryDto } from "@ecoledigitale/contracts/v2/finance";
 import { usePermission } from "@/platform/access";
-import { useAgedBalance, useCollectionsTrend, useFinanceSummary, useReceivablesByGroup, useReceivablesByLearner } from "@/platform/v2/finance";
+import { useAgedBalance, useCollectionsTrend, useFinanceSummary, useProviderAccountsReport, useReceivablesByGroup, useReceivablesByLearner } from "@/platform/v2/finance";
 import { Can } from "@/platform/ui/AccessGate";
 import { downloadText, toCsv, type CsvCell } from "@/platform/ui/csv";
 import { DataTable } from "@/platform/ui/DataTable";
@@ -127,7 +127,7 @@ export function ReportsScreen() {
         </FormField>
       </form>
       <nav aria-label={t("anchors.label")} className="flex flex-wrap gap-3 text-sm">
-        {(["groups", "learners", "aged", "trend"] as const).map((k) => (
+        {(["groups", "learners", "aged", "trend", "accounts"] as const).map((k) => (
           <a key={k} href={`#rep-${k}`} className="text-primary underline-offset-4 hover:underline">
             {t(`anchors.${k}`)}
           </a>
@@ -140,6 +140,7 @@ export function ReportsScreen() {
       <LearnersReport query={query} />
       <AgedReport query={query} />
       <TrendReport />
+      <AccountsReport />
     </div>
   );
 }
@@ -254,6 +255,46 @@ function LearnersReport({ query }: { query: ReportQuery }) {
         onRetry={() => void list.refetch()}
         emptyTitle={t("empty")}
         pagination={{ page, pageSize: PAGE, total: list.data?.total ?? 0, onPageChange: setPage }}
+      />
+    </section>
+  );
+}
+
+/** Q-PAY-30 : paiements en ligne de l'établissement par fournisseur et par compte (propre / plateforme), jamais mêlés à d'autres écoles. */
+function AccountsReport() {
+  const t = useTranslations("v2Finance.reports.accounts");
+  const money = useMoney();
+  const report = useProviderAccountsReport();
+  const rows = report.data?.items ?? [];
+  return (
+    <section id="rep-accounts" aria-labelledby="rep-accounts-title" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="rep-accounts-title" className="text-lg font-semibold">
+          {t("title")}
+        </h2>
+        <ExportButton
+          filename="paiements-par-compte.csv"
+          header={[t("columns.provider"), t("columns.account"), t("columns.confirmed"), t("columns.pending"), t("columns.flagged"), t("columns.failed")]}
+          rows={rows.map((r) => [r.provider, t(`account.${r.account}`), r.confirmed.amount, r.pending.amount, r.flaggedCount, r.failedCount])}
+        />
+      </div>
+      <p className="text-sm text-muted-foreground">{t("description")}</p>
+      <DataTable
+        caption={t("caption")}
+        columns={[
+          { id: "provider", header: t("columns.provider"), rowHeader: true, cell: (r) => r.provider },
+          { id: "account", header: t("columns.account"), cell: (r) => t(`account.${r.account}`) },
+          { id: "confirmed", header: t("columns.confirmed"), align: "right", cell: (r) => <span className="font-medium tabular-nums">{money.of(r.confirmed)}</span> },
+          { id: "pending", header: t("columns.pending"), align: "right", cell: (r) => <span className="tabular-nums">{money.of(r.pending)}</span>, className: "hidden sm:table-cell" },
+          { id: "flagged", header: t("columns.flagged"), align: "right", cell: (r) => r.flaggedCount, className: "hidden md:table-cell" },
+          { id: "failed", header: t("columns.failed"), align: "right", cell: (r) => r.failedCount, className: "hidden md:table-cell" },
+        ]}
+        rows={rows}
+        getRowId={(r) => `${r.provider}:${r.account}`}
+        isLoading={report.isPending && report.fetchStatus !== "idle"}
+        error={report.error}
+        onRetry={() => void report.refetch()}
+        emptyTitle={t("empty")}
       />
     </section>
   );

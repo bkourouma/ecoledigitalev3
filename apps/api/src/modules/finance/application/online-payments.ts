@@ -25,7 +25,7 @@ import { FinanceEvents } from "../domain/events";
 import { idempotencyConflict, paymentFingerprint, validateIdempotencyKey } from "../domain/payment";
 import type { PaymentRecord, WebhookEventRecord } from "../domain/records";
 import type { Money } from "@ecoledigitale/kernel";
-import type { Uuid } from "../domain/types";
+import type { ProviderAccount, Uuid } from "../domain/types";
 import { getInvoice } from "../infrastructure/billing-repository";
 import {
   confirmPaymentRow,
@@ -211,9 +211,11 @@ export async function initiateOnlinePayment(
   const learner = await deps.learners.getLearner(ctx, input.learnerId);
   if (!learner) return err(notFound(FinanceCode.LEARNER_NOT_FOUND, "Apprenant", input.learnerId));
 
-  const resolved = await deps.providers.resolve(ctx.tenantId, input.provider);
+  // Q-PAY-30 : compte de l'établissement, sinon compte de la plateforme ; le compte retenu est enregistré sur le paiement.
+  const resolved = await deps.providers.resolveAccounted(ctx.tenantId, input.provider);
   if (!resolved.ok) return resolved;
-  const provider = resolved.value;
+  const provider = resolved.value.provider;
+  const providerAccount = resolved.value.account;
 
   const fingerprint = paymentFingerprint({
     learnerId: input.learnerId,
@@ -254,6 +256,7 @@ export async function initiateOnlinePayment(
       idempotencyKey: key.value,
       requestFingerprint: fingerprint,
       provider: input.provider,
+      providerAccount,
       providerRef: null,
       simulated: provider.simulated,
       reference: null,
@@ -372,7 +375,8 @@ export async function verifyPendingPayment(
   if (payment.status !== "PENDING" || !payment.provider) {
     return ok(await deps.db.run(ctx, (tx) => loadPaymentView(tx, payment.id, true), { readOnly: true }));
   }
-  const provider = await deps.providers.resolve(ctx.tenantId, payment.provider);
+  // Le paiement est interrogé sur le compte où il a été initié (jamais sur un autre compte ni une autre école).
+  const provider = await deps.providers.resolve(ctx.tenantId, payment.provider, { account: payment.providerAccount });
   if (!provider.ok) return provider;
   const verification = await provider.value.verify({ paymentId: payment.id, providerRef: payment.providerRef, amount: payment.amount });
   if (!verification.ok) return verification;
@@ -430,14 +434,28 @@ export interface WebhookResult {
  */
 export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebhookInput): Promise<Result<WebhookResult, AppError>> {
   const ctx = createSystemContext(input.tenantId, input.requestId);
-  const resolved = await deps.providers.resolve(input.tenantId, input.provider);
+  const resolved = await deps.providers.resolveAccounted(input.tenantId, input.provider);
   if (!resolved.ok) return resolved;
-  const provider: PaymentProvider = resolved.value;
+  let provider: PaymentProvider = resolved.value.provider;
+  let signedAccount = resolved.value.account;
 
   const meta = { tenantId: input.tenantId, ...(input.query ? { query: input.query } : {}) };
   if (!provider.verifySignature(input.rawBody, input.headers, meta)) {
-    deps.logger.warn({ tenantId: input.tenantId, provider: input.provider }, "webhook de paiement : signature invalide");
-    return err(new UnauthorizedError("Signature de webhook invalide.", { code: FinanceCode.WEBHOOK_SIGNATURE_INVALID }));
+    // Q-PAY-30 : une école qui a configuré son compte APRÈS avoir encaissé sur le compte de la plateforme reçoit encore des
+    // notifications signées par ce dernier. On essaie le compte plateforme, jamais celui d'une autre école.
+    let accepted = false;
+    if (signedAccount === "TENANT" && (await deps.providers.platformAccountReady(input.provider))) {
+      const platform = await deps.providers.resolveAccounted(input.tenantId, input.provider, { account: "PLATFORM" });
+      if (platform.ok && platform.value.provider.verifySignature(input.rawBody, input.headers, meta)) {
+        provider = platform.value.provider;
+        signedAccount = "PLATFORM";
+        accepted = true;
+      }
+    }
+    if (!accepted) {
+      deps.logger.warn({ tenantId: input.tenantId, provider: input.provider }, "webhook de paiement : signature invalide");
+      return err(new UnauthorizedError("Signature de webhook invalide.", { code: FinanceCode.WEBHOOK_SIGNATURE_INVALID }));
+    }
   }
   const parsed = await provider.handleWebhook(input.rawBody, input.headers, meta);
   if (!parsed.ok) return parsed;
@@ -445,7 +463,7 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
 
   // Indice sans signature de contenu : la PREUVE est l'API de statut du fournisseur (appel hors transaction).
   if (event.requiresActiveVerification) {
-    const refined = await refineWithActiveVerification(deps, ctx, provider, input.provider, event);
+    const refined = await refineWithActiveVerification(deps, ctx, provider, input.provider, event, signedAccount);
     if (!refined.ok) return refined;
     event = refined.value;
   }
@@ -482,6 +500,20 @@ export async function handleProviderWebhook(deps: FinanceDeps, input: HandleWebh
       await markWebhookProcessed(tx, record.id, { status: "IGNORED", paymentId: null, error: "payment_not_found", at: now });
       deps.logger.warn({ provider: input.provider, eventId: event.eventId }, "webhook de paiement : paiement introuvable");
       return ok({ status: "IGNORED" as const, replayed: false, paymentId: null, paymentStatus: null });
+    }
+
+    // Q-PAY-30 : un événement signé par un compte n'agit jamais sur un paiement encaissé sur un autre compte.
+    if (payment.providerAccount && payment.providerAccount !== signedAccount) {
+      await markWebhookProcessed(tx, record.id, { status: "FAILED", paymentId: payment.id, error: FinanceCode.WEBHOOK_ACCOUNT_MISMATCH, at: now });
+      events.audit({
+        action: "finance.webhook.rejected",
+        resourceType: "payment",
+        resourceId: payment.id,
+        after: { code: FinanceCode.WEBHOOK_ACCOUNT_MISMATCH, eventId: event.eventId, provider: input.provider, paymentAccount: payment.providerAccount, signedAccount },
+        sensitive: true,
+      });
+      await events.flush(tx);
+      return ok({ status: "FAILED" as const, replayed: false, paymentId: payment.id, paymentStatus: payment.status });
     }
 
     const applied = await applyProviderOutcome(deps, ctx, tx, events, payment, {
@@ -544,6 +576,7 @@ async function refineWithActiveVerification(
   provider: PaymentProvider,
   providerName: string,
   event: ProviderWebhookEvent,
+  signedAccount: ProviderAccount,
 ): Promise<Result<ProviderWebhookEvent, AppError>> {
   const payment = await deps.db.run(
     ctx,
@@ -555,7 +588,13 @@ async function refineWithActiveVerification(
           : null,
     { readOnly: true },
   );
-  if (!payment || (payment.provider && payment.provider !== providerName) || payment.status !== "PENDING") {
+  if (
+    !payment ||
+    (payment.provider && payment.provider !== providerName) ||
+    payment.status !== "PENDING" ||
+    // Compte différent : aucune interrogation ici, le traitement refusera l'événement (`webhook_account_mismatch`).
+    (payment.providerAccount && payment.providerAccount !== signedAccount)
+  ) {
     return ok({ ...event, requiresActiveVerification: false });
   }
   const verification = await provider.verify({ paymentId: payment.id, providerRef: payment.providerRef, amount: payment.amount });

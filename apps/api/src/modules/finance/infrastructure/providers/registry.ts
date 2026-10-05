@@ -20,6 +20,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { err, noopLogger, ok, type AppError, type Logger, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, conflict } from "../../domain/errors";
+import type { ProviderAccount } from "../../domain/types";
 import type { PaymentProvider } from "../../application/ports/payment-provider";
 import { SANDBOX_PROVIDER_NAME, SandboxProvider } from "./sandbox-provider";
 
@@ -30,8 +31,30 @@ export const isDevLikeEnvironment = (env: AppEnvironment): boolean => env === "d
 /** Paramètres d'un fournisseur pour un tenant (clés API, secrets, URLs). Jamais journalisés. */
 export type ProviderSettings = Readonly<Record<string, string | undefined>>;
 
+/**
+ * Compte fournisseur utilisé pour un paiement (Q-PAY-30) :
+ *   - `TENANT`   : le compte marchand PROPRE de l'établissement (`finance.provider_configs`, secrets scellés) ;
+ *   - `PLATFORM` : le compte marchand de la PLATEFORME (configuration d'environnement, partagée), utilisé seulement
+ *                  quand l'établissement n'a aucune configuration propre pour ce fournisseur.
+ * Le compte est ENREGISTRÉ sur le paiement à l'initiation : la vérification, le webhook, le rapprochement et le
+ * remboursement interrogent TOUJOURS ce compte-là, même si l'établissement configure le sien ensuite.
+ */
+export type { ProviderAccount };
+
+export interface AccountedSettings {
+  readonly account: ProviderAccount;
+  readonly settings: ProviderSettings;
+}
+
 export interface ProviderConfigSource {
   get(tenantId: string, provider: string): Promise<ProviderSettings | null>;
+  /**
+   * Même lecture, avec le compte d'origine. `wanted` fige le compte (paiement déjà initié) ; sans lui : compte propre
+   * s'il existe, sinon repli sur le compte plateforme (si autorisé). Source sans cette méthode : tout est `TENANT`.
+   */
+  getAccount?(tenantId: string, provider: string, wanted?: ProviderAccount): Promise<AccountedSettings | null>;
+  /** Réglages du compte PLATEFORME de ce fournisseur (indépendants de tout établissement), ou `null`. */
+  platformSettings?(provider: string): Promise<ProviderSettings | null>;
 }
 
 /** Configuration statique en mémoire (tests, développement). */
@@ -128,14 +151,51 @@ export class ProviderRegistry {
     return this.environment;
   }
 
-  /** Fournisseur prêt à l'emploi pour ce tenant, ou refus explicite. */
-  async resolve(tenantId: string, name: string): Promise<Result<PaymentProvider, AppError>> {
+  /**
+   * Fournisseur prêt à l'emploi pour ce tenant, ou refus explicite. `options.account` fige le compte (paiement déjà
+   * initié sur ce compte) ; sans lui : compte de l'établissement, sinon compte plateforme (Q-PAY-30).
+   */
+  async resolve(tenantId: string, name: string, options: { account?: ProviderAccount | null } = {}): Promise<Result<PaymentProvider, AppError>> {
+    const r = await this.resolveAccounted(tenantId, name, options);
+    return r.ok ? ok(r.value.provider) : r;
+  }
+
+  /** Comme `resolve`, avec le compte réellement utilisé (à enregistrer sur le paiement à l'initiation). */
+  async resolveAccounted(
+    tenantId: string,
+    name: string,
+    options: { account?: ProviderAccount | null } = {},
+  ): Promise<Result<{ provider: PaymentProvider; account: ProviderAccount }, AppError>> {
     const def = this.definitions.get(name);
     if (!def) {
       return err(conflict(FinanceCode.PROVIDER_UNKNOWN, `Fournisseur de paiement inconnu : "${name}".`, { provider: name }));
     }
-    const settings = (await this.configSource.get(tenantId, name)) ?? {};
-    return this.resolveWith(tenantId, name, settings);
+    const wanted = options.account ?? undefined;
+    let account: ProviderAccount = wanted ?? "TENANT";
+    let settings: ProviderSettings = {};
+    if (this.configSource.getAccount) {
+      const found = await this.configSource.getAccount(tenantId, name, wanted);
+      if (found) {
+        account = found.account;
+        settings = found.settings;
+      }
+    } else {
+      settings = (await this.configSource.get(tenantId, name)) ?? {};
+    }
+    const resolved = await this.resolveWith(tenantId, name, settings);
+    return resolved.ok ? ok({ provider: resolved.value, account }) : resolved;
+  }
+
+  /**
+   * Le compte PLATEFORME de ce fournisseur est-il complet, donc utilisable par un établissement qui n'a pas le sien ?
+   * (écran d'administration). Aucun secret n'est exposé.
+   */
+  async platformAccountReady(name: string): Promise<boolean> {
+    const def = this.definitions.get(name);
+    if (!def || def.sandbox || !this.configSource.platformSettings) return false;
+    const settings = await this.configSource.platformSettings(name);
+    if (!settings || settings.enabled === "false") return false;
+    return def.requiredSettings.every((k) => settings[k] !== undefined && String(settings[k]).trim() !== "");
   }
 
   /**

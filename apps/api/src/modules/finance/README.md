@@ -48,6 +48,7 @@ la ligne d'un autre tenant, même en connaissant son UUID.
 | `payments`, `payment_allocations`, `allocation_reversals`, `receipts`, `refunds`, `credit_notes` | encaissements ; les trois premiers et les reçus / avoirs sont **append-only** |
 | `cash_registers`, `cash_sessions` | caisses |
 | `webhook_events` | journal idempotent, clé unique `(tenant_id, provider, event_id)` |
+| `provider_configs` | compte fournisseur PROPRE de l'établissement (secrets scellés) ; `payments.provider_account` (`TENANT` / `PLATFORM`, migration 0509) garde le compte utilisé par chaque paiement en ligne |
 | `number_sequences` | compteurs de numérotation par `(tenant, type de document, année)` |
 
 Montants : `bigint` (unités mineures, XOF = franc) + code devise ; **aucun flottant**. `pg` renvoie les
@@ -116,7 +117,7 @@ ceux attendus ; sinon l'événement est enregistré `FAILED` et le paiement rest
 Un succès tardif d'un paiement échoué est signalé de la même façon, jamais encaissé.
 
 Configuration par tenant : port `ProviderConfigSource` (`StaticProviderConfigSource`, `EnvProviderConfigSource`
-`FINANCE_PROVIDER_<NOM>_<CLÉ>`) ; clés en minuscules.
+`FINANCE_PROVIDER_<NOM>_<CLÉ>`) ; clés en minuscules. Voir « Compte fournisseur par école et repli plateforme » pour l'ordre de résolution.
 
 ## Ports et dépendances
 
@@ -173,12 +174,12 @@ Contexte : `request.ctx` posé en amont (iam / authentification historique). Per
 | `POST /invoices`, `POST /invoices/from-schedule`, `POST /invoices/:id/issue`, `POST /invoices/:id/installments` | `finance.invoice.create` |
 | `POST /invoices/:id/cancel`, `POST /invoices/:id/credit-notes` | `finance.invoice.cancel` |
 | `GET /payments`, `GET /payments/:id`, `GET /payments/pending`, `GET /refunds`, `GET /refunds/:id`, `GET /resolutions` | `finance.payment.read` |
-| `POST /resolutions`, `POST /resolutions/:id/approve\|reject` | `finance.payment.reconcile` (**sensible** : MFA, quatre yeux) |
+| `POST /resolutions` (résout en une fois), `POST /resolutions/:id/approve\|reject` (clôture d'anciennes demandes) | `finance.payment.reconcile` (**sensible** : MFA **récente**, une seule personne) |
 | `POST /payments`, `POST /payments/online` *(feature `finance.online-payment`)*, `POST /payments/:id/verify`, `POST /payments/:id/allocations` | `finance.payment.create` |
 | `POST /payments/:id/refunds`, `POST /refunds/:id/approve\|complete\|reject` | `finance.payment.refund` (**sensible** : MFA) |
 | `GET /cash-registers`, `POST /cash-registers/:id/sessions`, `GET /cash-sessions[/mine\|/:id]` | `finance.cashregister.open` |
 | `POST /cash-sessions/:id/close` | `finance.cashregister.close` |
-| `GET /reports/summary\|receivables-by-group\|receivables-by-learner\|collections-trend\|aged-balance` | `finance.report.read` |
+| `GET /reports/summary\|receivables-by-group\|receivables-by-learner\|collections-trend\|aged-balance\|provider-accounts` | `finance.report.read` |
 | `GET /receipts`, `GET /receipts/:id`, `GET /payments/:id/receipt` | `finance.receipt.read` |
 | `GET /exports/invoices\|payments\|receivables` (CSV complet) et `…/meta` (JSON) | `finance.invoice.read` / `finance.payment.read` / `finance.report.read` |
 | `GET /me/learners`, `GET /me/learners/:learnerId/statement\|invoices[/:id]\|installments\|payments[/:id]\|receipts[/:id]` | `finance.child.read` (parent) ou `finance.self.read` (élève) + **propriété** relue côté serveur |
@@ -315,8 +316,8 @@ Table `finance.provider_configs` (migration 0505, RLS) : réglages non secrets e
 (`SecretStorePort` → `AesGcmSecretStore`, trousseau `FINANCE_SECRETS_KEYS`, AAD `tenant|fournisseur|champ`, rotation par
 `POST /providers/rotate-secrets`) ; la base refuse une valeur non scellée (`finance.secrets_are_sealed`). Sans clé maître le coffre est
 indisponible : saisie refusée (`finance.secrets_unavailable`). `TenantProviderConfigSource` ouvre les secrets à l'usage (cache 15 s,
-ouverture auditée `finance.provider_secret.accessed`) ; `CompositeConfigSource` ne retombe sur l'environnement que si
-`FINANCE_PROVIDER_ENV_FALLBACK=true` (jamais par défaut en production).
+ouverture auditée `finance.provider_secret.accessed`) ; `CompositeConfigSource` retombe sur le compte de la PLATEFORME (environnement) pour un établissement SANS configuration propre, sauf
+`FINANCE_PROVIDER_ENV_FALLBACK=false` (Q-PAY-30 : voir la section suivante).
 
 | Route (`/api/v1/finance`) | Rôle |
 |---|---|
@@ -329,6 +330,37 @@ ouverture auditée `finance.provider_secret.accessed`) ; `CompositeConfigSource`
 
 Toutes : permission `finance.provider.manage` (**sensible**, MFA) ; chaque écriture est auditée (noms de champs, jamais de valeur).
 Écran : `apps/web/src/app/v2/finance/providers`.
+
+### Compte fournisseur par école et repli plateforme (Q-PAY-30, migration 0509)
+
+Décision du 2026-10-05 : **chaque école configure SON compte fournisseur** (`finance.provider_configs`, secrets scellés AES-256-GCM, écran
+`/v2/finance/providers`) ; une école qui n'en a pas **retombe sur le compte de la plateforme** (configuration d'environnement
+`FINANCE_PROVIDER_<NOM>_<CLÉ>`, jamais de secret dans le dépôt ni dans les journaux).
+
+| Situation de l'école pour un fournisseur | Compte utilisé (`payments.provider_account`) |
+|---|---|
+| Configuration propre existante et activée | `TENANT` |
+| Aucune configuration propre, compte plateforme complet | `PLATFORM` |
+| Configuration propre **désactivée** | aucun : `finance.provider_disabled` (pas de repli : l'école a choisi de ne pas proposer ce fournisseur) |
+| Aucune configuration propre, plateforme absente ou incomplète, ou `FINANCE_PROVIDER_ENV_FALLBACK=false` | refus `finance.provider_not_configured` |
+
+* **Le compte est enregistré à l'initiation et figé** (déclencheur `payments_account_guard`, superutilisateur compris). La vérification, le
+  webhook, le rapprochement planifié et le remboursement interrogent TOUJOURS ce compte-là (`ProviderRegistry.resolve(tenant, fournisseur, { account })`),
+  même si l'école enregistre ensuite le sien. Paiements antérieurs à 0509 : `provider_account` nul, résolution par défaut (comportement d'avant).
+* **Séparation par école** : tout se fait sous la RLS du tenant. Le rapprochement (`reconcileTenant`) ne lit que les paiements de l'école ;
+  l'instance du fournisseur est créée **par école** même quand la clé de compte est partagée ; une vérification depuis une autre école échoue
+  (`finance.payment_not_found`). Sur le compte plateforme partagé, c'est `tenant_id` (URL du webhook `/webhooks/:fournisseur/:tenantId`, référence
+  du paiement) qui rattache l'argent à une école.
+* **Webhooks** : le compte de l'école est essayé d'abord ; en cas de signature invalide, le compte plateforme l'est aussi (paiements initiés avant que l'école ne
+  configure le sien). Un événement signé par un compte ne s'applique jamais à un paiement encaissé sur l'autre (`finance.webhook_account_mismatch`,
+  événement `FAILED`, audit sensible, paiement inchangé).
+* **Rapport par compte** : `GET /reports/provider-accounts` (`finance.report.read`) — paiements en ligne de l'école, par fournisseur et par compte
+  (encaissé, en attente, à rapprocher, échoués) ; écran `/v2/finance/reports`. Jamais de total « plateforme » mêlant plusieurs écoles.
+* `GET /providers` expose `activeAccount` (`TENANT` / `PLATFORM` / `null`) et `platformFallbackReady` (le compte plateforme est complet), jamais une valeur secrète.
+
+**Limites assumées (non modélisées, à trancher avec le juridique et la comptabilité avant la mise en production)** : sur le compte plateforme, les fonds
+de plusieurs écoles sont mélangés chez le fournisseur ; la **répartition / le reversement** vers chaque école, les frais d'agrégation (Q-PAY-34) et la
+responsabilité juridique ne sont PAS implémentés — le module ne trace que le rattachement par école et le rapprochement. Aucune règle de partage n'est inventée.
 
 ## Rapprochement et remboursement réel (spec 015, migration 0506)
 
@@ -386,12 +418,23 @@ rejeu, approbations concurrentes, réponse perdue, plantage entre Tx1 et Tx2 son
 `finance.refund_manual_not_allowed`) quand le fournisseur sait rembourser ; sans preuve : 409 `finance.refund_manual_required` (l'approbation seule laisse
 le remboursement `APPROVED`). Audit sensible `finance.refund.completed_manually`, `execution_mode = MANUAL`.
 
-### Résolution manuelle à quatre yeux (`finance.payment.reconcile`, sensible)
+### Résolution manuelle par UNE personne, MFA récente (Q-PAY-38, `finance.payment.reconcile`, sensible)
 
-`GET /payments/pending` (liste, `finance.payment.read`) · `POST /resolutions` (demande : sujet, `outcome`, motif ≥ 10 caractères, **preuve**) ·
-`POST /resolutions/:id/approve|reject` (une AUTRE personne ; auto-approbation 409 sauf `manualResolutionSelfApproval`) · `GET /resolutions`. Seule
-l'approbation écrit, par les mêmes chemins que le fournisseur (paiement : `applyProviderOutcome` ; remboursement : `applyRefundOutcomeInTx`). Écran :
-`/v2/finance/payments/pending`.
+Décision du 2026-10-05 : **une seule personne habilitée** tranche un paiement ou un remboursement bloqué (plus de second approbateur). Garde-fous :
+
+* **MFA récente (step-up)** : en plus de la MFA de la permission sensible, la session doit avoir une élévation ENCORE ouverte
+  (`iam.sessions.mfa_elevated_until`, exposée au module par `RequestContext.mfaElevatedUntil`). Une MFA faite à la connexion, il y a des heures, ne suffit pas :
+  403 `finance.mfa_required` (le web ouvre alors la confirmation par code TOTP, puis rejoue la requête une fois). Rien n'est écrit sans elle.
+* **Motif** (10 à 500 caractères) et **preuve** (référence du relevé opérateur, 3 à 120 caractères) obligatoires.
+* **Audit renforcé**, dans la même transaction (un échec d'audit annule la résolution) : `finance.resolution.resolved`, sensible, état `before` / `after` du
+  paiement ou remboursement, `metadata` = acteur, motif, preuve, `mode: SINGLE_ACTOR`, fenêtre MFA. L'application passe par les MÊMES chemins que le
+  fournisseur (paiement : `applyProviderOutcome` ; remboursement : `applyRefundOutcomeInTx`) : reçu, imputations, événements et écritures inverses identiques.
+* **Permission** : `finance.payment.reconcile` reste sensible et **n'est portée que par la direction** (via `finance.*`) ; aucun nouveau rôle, l'économe n'est pas habilité
+  (moindre privilège). Le libellé de la permission et la justification de rôle disent « une seule personne, MFA récente ».
+
+`GET /payments/pending` (liste, `finance.payment.read`) · `POST /resolutions` (sujet, `outcome`, motif, **preuve** : **demande ET applique**, 201, résolution déjà `APPROVED`,
+décideur = demandeur) · `GET /resolutions`. `POST /resolutions/:id/approve|reject` ne servent plus qu'à **clore les demandes ouvertes avant cette décision** (même MFA
+récente exigée, plus de refus d'auto-approbation ; `manualResolutionSelfApproval` est supprimé). Écran : `/v2/finance/payments/pending`.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -406,7 +449,7 @@ l'approbation écrit, par les mêmes chemins que le fournisseur (paiement : `app
 1. Annuaires : un adaptateur appelant l'API publique du module `academic` pour `LearnerDirectory` / `EnrollmentDirectory`.
 2. Abonné d'alerte : consommer `finance.payment.reconciliation_needed` / `finance.refund.reconciliation_needed` (notifications, observabilité) ; en attendant,
    journal d'erreur `alert: true`.
-3. Attribuer `finance.payment.reconcile` au rôle économe (`rbac/templates/system-roles.ts`) si le propriétaire le décide (spec 015, Q-PAY-38) ; entrée de menu
+3. `finance.payment.reconcile` reste réservée à la direction (Q-PAY-38 : une seule personne habilitée, pas l'économe) ; entrée de menu
    `/admin/finance/paiements-a-rapprocher` -> `/v2/finance/payments/pending` (`platform/admin/menu.ts`).
 
 ## Décisions et limites connues

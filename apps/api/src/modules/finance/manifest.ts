@@ -42,7 +42,7 @@ export default defineModule({
       key: "finance.payment.reconcile",
       label: "Rapprocher les paiements en attente : résoudre à la main un paiement ou un remboursement que le fournisseur n'a pas pu confirmer",
       description:
-        "Déclare qu'un paiement est arrivé ou non (avec preuve) : crée ou annule un encaissement. Quatre yeux (une autre personne approuve), authentification forte, toujours audité.",
+        "Déclare qu'un paiement est arrivé ou non (avec preuve) : crée ou annule un encaissement. Une seule personne habilitée tranche (Q-PAY-38), avec motif et preuve obligatoires, une MFA RÉCENTE (step-up) exigée, et un audit renforcé (avant/après, acteur, motif).",
       sensitive: true,
     },
     {

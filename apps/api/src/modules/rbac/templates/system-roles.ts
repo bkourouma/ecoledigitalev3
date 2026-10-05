@@ -130,7 +130,7 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "grade.*": "Valider, publier et corriger après publication les notes : responsabilité de direction (garde-fou final).",
       "attendance.*": "Rouvrir un appel validé, surcharger un récapitulatif, décider des congés du personnel.",
       "audit.*": "Exporter le journal d'audit : contrôle de direction.",
-      "finance.*": "Rembourser (quatre yeux à l'exécution), rapprocher les paiements et rejouer un webhook de paiement en échec (re-vérification auprès du fournisseur, audité, MFA) : la direction supervise la caisse.",
+      "finance.*": "Rembourser (quatre yeux à l'exécution), rapprocher les paiements (résolution manuelle par une seule personne, MFA récente exigée : Q-PAY-38) et rejouer un webhook de paiement en échec (re-vérification auprès du fournisseur, audité, MFA) : la direction supervise la caisse.",
       "rules.*": "Choisir et faire évoluer les règles de calcul de l'établissement (la console nationale reste à la plateforme).",
       "higher.*": "Octroyer, forcer et révoquer les diplômes, émettre les documents officiels, affecter les signataires, accorder ou révoquer une dispense d'UE (O-14) et déclarer une UE annuelle (O-11).",
       "iam.*": "Réinitialiser la double authentification d'un membre : gestion des accès par la direction.",

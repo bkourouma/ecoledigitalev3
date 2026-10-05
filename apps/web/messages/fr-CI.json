@@ -3600,7 +3600,8 @@
         "groups": "Créances par classe",
         "learners": "Créances par apprenant",
         "aged": "Balance âgée",
-        "trend": "Évolution"
+        "trend": "Évolution",
+        "accounts": "Comptes fournisseurs"
       },
       "summary": {
         "title": "Synthèse",
@@ -3646,6 +3647,25 @@
           "overdue": "En retard",
           "rate": "Taux",
           "oldest": "Plus ancien retard"
+        }
+      },
+      "accounts": {
+        "title": "Paiements en ligne par compte fournisseur",
+        "description": "Les paiements en ligne de votre établissement, par fournisseur et selon le compte qui a reçu l'argent. Ces chiffres ne concernent que votre établissement, même quand le compte de la plateforme est partagé.",
+        "caption": "Paiements en ligne par fournisseur et par compte",
+        "empty": "Aucun paiement en ligne",
+        "account": {
+          "TENANT": "Compte de l'établissement",
+          "PLATFORM": "Compte de la plateforme",
+          "UNKNOWN": "Compte non tracé (paiement ancien)"
+        },
+        "columns": {
+          "provider": "Fournisseur",
+          "account": "Compte",
+          "confirmed": "Encaissé",
+          "pending": "En attente",
+          "flagged": "À rapprocher",
+          "failed": "Échoués"
         }
       },
       "aged": {
@@ -10891,6 +10911,12 @@
       "active": "Actif",
       "incomplete": "Configuration incomplète"
     },
+    "account": {
+      "TENANT": "Les paiements arrivent sur le compte de votre établissement.",
+      "PLATFORM": "Pas de compte propre : les paiements arrivent sur le compte de la plateforme. Chaque paiement reste rattaché à votre établissement.",
+      "none": "Aucun compte disponible pour ce fournisseur : les paiements en ligne sont impossibles.",
+      "frozen": "Un paiement déjà lancé reste suivi sur le compte où il a été initié, même si vous enregistrez ensuite votre compte."
+    },
     "mode": {
       "label": "Mode",
       "placeholder": "Choisir un mode",
@@ -12983,7 +13009,7 @@
   "v2FinancePending": {
     "title": "Paiements à rapprocher",
     "description": "Paiements en ligne restés en attente (notification perdue, session abandonnée). Le rapprochement automatique interroge le fournisseur ; ce qu'il ne peut pas conclure est signalé ici.",
-    "fourEyes": "Règle des quatre yeux : une personne demande la résolution manuelle (avec motif et preuve), une autre personne l'approuve. Seule l'approbation modifie le paiement.",
+    "singleActor": "Une seule personne habilitée tranche. Chaque résolution exige une vérification MFA récente, un motif et une preuve ; elle s'applique aussitôt et est journalisée (état avant et après, auteur, motif).",
     "caption": "Paiements en ligne en attente",
     "columns": {
       "received": "Reçu le",
@@ -13028,7 +13054,7 @@
     },
     "resolve": {
       "title": "Résoudre un paiement à la main",
-      "description": "Paiement en attente de {amount}. Votre demande doit être approuvée par une autre personne avant de produire un effet.",
+      "description": "Paiement en attente de {amount}. La résolution s'applique tout de suite : elle est journalisée avec votre identité, le motif et la preuve, et une vérification MFA récente est exigée.",
       "outcome": "Ce qui s'est réellement passé",
       "outcomes": {
         "SUCCEEDED": "L'argent est arrivé : confirmer le paiement (reçu et imputation)",
@@ -13038,17 +13064,17 @@
       "reasonHint": "Expliquez la situation (10 caractères au moins).",
       "evidence": "Preuve",
       "evidenceHint": "Référence de transaction du relevé du fournisseur, numéro de pièce… (3 à 120 caractères).",
-      "warning": "Cette action est sensible : elle est journalisée avec votre identité, le motif et la preuve.",
-      "submit": "Demander la résolution",
-      "requested": "La demande est enregistrée : elle attend l'approbation d'une autre personne.",
+      "warning": "Cette action est sensible : elle crée ou annule un encaissement. Si votre dernière vérification MFA est ancienne, un code vous sera demandé.",
+      "submit": "Résoudre le paiement",
+      "requested": "La résolution est enregistrée et appliquée.",
       "errors": {
         "reason": "Le motif doit faire au moins 10 caractères.",
         "evidence": "Saisissez la preuve (3 caractères au moins)."
       }
     },
     "requests": {
-      "title": "Demandes à approuver",
-      "description": "Résolutions manuelles en attente. Vous ne pouvez pas approuver votre propre demande.",
+      "title": "Demandes ouvertes (ancien circuit)",
+      "description": "Demandes ouvertes avant la règle de résolution par une seule personne : vous pouvez les clore (MFA récente exigée).",
       "caption": "Demandes de résolution manuelle",
       "empty": "Aucune demande en attente",
       "payment": "Paiement {id}",

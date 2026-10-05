@@ -1,6 +1,6 @@
 /**
  * Routes du rapprochement : `GET /payments/pending`, `GET|POST /resolutions…`, repli manuel des remboursements.
- * Matrice de permissions (lecture / résolution sensible), quatre yeux de bout en bout par HTTP, validation stricte des
+ * Matrice de permissions (lecture / résolution sensible), résolution par une seule personne avec MFA récente (Q-PAY-38) par HTTP, validation stricte des
  * corps, forme des réponses (contrats Zod), isolation entre tenants. Fastify + Postgres réel, fournisseur factice.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import {
 import manifest from "../../manifest";
 import { createFinanceDeps } from "../../application/deps";
 import { initiateOnlinePayment, verifyPendingPayment } from "../../application/online-payments";
+import { requestManualResolution } from "../../application/manual-resolution";
 import { requestRefund } from "../../application/refunds";
 import { financePlugin } from "../../http/plugin";
 import { createProviderRegistry, StaticProviderConfigSource } from "../../infrastructure/providers/registry";
@@ -26,7 +27,7 @@ const ALL = manifest.permissions.map((p) => p.key);
 const READ = ["finance.payment.read"];
 const RECONCILE = ["finance.payment.read", "finance.payment.reconcile"];
 
-describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contrats)", () => {
+describeIntegration("API HTTP du rapprochement (permissions, MFA récente, contrats)", () => {
   let db: FinanceTestDb;
   let world: TestWorld;
   let app: FastifyInstance;
@@ -51,7 +52,14 @@ describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contra
       const tenant = req.headers["x-test-tenant"];
       const user = req.headers["x-test-user"];
       if (typeof tenant === "string") {
-        (req as unknown as { ctx: unknown }).ctx = createRequestContext({ tenantId: tenant, userId: typeof user === "string" && user !== "" ? user : newId(), roles: [] });
+        // `x-test-stepup: 1` : la session vient de refaire sa MFA (fenêtre de step-up ouverte) ; `login` : MFA de connexion seulement.
+        const stepUp = req.headers["x-test-stepup"];
+        (req as unknown as { ctx: unknown }).ctx = createRequestContext({
+          tenantId: tenant,
+          userId: typeof user === "string" && user !== "" ? user : newId(),
+          roles: [],
+          ...(stepUp === "1" ? { mfa: true, mfaElevatedUntil: new Date("2099-01-01T00:00:00.000Z") } : stepUp === "login" ? { mfa: true } : {}),
+        });
       }
     });
     await app.register(financePlugin, {
@@ -68,8 +76,10 @@ describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contra
     await db.drop();
   });
 
-  async function call(method: "GET" | "POST", url: string, o: { tenant?: string | "none"; user?: string; perms?: string[]; body?: unknown; query?: Record<string, string> } = {}) {
+  async function call(method: "GET" | "POST", url: string, o: { tenant?: string | "none"; user?: string; perms?: string[]; body?: unknown; query?: Record<string, string>; stepUp?: "1" | "login" | "none" } = {}) {
     const headers: Record<string, string> = { "x-test-perms": (o.perms ?? ALL).join(",") };
+    // Par défaut la personne a une MFA récente : les cas sans step-up le demandent explicitement.
+    headers["x-test-stepup"] = o.stepUp ?? "1";
     if (o.tenant !== "none") headers["x-test-tenant"] = o.tenant ?? tenantA;
     headers["x-test-user"] = o.user ?? alice;
     const payload = o.body === undefined ? undefined : JSON.stringify(o.body);
@@ -124,7 +134,7 @@ describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contra
     });
   });
 
-  describe("résolution manuelle : matrice de permissions et quatre yeux", () => {
+  describe("résolution manuelle : matrice de permissions, MFA récente, une seule personne", () => {
     it("lecture seule : peut LISTER, ne peut ni demander ni approuver ni refuser (403)", async () => {
       const p = await pendingPayment(tenantA);
       const body = { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé opérateur du jour : encaissé", evidenceRef: "REL-0901-1" };
@@ -153,34 +163,21 @@ describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contra
       }
     });
 
-    it("de bout en bout : demande (alice) -> auto-approbation 409 -> approbation (bob) -> paiement CONFIRMÉ ; rejeu 409 ; liste filtrée", async () => {
+    it("Q-PAY-38 de bout en bout : UNE personne résout (201, déjà APPROUVÉE) -> paiement CONFIRMÉ ; rejeu 409 ; liste filtrée", async () => {
       const p = await pendingPayment(tenantA);
       const created = await call("POST", "/resolutions", { perms: RECONCILE, user: alice, body: { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé opérateur du jour : encaissé", evidenceRef: "REL-0901-3" } });
       expect(created.status).toBe(201);
       const res = financeResolutionDtoSchema.parse(created.json);
-      expect(res).toMatchObject({ status: "REQUESTED", paymentId: p.id, refundId: null, requestedBy: alice, decidedBy: null });
-
-      // Une seule demande ouverte par sujet.
-      const dup = await call("POST", "/resolutions", { perms: RECONCILE, user: bob, body: { paymentId: p.id, outcome: "FAILED", reason: "Demande concurrente sur le même sujet", evidenceRef: "REL-X" } });
-      expect(dup.status).toBe(409);
-      expect(dup.json.code).toBe("finance.resolution_already_open");
-
-      const listed = await call("GET", "/payments/pending", { perms: READ });
-      expect(listed.json.items.find((i: { payment: { id: string } }) => i.payment.id === p.id).openResolutionId).toBe(res.id);
-
-      const self = await call("POST", `/resolutions/${res.id}/approve`, { perms: RECONCILE, user: alice, body: {} });
-      expect(self.status).toBe(409);
-      expect(self.json.code).toBe("finance.resolution_self_approval");
-      expect((await adminRows<{ status: string }>(db, "SELECT status FROM finance.payments WHERE id = $1", [p.id]))[0]!.status).toBe("PENDING");
-
-      const other = await call("POST", `/resolutions/${res.id}/approve`, { perms: RECONCILE, user: bob, tenant: tenantB, body: {} });
-      expect(other.status).toBe(404); // autre tenant : introuvable
-      const approved = await call("POST", `/resolutions/${res.id}/approve`, { perms: RECONCILE, user: bob, body: { note: "Vérifié" } });
-      expect(approved.status).toBe(200);
-      expect(financeResolutionDtoSchema.parse(approved.json)).toMatchObject({ status: "APPROVED", decidedBy: bob, decisionNote: "Vérifié" });
+      expect(res).toMatchObject({ status: "APPROVED", paymentId: p.id, refundId: null, requestedBy: alice, decidedBy: alice });
       expect((await adminRows<{ status: string }>(db, "SELECT status FROM finance.payments WHERE id = $1", [p.id]))[0]!.status).toBe("CONFIRMED");
-      expect((await call("POST", `/resolutions/${res.id}/approve`, { perms: RECONCILE, user: bob, body: {} })).status).toBe(409);
-      expect((await call("POST", `/resolutions/${res.id}/reject`, { perms: RECONCILE, user: bob, body: {} })).status).toBe(409);
+
+      // Plus rien à trancher : une seconde résolution (même par une autre personne) est refusée ; une autre école ne voit rien.
+      const again = await call("POST", "/resolutions", { perms: RECONCILE, user: bob, body: { paymentId: p.id, outcome: "FAILED", reason: "Demande concurrente sur le même sujet", evidenceRef: "REL-X" } });
+      expect(again.status).toBe(409);
+      expect(again.json.code).toBe("finance.resolution_not_applicable");
+      const other = await call("POST", "/resolutions", { perms: RECONCILE, user: bob, tenant: tenantB, body: { paymentId: p.id, outcome: "FAILED", reason: "Tentative depuis une autre école", evidenceRef: "REL-Y" } });
+      expect(other.status).toBe(404);
+      expect((await call("GET", "/resolutions", { perms: READ, tenant: tenantB, query: { paymentId: p.id } })).json.items).toEqual([]);
 
       const approvedList = await call("GET", "/resolutions", { perms: READ, query: { status: "APPROVED", paymentId: p.id } });
       expect(approvedList.status).toBe(200);
@@ -190,14 +187,43 @@ describeIntegration("API HTTP du rapprochement (permissions, quatre yeux, contra
       expect(after.json.items.some((i: { payment: { id: string } }) => i.payment.id === p.id)).toBe(false);
     });
 
-    it("refus : la demande est close sans effet ; une nouvelle demande est possible", async () => {
+    it("Q-PAY-38 : sans MFA récente 403 `finance.mfa_required` (MFA de connexion seule comprise) et rien n'est écrit ; avec, 201", async () => {
       const p = await pendingPayment(tenantA);
-      const created = await call("POST", "/resolutions", { perms: RECONCILE, user: alice, body: { paymentId: p.id, outcome: "FAILED", reason: "Le client conteste le débit initial", evidenceRef: "APPEL-77" } });
-      const rejected = await call("POST", `/resolutions/${created.json.id}/reject`, { perms: RECONCILE, user: bob, body: { note: "Preuve insuffisante" } });
-      expect(rejected.status).toBe(200);
-      expect(rejected.json).toMatchObject({ status: "REJECTED", decidedBy: bob });
+      const body = { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé opérateur du jour : encaissé", evidenceRef: "REL-0901-9" };
+      for (const stepUp of ["none", "login"] as const) {
+        const r = await call("POST", "/resolutions", { perms: RECONCILE, user: alice, stepUp, body });
+        expect(r.status, stepUp).toBe(403);
+        expect(r.json.code, stepUp).toBe("finance.mfa_required");
+      }
       expect((await adminRows<{ status: string }>(db, "SELECT status FROM finance.payments WHERE id = $1", [p.id]))[0]!.status).toBe("PENDING");
-      const again = await call("POST", "/resolutions", { perms: RECONCILE, user: alice, body: { paymentId: p.id, outcome: "FAILED", reason: "Relevé : aucune transaction trouvée", evidenceRef: "REL-APRES" } });
+      expect((await adminRows(db, "SELECT 1 FROM finance.manual_resolutions WHERE payment_id = $1", [p.id]))).toHaveLength(0);
+      expect((await call("POST", "/resolutions", { perms: RECONCILE, user: alice, body })).status).toBe(201);
+    });
+
+    it("clôture des demandes ouvertes avant Q-PAY-38 : la même personne peut approuver ou refuser, avec MFA récente seulement", async () => {
+      const p1 = await pendingPayment(tenantA);
+      const p2 = await pendingPayment(tenantA);
+      // Une demande « à l'ancienne » (ouverte sans être appliquée) est créée au niveau du cas d'usage.
+      const ctx = createRequestContext({ tenantId: tenantA, userId: alice, roles: [], mfa: true, mfaElevatedUntil: new Date("2099-01-01T00:00:00.000Z") });
+      const r1 = unwrap(await requestManualResolution(world.deps, ctx, { paymentId: p1.id, outcome: "SUCCEEDED", reason: "Relevé opérateur du jour : encaissé", evidenceRef: "REL-OLD-1" }));
+      const r2 = unwrap(await requestManualResolution(world.deps, ctx, { paymentId: p2.id, outcome: "FAILED", reason: "Le client conteste le débit initial", evidenceRef: "REL-OLD-2" }));
+      const listed = await call("GET", "/payments/pending", { perms: READ });
+      expect(listed.json.items.find((i: { payment: { id: string } }) => i.payment.id === p1.id).openResolutionId).toBe(r1.id);
+
+      expect((await call("POST", `/resolutions/${r1.id}/approve`, { perms: RECONCILE, user: alice, stepUp: "login", body: {} })).status).toBe(403);
+      const approved = await call("POST", `/resolutions/${r1.id}/approve`, { perms: RECONCILE, user: alice, body: { note: "Vérifié" } });
+      expect(approved.status).toBe(200);
+      expect(financeResolutionDtoSchema.parse(approved.json)).toMatchObject({ status: "APPROVED", requestedBy: alice, decidedBy: alice, decisionNote: "Vérifié" });
+      expect((await adminRows<{ status: string }>(db, "SELECT status FROM finance.payments WHERE id = $1", [p1.id]))[0]!.status).toBe("CONFIRMED");
+      expect((await call("POST", `/resolutions/${r1.id}/approve`, { perms: RECONCILE, user: alice, body: {} })).status).toBe(409);
+      expect((await call("POST", `/resolutions/${r1.id}/reject`, { perms: RECONCILE, user: alice, body: {} })).status).toBe(409);
+
+      expect((await call("POST", `/resolutions/${r2.id}/approve`, { perms: RECONCILE, user: bob, tenant: tenantB, body: {} })).status).toBe(404); // autre école
+      const rejected = await call("POST", `/resolutions/${r2.id}/reject`, { perms: RECONCILE, user: alice, body: { note: "Preuve insuffisante" } });
+      expect(rejected.status).toBe(200);
+      expect(rejected.json).toMatchObject({ status: "REJECTED", decidedBy: alice });
+      expect((await adminRows<{ status: string }>(db, "SELECT status FROM finance.payments WHERE id = $1", [p2.id]))[0]!.status).toBe("PENDING");
+      const again = await call("POST", "/resolutions", { perms: RECONCILE, user: alice, body: { paymentId: p2.id, outcome: "FAILED", reason: "Relevé : aucune transaction trouvée", evidenceRef: "REL-APRES" } });
       expect(again.status).toBe(201);
     });
   });

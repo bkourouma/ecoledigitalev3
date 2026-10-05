@@ -10,12 +10,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import { getInvoiceById } from "../../application/invoices";
 import { verifyPendingPayment } from "../../application/online-payments";
-import { approveManualResolution, requestManualResolution } from "../../application/manual-resolution";
+import { resolveManually } from "../../application/manual-resolution";
 import { getPaymentView } from "../../application/payments";
 import { reconcileTenant } from "../../application/reconciliation";
 import { approveRefund, completeRefund, getRefundById, rejectRefund, requestRefund } from "../../application/refunds";
 import { RecordingAudit } from "../../application/ports/audit";
-import { adminRows, ctxFor, describeIntegration } from "../support/db";
+import { adminRows, ctxFor, ctxStepUp, describeIntegration } from "../support/db";
 import { xof } from "../support/harness";
 import { ledgerViolations } from "../support/invariants";
 import { createReconEnv, eventsOf, paymentByKey, refundStateRow, startOnline, type ReconEnv, type TestDeps } from "../support/recon-env";
@@ -336,16 +336,16 @@ describeIntegration("remboursement réel chez le fournisseur", () => {
       expect(t.alerts.map((a) => a.reason)).toEqual(["unverifiable_refund"]);
       expect(await paymentNums(c.paymentId)).toMatchObject({ status: "CONFIRMED", refunded: "0" });
 
-      // Quatre yeux : une demande motivée avec preuve, une AUTRE personne approuve.
-      const proposer = ctxFor(tenantId);
-      const res = unwrap(await requestManualResolution(t.deps, proposer, { refundId: req.id, outcome: "SUCCEEDED", reason: "Relevé TresorPay du 01/09 : remboursement exécuté", evidenceRef: "TP-RF-0901-0042" }));
-      const self = await approveManualResolution(t.deps, proposer, { resolutionId: res.id });
-      expect(self.ok).toBe(false);
+      // Q-PAY-38 : UNE personne, MFA récente, motif et preuve. Sans step-up : refus, rien n'est écrit.
+      const resolver = ctxStepUp(tenantId);
+      const noStepUp = await resolveManually(t.deps, ctxFor(tenantId), { refundId: req.id, outcome: "SUCCEEDED", reason: "Relevé TresorPay du 01/09 : remboursement exécuté", evidenceRef: "TP-RF-0901-0042" });
+      expect(noStepUp.ok).toBe(false);
       expect((await refundRow(req.id)).status).toBe("REFUND_PENDING");
-      unwrap(await approveManualResolution(t.deps, ctxFor(tenantId), { resolutionId: res.id }));
+      const res = unwrap(await resolveManually(t.deps, resolver, { refundId: req.id, outcome: "SUCCEEDED", reason: "Relevé TresorPay du 01/09 : remboursement exécuté", evidenceRef: "TP-RF-0901-0042" }));
+      expect(res).toMatchObject({ status: "APPROVED", requestedBy: resolver.userId, decidedBy: resolver.userId });
       expect(await refundRow(req.id)).toMatchObject({ status: "COMPLETED", execution_mode: "PROVIDER", manual_reference: "TP-RF-0901-0042", provider_status: "MANUAL_CONFIRMED" });
       expect(await paymentNums(c.paymentId)).toEqual({ status: "REFUNDED", refunded: String(AMOUNT), allocated: "0" });
-      expect(t.audit.actions()).toEqual(expect.arrayContaining(["finance.resolution.approved", "finance.refund.completed_manually"]));
+      expect(t.audit.actions()).toEqual(expect.arrayContaining(["finance.resolution.resolved", "finance.refund.completed_manually"]));
       expect(env.tresor.refundsDone.length).toBe(done + 1);
       expect(await ledgerViolations(env.db, tenantId)).toEqual([]);
     });
@@ -361,8 +361,7 @@ describeIntegration("remboursement réel chez le fournisseur", () => {
       expect(sent.status).toBe("REFUND_PENDING");
       t.clock.advance(61_000);
       await reconcileTenant(t.deps, tenantId);
-      const res = unwrap(await requestManualResolution(t.deps, requester, { refundId: req.id, outcome: "FAILED", reason: "Relevé TresorPay : aucun remboursement émis", evidenceRef: "RELEVE-TP-0901" }));
-      unwrap(await approveManualResolution(t.deps, approver, { resolutionId: res.id }));
+      unwrap(await resolveManually(t.deps, ctxStepUp(tenantId), { refundId: req.id, outcome: "FAILED", reason: "Relevé TresorPay : aucun remboursement émis", evidenceRef: "RELEVE-TP-0901" }));
       expect(await refundRow(req.id)).toMatchObject({ status: "REFUND_FAILED", failure_reason: "manual_not_sent" });
       expect(await paymentNums(c.paymentId)).toMatchObject({ status: "CONFIRMED", refunded: "0" });
       expect(env.tresor.refundsDone.filter((r) => r.transaction_id === c.providerRef)).toHaveLength(0);
@@ -386,7 +385,7 @@ describeIntegration("remboursement réel chez le fournisseur", () => {
         await approveRefund(t.deps, intruder, { refundId: req.id }),
         await completeRefund(t.deps, intruder, { refundId: req.id, manual: { reference: "INTRUS-1" } }),
         await rejectRefund(t.deps, intruder, { refundId: req.id, reason: "Tentative d'un autre tenant" }),
-        await requestManualResolution(t.deps, intruder, { refundId: req.id, outcome: "SUCCEEDED", reason: "Tentative d'un autre tenant", evidenceRef: "INTRUS-2" }),
+        await resolveManually(t.deps, ctxStepUp(b), { refundId: req.id, outcome: "SUCCEEDED", reason: "Tentative d'un autre tenant", evidenceRef: "INTRUS-2" }),
       ]) {
         expect(r.ok).toBe(false);
         if (!r.ok) expect(["finance.refund_not_found", "finance.payment_not_found"]).toContain(r.error.code);

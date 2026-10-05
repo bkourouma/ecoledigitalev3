@@ -127,6 +127,14 @@ export function ctxFor(tenantId: string, userId: string = newId(), roles: string
   return createRequestContext({ tenantId, userId, roles });
 }
 
+/** Fin de fenêtre de step-up très lointaine : « MFA récente » pour toutes les horloges manuelles des tests. */
+export const FAR_STEP_UP = new Date("2099-01-01T00:00:00.000Z");
+
+/** Contexte d'une personne qui vient de refaire sa MFA (step-up ouvert jusqu'à `until`) — Q-PAY-38. */
+export function ctxStepUp(tenantId: string, userId: string = newId(), until: Date = FAR_STEP_UP, roles: string[] = ["finance"]): RequestContext {
+  return createRequestContext({ tenantId, userId, roles, mfa: true, mfaElevatedUntil: until });
+}
+
 /** Lit toute une requête en tant que superuser (vérifications indépendantes de la RLS). */
 export async function adminRows<R = Record<string, any>>(db: FinanceTestDb, sql: string, params: unknown[] = []): Promise<R[]> {
   const res = await db.admin.query(sql, params);

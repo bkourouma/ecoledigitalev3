@@ -15,6 +15,7 @@
 import { randomBytes } from "node:crypto";
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { FinanceCode, conflict, notFound, validation } from "../domain/errors";
+import type { ProviderAccount } from "../domain/types";
 import {
   getProviderConfig,
   listProviderConfigs,
@@ -62,6 +63,10 @@ export interface ProviderView {
   readonly fields: readonly ProviderFieldView[];
   readonly lastTest: { at: Date; ok: boolean; code: string } | null;
   readonly updatedAt: Date | null;
+  /** Q-PAY-30 : compte qui recevrait un paiement aujourd'hui (`TENANT` : configuration de l'école ; `PLATFORM` : repli ; `null` : aucun). */
+  readonly activeAccount: ProviderAccount | null;
+  /** Le compte de la plateforme est complet pour ce fournisseur (repli possible si l'école n'a pas le sien). */
+  readonly platformFallbackReady: boolean;
 }
 
 export interface ProviderListView {
@@ -89,6 +94,7 @@ async function viewOf(
   row: ProviderConfigRecord | null,
 ): Promise<ProviderView> {
   const missing = missingOf(entry, row);
+  const platformFallbackReady = await deps.providers.platformAccountReady(entry.name);
   let webhookUrl: string | null = null;
   const base = deps.config.webhookBaseUrl;
   if (base) {
@@ -137,6 +143,8 @@ async function viewOf(
     })),
     lastTest: row && row.lastTestAt && row.lastTestOk !== null && row.lastTestCode ? { at: row.lastTestAt, ok: row.lastTestOk, code: row.lastTestCode } : null,
     updatedAt: row?.updatedAt ?? null,
+    activeAccount: row ? "TENANT" : platformFallbackReady ? "PLATFORM" : null,
+    platformFallbackReady,
   };
 }
 

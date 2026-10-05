@@ -191,7 +191,8 @@ async function reconcileOnePayment(deps: FinanceDeps, ctx: RequestContext, payme
   const attemptNo = state.attempts + 1;
   const exhausted = attemptNo >= cfg.maxAttempts;
 
-  const resolved = await deps.providers.resolve(ctx.tenantId, payment.provider);
+  // Q-PAY-30 : rapprochement sur le compte où l'argent a été demandé (celui de CETTE école, ou la plateforme pour CETTE école).
+  const resolved = await deps.providers.resolve(ctx.tenantId, payment.provider, { account: payment.providerAccount });
   if (!resolved.ok) return deferOrFlagPayment(deps, ctx, payment, state, { outcome: "provider_unavailable", errorCode: errorCodeOf(resolved.error), exhausted, reason: "provider_unavailable" });
   const provider: PaymentProvider = resolved.value;
 
@@ -375,7 +376,7 @@ async function reconcileOneRefund(deps: FinanceDeps, ctx: RequestContext, refund
   const attemptNo = state.attempts + 1;
   const exhausted = attemptNo >= cfg.maxAttempts;
 
-  const resolved = await deps.providers.resolve(ctx.tenantId, refund.provider);
+  const resolved = await deps.providers.resolve(ctx.tenantId, refund.provider, { account: payment.providerAccount });
   if (!resolved.ok) return deferOrFlagRefund(deps, ctx, refund, payment, state, { outcome: "provider_unavailable", errorCode: errorCodeOf(resolved.error), exhausted, reason: "provider_unavailable" });
   const provider = resolved.value;
   const caps = provider.refundCapabilities ?? { partial: false, idempotent: false, statusQuery: false };

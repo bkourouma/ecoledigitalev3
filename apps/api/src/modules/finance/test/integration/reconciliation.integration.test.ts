@@ -1,19 +1,19 @@
 /**
  * Rapprochement planifié des paiements restés EN ATTENTE (spec 015 §US6) : webhook jamais reçu, délai dépassé puis succès
  * tardif, panne du fournisseur, plafond de tentatives, Orange sans `pay_token`, montant divergent, plantage au milieu,
- * deux instances en concurrence, isolation entre tenants, résolution manuelle à quatre yeux. Serveurs HTTP simulés des
+ * deux instances en concurrence, isolation entre tenants, résolution manuelle par une seule personne (MFA récente). Serveurs HTTP simulés des
  * fournisseurs (aucun appel réseau réel), Postgres réel.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSystemContext, unwrap } from "@ecoledigitale/kernel";
+import { createRequestContext, createSystemContext, newId, unwrap } from "@ecoledigitale/kernel";
 import { getInvoiceById } from "../../application/invoices";
 import { verifyPendingPayment } from "../../application/online-payments";
 import { backoffDelayMs, reconcileAllTenants, reconcileTenant } from "../../application/reconciliation";
-import { approveManualResolution, listManualResolutions, listPendingReconciliations, rejectManualResolution, requestManualResolution } from "../../application/manual-resolution";
+import { approveManualResolution, listManualResolutions, listPendingReconciliations, rejectManualResolution, requestManualResolution, resolveManually } from "../../application/manual-resolution";
 import { getPaymentView } from "../../application/payments";
 import { RecordingAudit } from "../../application/ports/audit";
 import { claimDuePayments } from "../../infrastructure/reconciliation-repository";
-import { adminRows, ctxFor, describeIntegration } from "../support/db";
+import { adminRows, ctxFor, ctxStepUp, describeIntegration } from "../support/db";
 import { ledgerViolations } from "../support/invariants";
 import { createReconEnv, eventsOf, paymentByKey, paymentRow, receiptsOf, startOnline, stateRow, type ReconEnv } from "../support/recon-env";
 
@@ -340,7 +340,7 @@ describeIntegration("rapprochement des paiements en attente (job finance.reconci
     });
   });
 
-  describe("liste « paiements à rapprocher » et résolution manuelle à quatre yeux", () => {
+  describe("liste « paiements à rapprocher » et résolution manuelle par une seule personne (Q-PAY-38)", () => {
     async function flaggedOrangePayment() {
       const tenantId = await env.newTenant();
       const t = env.makeDeps();
@@ -368,92 +368,146 @@ describeIntegration("rapprochement des paiements en attente (job finance.reconci
       expect(waveOnly.items.map((i) => i.payment.id)).toEqual([wp.id]);
     });
 
-    it("confirmer à la main : demande motivée AVEC preuve, auto-approbation refusée, un AUTRE approuve — reçu, imputation, audit", async () => {
+    it("Q-PAY-38 — confirmer à la main : UNE personne, MFA récente, motif et preuve — reçu, imputation, audit renforcé avant/après", async () => {
       const { tenantId, t, s, p } = await flaggedOrangePayment();
-      const requester = ctxFor(tenantId);
-      const approver = ctxFor(tenantId);
-      // Validations
-      const noEvidence = await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé Orange du 01/09 montrant l'encaissement", evidenceRef: "x" });
-      expect(noEvidence.ok).toBe(false);
-      const shortReason = await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "SUCCEEDED", reason: "ok", evidenceRef: "MP250901.1234.A56789" });
-      expect(shortReason.ok).toBe(false);
+      const resolver = ctxStepUp(tenantId);
+      const body = { paymentId: p.id, outcome: "SUCCEEDED" as const, reason: "Relevé Orange du 01/09 montrant l'encaissement", evidenceRef: "MP250901.1234.A56789" };
 
-      const req = unwrap(await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé Orange du 01/09 montrant l'encaissement", evidenceRef: "MP250901.1234.A56789" }));
-      expect(req).toMatchObject({ status: "REQUESTED", outcome: "SUCCEEDED", requestedBy: requester.userId });
-      // Rien n'a bougé : seule l'approbation écrit.
+      // MFA récente exigée : ni sans MFA, ni avec la seule MFA de connexion, ni avec un step-up expiré. Rien n'est écrit.
+      const noMfa = await resolveManually(t.deps, ctxFor(tenantId), body);
+      expect(noMfa.ok).toBe(false);
+      if (!noMfa.ok) expect(noMfa.error.code).toBe("finance.mfa_required");
+      const loginMfaOnly = await resolveManually(t.deps, createRequestContext({ tenantId, userId: newId(), roles: ["finance"], mfa: true }), body);
+      expect(loginMfaOnly.ok).toBe(false);
+      if (!loginMfaOnly.ok) expect(loginMfaOnly.error.code).toBe("finance.mfa_required");
+      const expired = await resolveManually(t.deps, ctxStepUp(tenantId, newId(), new Date("2025-09-01T07:59:00.000Z")), body);
+      expect(expired.ok).toBe(false);
+      if (!expired.ok) expect(expired.error.code).toBe("finance.mfa_required");
       expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
-      const dup = await requestManualResolution(t.deps, ctxFor(tenantId), { paymentId: p.id, outcome: "FAILED", reason: "Autre demande concurrente", evidenceRef: "REL-2" });
-      expect(dup.ok).toBe(false);
-      if (!dup.ok) expect(dup.error.code).toBe("finance.resolution_already_open");
+      expect(unwrap(await listManualResolutions(t.deps, ctxFor(tenantId), { paymentId: p.id }))).toEqual([]);
 
-      const open = unwrap(await listPendingReconciliations(t.deps, ctxFor(tenantId)));
-      expect(open.items.find((i) => i.payment.id === p.id)?.openResolutionId).toBe(req.id);
-
-      const self = await approveManualResolution(t.deps, requester, { resolutionId: req.id });
-      expect(self.ok).toBe(false);
-      if (!self.ok) expect(self.error.code).toBe("finance.resolution_self_approval");
+      // Motif et preuve obligatoires.
+      expect((await resolveManually(t.deps, resolver, { ...body, evidenceRef: "x" })).ok).toBe(false);
+      expect((await resolveManually(t.deps, resolver, { ...body, reason: "ok" })).ok).toBe(false);
       expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
 
-      const done = unwrap(await approveManualResolution(t.deps, approver, { resolutionId: req.id, note: "Vérifié sur le portail marchand" }));
-      expect(done).toMatchObject({ status: "APPROVED", decidedBy: approver.userId, decisionNote: "Vérifié sur le portail marchand" });
-      const view = unwrap(await getPaymentView(t.deps, requester, p.id));
+      // Une seule personne suffit : demandeur = décideur, résolution déjà APPROUVÉE, effets identiques au chemin fournisseur.
+      const done = unwrap(await resolveManually(t.deps, resolver, body));
+      expect(done).toMatchObject({ status: "APPROVED", outcome: "SUCCEEDED", requestedBy: resolver.userId, decidedBy: resolver.userId });
+      const view = unwrap(await getPaymentView(t.deps, resolver, p.id));
       expect(view.payment.status).toBe("CONFIRMED");
       expect(view.receipt).not.toBeNull();
       expect(view.allocations.map((a) => a.invoiceId)).toEqual([s.invoice.id]);
       expect(await eventsOf(env.db, "finance.payment.completed", "paymentId", p.id)).toHaveLength(1);
-      const actions = t.audit.actions();
-      expect(actions).toEqual(expect.arrayContaining(["finance.resolution.requested", "finance.resolution.approved", "finance.payment.completed"]));
-      const approvedAudit = t.audit.entries.find((e) => e.entry.action === "finance.resolution.approved")!.entry;
-      expect(approvedAudit.sensitive).toBe(true);
-      expect(approvedAudit.after).toMatchObject({ evidenceRef: "MP250901.1234.A56789", requestedBy: requester.userId, approvedBy: approver.userId });
 
-      // Rejeu : déjà tranché ; et plus de demande possible sur un paiement confirmé.
-      expect((await approveManualResolution(t.deps, approver, { resolutionId: req.id })).ok).toBe(false);
-      const late = await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "FAILED", reason: "Trop tard pour trancher", evidenceRef: "REL-3" });
+      // Audit renforcé : sensible, acteur, motif, preuve, fenêtre MFA, état AVANT et APRÈS.
+      const actions = t.audit.actions();
+      expect(actions).toEqual(expect.arrayContaining(["finance.resolution.resolved", "finance.payment.completed"]));
+      expect(actions).not.toContain("finance.resolution.requested");
+      const audit = t.audit.entries.find((e) => e.entry.action === "finance.resolution.resolved")!;
+      expect(audit.entry.sensitive).toBe(true);
+      expect(audit.ctx.userId).toBe(resolver.userId);
+      expect(audit.entry.before).toMatchObject({ kind: "payment", id: p.id, status: "PENDING" });
+      expect(audit.entry.after).toMatchObject({ kind: "payment", id: p.id, status: "CONFIRMED", outcome: "SUCCEEDED" });
+      expect(audit.entry.metadata).toMatchObject({
+        actorId: resolver.userId,
+        reason: body.reason,
+        evidenceRef: body.evidenceRef,
+        mode: "SINGLE_ACTOR",
+        mfa: "step_up",
+        mfaElevatedUntil: "2099-01-01T00:00:00.000Z",
+      });
+
+      // Rejeu / trop tard : plus de sujet à trancher, un seul reçu.
+      const late = await resolveManually(t.deps, resolver, { ...body, outcome: "FAILED", reason: "Trop tard pour trancher", evidenceRef: "REL-3" });
       expect(late.ok).toBe(false);
       if (!late.ok) expect(late.error.code).toBe("finance.resolution_not_applicable");
       expect(await receiptsOf(env.db, p.id)).toHaveLength(1);
       expect(await ledgerViolations(env.db, tenantId)).toEqual([]);
     });
 
-    it("marquer ÉCHOUÉ à la main : paiement FAILED, événement, aucun reçu ; un refus laisse tout en l'état", async () => {
+    it("Q-PAY-38 — marquer ÉCHOUÉ à la main : paiement FAILED, événement, aucun reçu, audit avant/après", async () => {
       const { tenantId, t, p } = await flaggedOrangePayment();
-      const requester = ctxFor(tenantId);
-      const approver = ctxFor(tenantId);
-      const rejected = unwrap(await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "FAILED", reason: "Le client affirme ne rien avoir payé", evidenceRef: "APPEL-0102" }));
-      const r = unwrap(await rejectManualResolution(t.deps, approver, { resolutionId: rejected.id, note: "Preuve insuffisante" }));
-      expect(r).toMatchObject({ status: "REJECTED", decidedBy: approver.userId });
-      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
-      expect(t.audit.actions()).toContain("finance.resolution.rejected");
-
-      const again = unwrap(await requestManualResolution(t.deps, requester, { paymentId: p.id, outcome: "FAILED", reason: "Relevé opérateur : aucune transaction", evidenceRef: "RELEVE-OM-0901" }));
-      unwrap(await approveManualResolution(t.deps, approver, { resolutionId: again.id }));
+      const resolver = ctxStepUp(tenantId);
+      const done = unwrap(await resolveManually(t.deps, resolver, { paymentId: p.id, outcome: "FAILED", reason: "Relevé opérateur : aucune transaction", evidenceRef: "RELEVE-OM-0901" }));
+      expect(done).toMatchObject({ status: "APPROVED", outcome: "FAILED" });
       const row = await paymentByKeyFromId(p.id);
       expect(row).toMatchObject({ status: "FAILED", failure_reason: "manual_not_received" });
       expect(await receiptsOf(env.db, p.id)).toHaveLength(0);
       expect(await eventsOf(env.db, "finance.payment.failed", "paymentId", p.id)).toHaveLength(1);
+      const audit = t.audit.entries.find((e) => e.entry.action === "finance.resolution.resolved")!.entry;
+      expect(audit.before).toMatchObject({ status: "PENDING" });
+      expect(audit.after).toMatchObject({ status: "FAILED", outcome: "FAILED" });
       const all = unwrap(await listManualResolutions(t.deps, ctxFor(tenantId), { paymentId: p.id }));
-      expect(all.map((x) => x.status).sort()).toEqual(["APPROVED", "REJECTED"]);
+      expect(all.map((x) => x.status)).toEqual(["APPROVED"]);
     });
 
-    it("auto-approbation autorisée par configuration explicite (déconseillé) ; RLS : un autre tenant ne voit pas la résolution", async () => {
+    it("Q-PAY-38 — l'audit est atomique : un échec d'audit annule la résolution (paiement toujours en attente)", async () => {
       const { tenantId, p } = await flaggedOrangePayment();
-      const t = env.makeDeps({ config: { manualResolutionSelfApproval: true } });
-      const me = ctxFor(tenantId);
+      const failing = env.makeDeps({
+        audit: {
+          async record(_tx, _ctx, entry) {
+            if (entry.action === "finance.resolution.resolved") throw new Error("audit indisponible");
+          },
+        },
+      });
+      await expect(resolveManually(failing.deps, ctxStepUp(tenantId), { paymentId: p.id, outcome: "SUCCEEDED", reason: "Relevé opérateur du jour : encaissé", evidenceRef: "REL-AUDIT" })).rejects.toThrow(/audit indisponible/);
+      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
+      expect(await receiptsOf(env.db, p.id)).toHaveLength(0);
+      const ok = env.makeDeps();
+      expect(unwrap(await listManualResolutions(ok.deps, ctxFor(tenantId), { paymentId: p.id }))).toEqual([]);
+    });
+
+    it("Q-PAY-38 — demandes ouvertes avant la décision : la même personne habilitée peut les clore, avec MFA récente (plus de refus d'auto-approbation)", async () => {
+      const { tenantId, t, p } = await flaggedOrangePayment();
+      const me = ctxStepUp(tenantId);
       const req = unwrap(await requestManualResolution(t.deps, me, { paymentId: p.id, outcome: "FAILED", reason: "Mono-utilisateur : relevé consulté", evidenceRef: "REL-SOLO" }));
+      expect(req.status).toBe("REQUESTED");
+      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING"); // demander n'écrit rien
+
+      // Un nouveau règlement direct est refusé tant que la demande ouverte existe ; sans MFA récente rien n'est tranché.
+      const dup = await resolveManually(t.deps, me, { paymentId: p.id, outcome: "SUCCEEDED", reason: "Demande concurrente sur le même sujet", evidenceRef: "REL-2" });
+      expect(dup.ok).toBe(false);
+      if (!dup.ok) expect(dup.error.code).toBe("finance.resolution_already_open");
+      const noMfa = await approveManualResolution(t.deps, ctxFor(tenantId, me.userId!), { resolutionId: req.id });
+      expect(noMfa.ok).toBe(false);
+      if (!noMfa.ok) expect(noMfa.error.code).toBe("finance.mfa_required");
+      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
+
+      const done = unwrap(await approveManualResolution(t.deps, me, { resolutionId: req.id }));
+      expect(done).toMatchObject({ status: "APPROVED", requestedBy: me.userId, decidedBy: me.userId });
+      expect((await paymentRow(env.db, p.id)).status).toBe("FAILED");
+    });
+
+    it("Q-PAY-38 — refuser une demande ouverte exige aussi la MFA récente ; le refus laisse tout en l'état", async () => {
+      const { tenantId, t, p } = await flaggedOrangePayment();
+      const me = ctxStepUp(tenantId);
+      const req = unwrap(await requestManualResolution(t.deps, me, { paymentId: p.id, outcome: "FAILED", reason: "Le client affirme ne rien avoir payé", evidenceRef: "APPEL-0102" }));
+      expect((await rejectManualResolution(t.deps, ctxFor(tenantId), { resolutionId: req.id })).ok).toBe(false);
+      const r = unwrap(await rejectManualResolution(t.deps, me, { resolutionId: req.id, note: "Preuve insuffisante" }));
+      expect(r).toMatchObject({ status: "REJECTED", decidedBy: me.userId });
+      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
+      expect(t.audit.actions()).toContain("finance.resolution.rejected");
+    });
+
+    it("RLS A/B : un autre tenant ne voit pas la résolution et ne peut ni la trancher ni résoudre ce paiement, même avec une MFA récente", async () => {
+      const { tenantId, t, p } = await flaggedOrangePayment();
+      const me = ctxStepUp(tenantId);
+      const req = unwrap(await requestManualResolution(t.deps, me, { paymentId: p.id, outcome: "FAILED", reason: "Relevé : aucune transaction", evidenceRef: "REL-RLS" }));
       const other = await env.newTenant();
       expect(unwrap(await listManualResolutions(t.deps, ctxFor(other)))).toEqual([]);
-      const crossTenant = await approveManualResolution(t.deps, ctxFor(other), { resolutionId: req.id });
-      expect(crossTenant.ok).toBe(false);
-      if (!crossTenant.ok) expect(crossTenant.error.code).toBe("finance.resolution_not_found");
-      unwrap(await approveManualResolution(t.deps, me, { resolutionId: req.id }));
-      expect((await paymentRow(env.db, p.id)).status).toBe("FAILED");
+      const crossApprove = await approveManualResolution(t.deps, ctxStepUp(other), { resolutionId: req.id });
+      expect(crossApprove.ok).toBe(false);
+      if (!crossApprove.ok) expect(crossApprove.error.code).toBe("finance.resolution_not_found");
+      const crossResolve = await resolveManually(t.deps, ctxStepUp(other), { paymentId: p.id, outcome: "SUCCEEDED", reason: "Tentative d'un autre tenant", evidenceRef: "INTRUS-1" });
+      expect(crossResolve.ok).toBe(false);
+      if (!crossResolve.ok) expect(crossResolve.error.code).toBe("finance.payment_not_found");
+      expect((await paymentRow(env.db, p.id)).status).toBe("PENDING");
     });
 
     it("l'écriture manuelle ne contourne pas la base : la ligne de résolution est immuable une fois tranchée", async () => {
       const { tenantId, t, p } = await flaggedOrangePayment();
-      const req = unwrap(await requestManualResolution(t.deps, ctxFor(tenantId), { paymentId: p.id, outcome: "FAILED", reason: "Relevé : aucune transaction", evidenceRef: "REL-IMMUABLE" }));
-      unwrap(await approveManualResolution(t.deps, ctxFor(tenantId), { resolutionId: req.id }));
+      const req = unwrap(await resolveManually(t.deps, ctxStepUp(tenantId), { paymentId: p.id, outcome: "FAILED", reason: "Relevé : aucune transaction", evidenceRef: "REL-IMMUABLE" }));
       await expect(env.db.admin.query("UPDATE finance.manual_resolutions SET outcome = 'SUCCEEDED' WHERE id = $1", [req.id])).rejects.toThrow(/manual_resolution_immutable|manual_resolution_terminal/);
       await expect(env.db.admin.query("DELETE FROM finance.manual_resolutions WHERE id = $1", [req.id])).rejects.toThrow(/immuable/);
     });
