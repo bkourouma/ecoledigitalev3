@@ -1,6 +1,6 @@
 /**
  * Isolation multi-tenant du module (ADR-002, critère de sortie 1) : test générique `assertTenantIsolation` sur
- * les 19 tables du schéma, et isolation de bout en bout à travers les cas d'usage (deux tenants).
+ * les 20 tables du schéma, et isolation de bout en bout à travers les cas d'usage (deux tenants).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertTenantIsolation, checkTenantIsolation } from "@ecoledigitale/database";
@@ -21,7 +21,7 @@ describeIntegration("isolation multi-tenant", () => {
     await db.drop();
   });
 
-  it("assertTenantIsolation : RLS forcée, policy unique, index tenant_id sur les 19 tables ; aucune table globale", async () => {
+  it("assertTenantIsolation : RLS forcée, policy unique, index tenant_id sur les 20 tables ; aucune table globale", async () => {
     const report = await checkTenantIsolation({ pool: db.appPool, schemas: ["kernel", "scheduling"], allowlist: ["kernel.tenants"], fixtures });
     expect(report.violations).toEqual([]);
     expect(report.staleAllowlist).toEqual([]);

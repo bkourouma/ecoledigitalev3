@@ -16,6 +16,32 @@ import type { ChangeRow } from "../infrastructure/occurrence-repo";
 import type { ValidatedOverlap } from "../infrastructure/read-queries";
 import type { IcsTokenRow } from "../infrastructure/ics-repo";
 import type { GenerationRunRow } from "../infrastructure/timetable-repo";
+import type { AutogenRunRow } from "../infrastructure/autogen-repo";
+
+export function autogenRunDto(r: AutogenRunRow) {
+  return {
+    id: r.id,
+    institutionId: r.institutionId,
+    campusId: r.campusId,
+    academicYearId: r.academicYearId,
+    periodId: r.periodId,
+    name: r.name,
+    status: r.status,
+    seed: r.seed,
+    summary: r.summary,
+    errorCode: r.errorCode,
+    errorMessage: r.errorMessage,
+    fixedTimetableId: r.fixedTimetableId,
+    appliedTimetableId: r.appliedTimetableId,
+    requestedBy: r.requestedBy,
+    requestedAt: r.requestedAt.toISOString(),
+    startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+    completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+    appliedAt: r.appliedAt ? r.appliedAt.toISOString() : null,
+    discardedAt: r.discardedAt ? r.discardedAt.toISOString() : null,
+    params: r.params,
+  };
+}
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 

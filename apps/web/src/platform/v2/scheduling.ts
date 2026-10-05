@@ -10,6 +10,11 @@
 import { z } from "zod";
 import { platformApi, platformHooks as hooks } from "@/platform/api/default-client";
 import {
+  schedulingAutogenAppliedDtoSchema,
+  schedulingAutogenDefaultsDtoSchema,
+  schedulingAutogenRunDetailDtoSchema,
+  schedulingAutogenRunDtoSchema,
+  schedulingAutogenStartedDtoSchema,
   schedulingCalendarEventDtoSchema,
   schedulingConflictViewDtoSchema,
   schedulingEntryDtoSchema,
@@ -23,6 +28,8 @@ import {
   schedulingSettingsDtoSchema,
   schedulingTimeSlotDtoSchema,
   schedulingTimetableDtoSchema,
+  type schedulingAutogenApplyBodySchema,
+  type schedulingAutogenRunBodySchema,
   type schedulingEntryBodySchema,
   type schedulingPreviewBodySchema,
   type schedulingSuggestSlotsBodySchema,
@@ -467,6 +474,70 @@ export function useCreateIcsToken() {
 
 export function useRevokeIcsToken() {
   return useApiAction({ method: "DELETE", path: (v: { id: string }) => `${SCHEDULING_BASE}/export/tokens/${v.id}`, invalidate: [[...KEY, "ics"]] });
+}
+
+// ---------------------------------------------------------------------------
+// Générateur d'emploi du temps (proposition -> examen -> application par un humain)
+// ---------------------------------------------------------------------------
+// Aucune règle de planification ici : l'API construit, vérifie et applique la proposition ; l'écran l'affiche.
+
+export type AutogenRunBody = z.input<typeof schedulingAutogenRunBodySchema>;
+export type AutogenApplyBody = z.input<typeof schedulingAutogenApplyBodySchema>;
+export type AutogenRunDto = z.infer<typeof schedulingAutogenRunDtoSchema>;
+export type AutogenRunDetailDto = z.infer<typeof schedulingAutogenRunDetailDtoSchema>;
+
+const AUTOGEN_KEYS = [[...KEY, "autogen"]] as const;
+const ACTIVE_STATUSES = new Set(["QUEUED", "RUNNING"]);
+
+export function useAutogenDefaults(institutionId: string | null) {
+  return hooks.useApiQuery([...KEY, "autogen", "defaults", institutionId], `${SCHEDULING_BASE}/autogen/defaults`, {
+    schema: schedulingAutogenDefaultsDtoSchema,
+    query: { institutionId: institutionId ?? undefined },
+    enabled: institutionId !== null,
+    retry: false,
+  });
+}
+
+export function useAutogenRuns(query: { status?: string } = {}) {
+  return hooks.useApiQuery([...KEY, "autogen", "runs"], `${SCHEDULING_BASE}/autogen/runs`, {
+    schema: itemsOf(schedulingAutogenRunDtoSchema),
+    select: pickItems,
+    query: query as Query,
+    // Une demande en file ou en calcul est relue toutes les 3 secondes jusqu'à sa fin.
+    refetchInterval: (data) => (data?.items.some((r) => ACTIVE_STATUSES.has(r.status)) ? 3000 : false),
+    retry: false,
+  });
+}
+
+export function useAutogenRun(id: string | null) {
+  return hooks.useApiQuery([...KEY, "autogen", "run", id], `${SCHEDULING_BASE}/autogen/runs/${id}`, {
+    schema: schedulingAutogenRunDetailDtoSchema,
+    enabled: id !== null,
+    refetchInterval: (data) => (data && ACTIVE_STATUSES.has(data.run.status) ? 2000 : false),
+    retry: false,
+  });
+}
+
+export function useStartAutogenRun() {
+  return useApiAction({ path: `${SCHEDULING_BASE}/autogen/runs`, body: (v: AutogenRunBody) => v, schema: schedulingAutogenStartedDtoSchema, invalidate: AUTOGEN_KEYS });
+}
+
+export function useApplyAutogenRun() {
+  return useApiAction({
+    path: (v: { id: string; body: AutogenApplyBody }) => `${SCHEDULING_BASE}/autogen/runs/${v.id}/apply`,
+    body: (v) => v.body,
+    schema: schedulingAutogenAppliedDtoSchema,
+    invalidate: [...AUTOGEN_KEYS, ...TT_KEYS],
+  });
+}
+
+export function useDiscardAutogenRun() {
+  return useApiAction({
+    path: (v: { id: string; reason?: string }) => `${SCHEDULING_BASE}/autogen/runs/${v.id}/discard`,
+    body: (v) => (v.reason ? { reason: v.reason } : {}),
+    schema: schedulingAutogenRunDtoSchema,
+    invalidate: AUTOGEN_KEYS,
+  });
 }
 
 /** Téléchargement ponctuel du calendrier (iCalendar) : texte du fichier. */

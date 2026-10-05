@@ -13,6 +13,7 @@ export function ScheduleNav() {
         { href: "/v2/schedule/today", label: t("today"), permission: "schedule.own.read" },
         { href: "/v2/schedule/occurrences", label: t("occurrences"), permission: "schedule.read" },
         { href: "/v2/schedule/timetables", label: t("timetables"), permission: "schedule.read" },
+        { href: "/v2/schedule/generator", label: t("generator"), permission: "schedule.manage" },
         { href: "/v2/schedule/replacements", label: t("replacements"), permission: "schedule.manage" },
         { href: "/v2/schedule/rooms", label: t("rooms"), permission: "schedule.read" },
         { href: "/v2/schedule/export", label: t("export") },

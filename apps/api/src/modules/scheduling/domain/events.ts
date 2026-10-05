@@ -28,6 +28,9 @@ export const SchedulingEvents = {
   calendarEventDeleted: "scheduling.calendar_event.deleted",
   calendarBlockingOverlap: "scheduling.calendar_event.blocking_overlap",
   generationCompleted: "scheduling.generation.completed",
+  autogenRunCompleted: "scheduling.autogen_run.completed",
+  autogenRunFailed: "scheduling.autogen_run.failed",
+  autogenRunApplied: "scheduling.autogen_run.applied",
 } as const;
 
 export const ALL_SCHEDULING_EVENT_TYPES: readonly string[] = Object.freeze(Object.values(SchedulingEvents));

@@ -27,6 +27,11 @@ import {
 } from "@ecoledigitale/kernel";
 import {
   schedulingAccountingBodySchema,
+  schedulingAutogenApplyBodySchema,
+  schedulingAutogenDefaultsQuerySchema,
+  schedulingAutogenDiscardBodySchema,
+  schedulingAutogenListQuerySchema,
+  schedulingAutogenRunBodySchema,
   schedulingCalendarEventBodySchema,
   schedulingCalendarEventPatchSchema,
   schedulingCancelBodySchema,
@@ -94,6 +99,7 @@ import * as tt from "../application/timetables";
 import * as views from "../application/views";
 import * as val from "../application/validation";
 import { generateOccurrences, listExpectedWithoutOccurrence } from "../application/generation";
+import * as autogen from "../application/autogen";
 import { schedulingAuditAdapter } from "../infrastructure/audit-adapter";
 import * as present from "./presenters";
 
@@ -380,6 +386,45 @@ export async function schedulingPlugin(app: FastifyInstance, options: Scheduling
         const { id } = parse(schedulingIdParamsSchema, req.params);
         return unwrapOrThrow(await generateOccurrences(deps, ctxOf(req), { ...stripUndefined(parse(schedulingGenerateBodySchema, req.body)), timetableId: id }));
       });
+      // ===== Générateur d'emploi du temps (proposition -> examen -> application par un humain) ==================
+      const AUTOGEN_FEATURE = "scheduling.generation";
+      scope.get("/autogen/defaults", { preHandler: perm("schedule.read") }, async (req) => {
+        const q = parse(schedulingAutogenDefaultsQuerySchema, req.query);
+        return unwrapOrThrow(await autogen.getAutogenDefaults(deps, ctxOf(req), stripUndefined(q) as { institutionId: string; campusId?: string }));
+      });
+      scope.get("/autogen/runs", { preHandler: perm("schedule.read") }, async (req) => {
+        const q = parse(schedulingAutogenListQuerySchema, req.query);
+        const items = unwrapOrThrow(await autogen.listAutogenRuns(deps, ctxOf(req), stripUndefined(q)));
+        return { items: items.map(present.autogenRunDto) };
+      });
+      scope.post("/autogen/runs", { preHandler: withFeature("schedule.manage", AUTOGEN_FEATURE) }, async (req, reply) => {
+        const body = parse(schedulingAutogenRunBodySchema, req.body);
+        const r = unwrapOrThrow(await autogen.startAutogenRun(deps, ctxOf(req), stripUndefined(body) as unknown as Parameters<typeof autogen.startAutogenRun>[2]));
+        return reply.status(r.executed ? 201 : 202).send({ run: present.autogenRunDto(r.run), executed: r.executed });
+      });
+      scope.get("/autogen/runs/:id", { preHandler: perm("schedule.read") }, async (req) => {
+        const { id } = parse(schedulingIdParamsSchema, req.params);
+        const r = unwrapOrThrow(await autogen.getAutogenRun(deps, ctxOf(req), { runId: id }));
+        return { run: present.autogenRunDto(r.run), result: r.result };
+      });
+      scope.post("/autogen/runs/:id/apply", { preHandler: withFeature("schedule.manage", AUTOGEN_FEATURE) }, async (req) => {
+        const { id } = parse(schedulingIdParamsSchema, req.params);
+        const r = unwrapOrThrow(await autogen.applyAutogenRun(deps, ctxOf(req), { ...stripUndefined(parse(schedulingAutogenApplyBodySchema, req.body)), runId: id }));
+        return {
+          run: present.autogenRunDto(r.run),
+          timetable: present.timetableDto(r.timetable),
+          entriesCreated: r.entriesCreated,
+          entriesReplaced: r.entriesReplaced,
+          unplacedSessions: r.unplacedSessions,
+          publishedTimetable: r.publishedTimetable,
+        };
+      });
+      scope.post("/autogen/runs/:id/discard", { preHandler: perm("schedule.manage") }, async (req) => {
+        const { id } = parse(schedulingIdParamsSchema, req.params);
+        const b = parse(schedulingAutogenDiscardBodySchema, req.body);
+        return present.autogenRunDto(unwrapOrThrow(await autogen.discardAutogenRun(deps, ctxOf(req), { runId: id, ...(b.reason ? { reason: b.reason } : {}) })));
+      });
+
       scope.get("/timetables/:id/conflicts", { preHandler: perm("schedule.read") }, async (req) => {
         const { id } = parse(schedulingIdParamsSchema, req.params);
         return { items: unwrapOrThrow(await tt.getTimetableConflicts(deps, ctxOf(req), { timetableId: id })) };

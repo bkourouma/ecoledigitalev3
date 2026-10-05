@@ -37,6 +37,14 @@ export const SchedulingCodes = {
   tokenInvalid: "scheduling.token_invalid",
   overrideReasonRequired: "scheduling.override_reason_required",
   reasonRequired: "scheduling.reason_required",
+  autogenInvalidInput: "scheduling.autogen_invalid_input",
+  autogenNotApplicable: "scheduling.autogen_not_applicable",
+  autogenTargetNotDraft: "scheduling.autogen_target_not_draft",
+  autogenWouldOverwritePublished: "scheduling.autogen_would_overwrite_published",
+  autogenConfirmationRequired: "scheduling.autogen_confirmation_required",
+  autogenFailed: "scheduling.autogen_failed",
+  autogenInterrupted: "scheduling.autogen_interrupted",
+  autogenInvariant: "scheduling.autogen_invariant",
 } as const;
 
 export function conflictDetected(conflicts: readonly ConflictView[], extra?: Record<string, unknown>): ConflictError {

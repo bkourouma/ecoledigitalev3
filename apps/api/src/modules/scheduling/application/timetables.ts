@@ -38,7 +38,7 @@ export interface CreateTimetableInput {
   weekAAnchor?: string | null | undefined;
 }
 
-async function checkTimetableDates(deps: SchedulingDeps, ctx: RequestContext, i: { validFrom: string; validTo: string; weekAAnchor?: string | null | undefined; academicYearId: string; periodId?: string | null | undefined }): Promise<Result<void, AppError>> {
+export async function checkTimetableDates(deps: SchedulingDeps, ctx: RequestContext, i: { validFrom: string; validTo: string; weekAAnchor?: string | null | undefined; academicYearId: string; periodId?: string | null | undefined }): Promise<Result<void, AppError>> {
   if (!isIsoDate(i.validFrom) || !isIsoDate(i.validTo)) return err(validation("validFrom", "Dates invalides (AAAA-MM-JJ).", "invalid_date"));
   if (compareDates(i.validTo, i.validFrom) < 0) return err(validation("validTo", "La fin de validité précède son début.", "invalid_range"));
   if (i.weekAAnchor && (!isIsoDate(i.weekAAnchor) || !isMonday(i.weekAAnchor))) return err(validation("weekAAnchor", "L'ancre de l'alternance A/B est un lundi.", "anchor_not_monday"));
