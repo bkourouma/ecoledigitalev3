@@ -51,6 +51,9 @@ export function mapDbError(e: unknown): AppError | null {
         });
       case "occurrence_transition":
         return new ConflictError(`Transition de statut interdite : ${text}.`, { code: SchedulingCodes.invalidTransition });
+      case "autogen_transition":
+        return new ConflictError(`Transition interdite pour cette génération : ${text}.`, { code: SchedulingCodes.invalidTransition });
+      case "autogen_immutable":
       case "occurrence_identity_immutable":
       case "immutable":
         return new ConflictError("Cette donnée est immuable.", { code: `scheduling.${key}` });

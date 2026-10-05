@@ -651,3 +651,229 @@ export const schedulingEventPayloadSchemas = {
   "scheduling.occurrence.replacement_needed": schedulingReplacementNeededEventSchema,
   "scheduling.hours.locked": schedulingHoursLockedEventSchema,
 } as const;
+
+// ---------------------------------------------------------------------------
+// Générateur d'emploi du temps (spec 017, question O-05)
+// ---------------------------------------------------------------------------
+//
+// Le générateur construit une PROPOSITION (brouillon) d'emploi du temps hebdomadaire à partir des besoins
+// (classe × matière × séances par semaine), des disponibilités et plafonds des enseignants, des salles et de la
+// grille horaire. Il ne publie rien et n'écrase jamais un emploi du temps publié : un humain examine la
+// proposition, puis l'applique dans un NOUVEAU brouillon (ou, après confirmation, dans un brouillon existant).
+
+export const SCHEDULING_AUTOGEN_STATUSES = ["QUEUED", "RUNNING", "COMPLETED", "FAILED", "APPLIED", "DISCARDED"] as const;
+export const schedulingAutogenStatusSchema = z.enum(SCHEDULING_AUTOGEN_STATUSES);
+export const SCHEDULING_AUTOGEN_REASONS = [
+  "NO_CONTIGUOUS_PERIODS",
+  "SLOT_CLOSED",
+  "CLASS_BUSY",
+  "REQUIREMENT_DAY_CAP",
+  "TEACHER_UNAVAILABLE",
+  "TEACHER_BUSY",
+  "TEACHER_LIMIT",
+  "NO_ROOM_CANDIDATE",
+  "ROOM_BUSY",
+  "CLASS_OVERLOADED",
+] as const;
+
+/** Plage horaire d'un jour de la semaine type (ex. « le mercredi après-midi »). */
+export const schedulingAutogenRangeSchema = z
+  .object({ weekday: schedulingWeekdaySchema, startTime: schedulingTimeSchema, endTime: schedulingTimeSchema })
+  .refine((r) => r.endTime > r.startTime, { message: "L'heure de fin doit être postérieure à l'heure de début.", path: ["endTime"] });
+
+export const schedulingAutogenWeightsSchema = z.object({
+  gap: z.number().int().min(0).max(1000).optional(),
+  teacherGap: z.number().int().min(0).max(1000).optional(),
+  spread: z.number().int().min(0).max(1000).optional(),
+  balance: z.number().int().min(0).max(1000).optional(),
+  preference: z.number().int().min(0).max(1000).optional(),
+  teacherChange: z.number().int().min(0).max(1000).optional(),
+});
+
+export const schedulingAutogenRequirementSchema = z.object({
+  classroomId: schedulingUuidSchema,
+  curriculumNodeId: schedulingUuidSchema,
+  label: z.string().trim().max(200).optional(),
+  /** Séances par semaine. */
+  sessionsPerWeek: z.number().int().min(1).max(40),
+  /** Durée d'une séance en périodes consécutives de la grille. */
+  sessionPeriods: z.number().int().min(1).max(8).default(1),
+  /** Enseignants candidats par ordre de préférence ; vide : voir `deriveTeachers`. */
+  teacherIds: z.array(schedulingUuidSchema).max(10).default([]),
+  needsRoom: z.boolean().default(true),
+  roomType: z.string().trim().max(40).optional(),
+  features: z.array(z.string().trim().max(100)).max(20).default([]),
+  roomId: schedulingUuidSchema.optional(),
+  /** Séances de ce besoin au plus par jour. */
+  maxPerDay: z.number().int().min(1).max(10).optional(),
+  /** Heures de début préférées (souple). */
+  preferredStartTimes: z.array(schedulingTimeSchema).max(12).default([]),
+});
+
+export const schedulingAutogenTeacherSchema = z.object({
+  staffId: schedulingUuidSchema,
+  maxPeriodsPerDay: z.number().int().min(0).max(20).nullable().optional(),
+  maxPeriodsPerWeek: z.number().int().min(0).max(100).nullable().optional(),
+  unavailable: z.array(schedulingAutogenRangeSchema).max(100).default([]),
+  avoid: z.array(schedulingAutogenRangeSchema).max(100).default([]),
+  prefer: z.array(schedulingAutogenRangeSchema).max(100).default([]),
+});
+
+export const schedulingAutogenGridSchema = z.object({
+  /** `TIME_SLOTS` : la grille de l'établissement (hors pauses) ; `REGULAR` : périodes régulières. */
+  mode: z.enum(["TIME_SLOTS", "REGULAR"]).optional(),
+  dayStart: schedulingTimeSchema.optional(),
+  dayEnd: schedulingTimeSchema.optional(),
+  periodMinutes: z.number().int().min(20).max(240).optional(),
+});
+
+export const schedulingAutogenRunBodySchema = z
+  .object({
+    institutionId: schedulingUuidSchema,
+    campusId: optionalNullable(schedulingUuidSchema),
+    academicYearId: schedulingUuidSchema,
+    periodId: optionalNullable(schedulingUuidSchema),
+    name: z.string().trim().min(1, "Le nom est requis.").max(200),
+    /** Validité du futur emploi du temps (modifiable à l'application). */
+    validFrom: schedulingDateSchema,
+    validTo: schedulingDateSchema,
+    /** Graine : la même graine redonne le même résultat. Défaut : dérivée de la demande. */
+    seed: z.string().trim().min(1).max(100).optional(),
+    /** Limite de temps de calcul (secondes). */
+    timeLimitSeconds: z.number().int().min(1).max(600).default(20),
+    /** Budget d'amélioration locale (itérations) : borne déterministe. */
+    maxIterations: z.number().int().min(0).max(2_000_000).default(100_000),
+    weights: schedulingAutogenWeightsSchema.optional(),
+    weekdays: z.array(schedulingWeekdaySchema).min(1).max(7).optional(),
+    grid: schedulingAutogenGridSchema.optional(),
+    closedRanges: z.array(schedulingAutogenRangeSchema).max(100).default([]),
+    requirements: z.array(schedulingAutogenRequirementSchema).min(1).max(3000),
+    teachers: z.array(schedulingAutogenTeacherSchema).max(1000).default([]),
+    /** Respecter l'occupation (enseignants, salles, classes) d'un autre emploi du temps. */
+    fixedTimetableId: optionalNullable(schedulingUuidSchema),
+    /** Pour les besoins sans enseignant : proposer ceux dont la compétence est déclarée pour la matière. */
+    deriveTeachers: z.boolean().default(false),
+    /** `AUTO` : calcul immédiat si la demande est petite, sinon tâche asynchrone. */
+    mode: z.enum(["AUTO", "SYNC", "ASYNC"]).default("AUTO"),
+  })
+  .refine((b) => b.validTo >= b.validFrom, { message: "La fin de validité précède son début.", path: ["validTo"] });
+
+export const schedulingAutogenListQuerySchema = z.object({
+  institutionId: schedulingUuidSchema.optional(),
+  status: schedulingAutogenStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+export const schedulingAutogenDefaultsQuerySchema = z.object({ institutionId: schedulingUuidSchema, campusId: schedulingUuidSchema.optional() });
+
+export const schedulingAutogenApplyBodySchema = z.object({
+  /** `NEW_DRAFT` : crée un nouveau brouillon ; `REPLACE_DRAFT` : remplace le contenu d'un brouillon existant (confirmation obligatoire). */
+  mode: z.enum(["NEW_DRAFT", "REPLACE_DRAFT"]).default("NEW_DRAFT"),
+  name: z.string().trim().min(1).max(200).optional(),
+  validFrom: schedulingDateSchema.optional(),
+  validTo: schedulingDateSchema.optional(),
+  targetTimetableId: schedulingUuidSchema.optional(),
+  /** Confirmation explicite : le contenu du brouillon cible sera remplacé. */
+  confirmReplace: z.boolean().default(false),
+  /** Confirmation explicite : la proposition laisse des séances non placées. */
+  acceptUnplaced: z.boolean().default(false),
+});
+export const schedulingAutogenDiscardBodySchema = z.object({ reason: z.string().trim().max(500).optional() });
+
+// ----- Réponses ---------------------------------------------------------------------------------------------
+
+const autogenPeriodDtoSchema = z.object({ index: z.number().int(), startTime: z.string(), endTime: z.string(), label: z.string().nullable() });
+const autogenWeightsDtoSchema = z.object({ gap: z.number().int(), teacherGap: z.number().int(), spread: z.number().int(), balance: z.number().int(), preference: z.number().int(), teacherChange: z.number().int() });
+
+export const schedulingAutogenPlacementDtoSchema = z.object({
+  requirementId: z.string(),
+  sessionIndex: z.number().int(),
+  classroomId: z.string(),
+  curriculumNodeId: z.string(),
+  teacherId: z.string().nullable(),
+  roomId: z.string().nullable(),
+  timeSlotId: z.string().nullable().optional(),
+  weekday: z.number().int(),
+  startPeriod: z.number().int(),
+  periods: z.number().int(),
+  startTime: z.string(),
+  endTime: z.string(),
+});
+export const schedulingAutogenUnplacedDtoSchema = z.object({
+  requirementId: z.string(),
+  classroomId: z.string(),
+  curriculumNodeId: z.string(),
+  label: z.string(),
+  requested: z.number().int(),
+  missing: z.number().int(),
+  reasons: z.array(z.object({ code: z.enum(SCHEDULING_AUTOGEN_REASONS), count: z.number().int(), detail: z.string().optional() })),
+});
+export const schedulingAutogenResultDtoSchema = z.object({
+  grid: z.object({ weekdays: z.array(z.number().int()), periods: z.array(autogenPeriodDtoSchema) }),
+  placements: z.array(schedulingAutogenPlacementDtoSchema),
+  unplaced: z.array(schedulingAutogenUnplacedDtoSchema),
+  score: z.object({ softCost: z.number().int(), initialSoftCost: z.number().int(), unplacedSessions: z.number().int(), breakdown: autogenWeightsDtoSchema }),
+  stats: z.object({
+    sessions: z.number().int(),
+    placed: z.number().int(),
+    iterations: z.number().int(),
+    accepted: z.number().int(),
+    improvements: z.number().int(),
+    stoppedBy: z.enum(["ITERATIONS", "TIME_LIMIT", "NOTHING_TO_IMPROVE"]),
+    elapsedMs: z.number().int(),
+    seed: z.string(),
+  }),
+  warnings: z.array(z.object({ code: z.string(), message: z.string(), requirementId: z.string().optional() })),
+  /** Libellés pour l'affichage (identifiant → libellé). */
+  labels: z.object({ classrooms: z.record(z.string()), staff: z.record(z.string()), rooms: z.record(z.string()), nodes: z.record(z.string()) }),
+  /** Un emploi du temps publié existe déjà pour cette année / période : la proposition ne le remplace jamais. */
+  publishedTimetable: z.object({ id: z.string(), name: z.string() }).nullable(),
+});
+export const schedulingAutogenRunDtoSchema = z.object({
+  id: z.string(),
+  institutionId: z.string(),
+  campusId: z.string().nullable(),
+  academicYearId: z.string(),
+  periodId: z.string().nullable(),
+  name: z.string(),
+  status: schedulingAutogenStatusSchema,
+  seed: z.string(),
+  summary: z
+    .object({ sessions: z.number().int(), placed: z.number().int(), unplacedSessions: z.number().int(), softCost: z.number().int(), requirements: z.number().int() })
+    .partial()
+    .nullable(),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  fixedTimetableId: z.string().nullable(),
+  appliedTimetableId: z.string().nullable(),
+  requestedBy: z.string().nullable(),
+  requestedAt: z.string(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  appliedAt: z.string().nullable(),
+  discardedAt: z.string().nullable(),
+  /** Paramètres tels qu'enregistrés (relecture / relance). */
+  params: z.record(z.unknown()),
+});
+export const schedulingAutogenRunDetailDtoSchema = z.object({ run: schedulingAutogenRunDtoSchema, result: schedulingAutogenResultDtoSchema.nullable() });
+export const schedulingAutogenStartedDtoSchema = z.object({ run: schedulingAutogenRunDtoSchema, executed: z.boolean() });
+export const schedulingAutogenAppliedDtoSchema = z.object({
+  run: schedulingAutogenRunDtoSchema,
+  timetable: schedulingTimetableDtoSchema,
+  entriesCreated: z.number().int(),
+  entriesReplaced: z.number().int(),
+  unplacedSessions: z.number().int(),
+  /** Un emploi du temps publié existe déjà : archivez-le avant de publier ce brouillon. */
+  publishedTimetable: z.object({ id: z.string(), name: z.string() }).nullable(),
+});
+export const schedulingAutogenDefaultsDtoSchema = z.object({
+  weekdays: z.array(z.number().int()),
+  periods: z.array(autogenPeriodDtoSchema),
+  gridSource: z.enum(["TIME_SLOTS", "REGULAR", "NONE"]),
+  weights: autogenWeightsDtoSchema,
+  timeLimitSeconds: z.object({ default: z.number().int(), max: z.number().int() }),
+  maxIterations: z.object({ default: z.number().int(), max: z.number().int() }),
+  syncSessionLimit: z.number().int(),
+  rooms: z.number().int(),
+  availabilityMode: z.enum(["OPEN", "CLOSED"]),
+  ports: z.object({ academic: z.boolean(), people: z.boolean() }),
+});

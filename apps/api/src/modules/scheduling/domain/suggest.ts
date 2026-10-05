@@ -19,6 +19,14 @@ export interface SlotRoom {
   readonly features: readonly string[];
 }
 
+/**
+ * Ordre de choix d'une salle : la plus petite suffisante d'abord, puis le code. Partagé par l'aide au placement et le
+ * générateur d'emploi du temps (`autogen/engine.ts`) pour que les deux proposent la même salle.
+ */
+export function compareRoomFit(a: { capacity: number | null; code: string }, b: { capacity: number | null; code: string }): number {
+  return (a.capacity ?? Number.MAX_SAFE_INTEGER) - (b.capacity ?? Number.MAX_SAFE_INTEGER) || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
+}
+
 export interface SlotQuery {
   readonly window: { readonly from: string; readonly to: string };
   readonly durationMinutes: number;
@@ -95,7 +103,7 @@ export function suggestSlots(q: SlotQuery): Slot[] {
         const free = q.rooms
           .filter((r) => !q.book.firstOverlap(ResourceBook.key("ROOM", r.id), span))
           .filter((r) => q.headcount === null || r.capacity === null || r.capacity >= q.headcount)
-          .sort((a, b) => (a.capacity ?? Number.MAX_SAFE_INTEGER) - (b.capacity ?? Number.MAX_SAFE_INTEGER) || a.code.localeCompare(b.code));
+          .sort(compareRoomFit);
         room = free[0] ?? null;
         if (!room) continue;
       }

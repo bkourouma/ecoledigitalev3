@@ -112,7 +112,7 @@ describe("migrations : plage 0950-0999 réservée au module", () => {
     const created = [...sql.matchAll(/CREATE TABLE (scheduling\.[a-z_]+)/g)].map((m) => m[1] as string).sort();
     const rls = [...sql.matchAll(/kernel\.enable_tenant_rls\('(scheduling\.[a-z_]+)'\)/g)].map((m) => m[1] as string).sort();
     expect(created).toEqual(rls);
-    expect(created).toHaveLength(19);
+    expect(created).toHaveLength(20);
     const allowlist = readFileSync(join(modulesDir, "isolation-allowlist.scheduling.ts"), "utf8");
     for (const t of created) expect(allowlist, t).toContain(`"${t}"`);
     expect(sql).not.toMatch(/CREATE TABLE (?!scheduling\.)/);
@@ -130,7 +130,7 @@ describe("contrat de plugin `(app, runtime)`", () => {
     const names = [...subscribers.map((s) => s.name), ...jobs.map((j) => j.name)];
     expect(new Set(names).size).toBe(names.length);
     expect(subscribers.map((s) => s.pattern).sort()).toEqual([...CONSUMED_EVENT_TYPES].sort());
-    expect(jobs.map((j) => j.name)).toEqual(["scheduling.generate-occurrences"]);
+    expect(jobs.map((j) => j.name)).toEqual(["scheduling.generate-occurrences", "scheduling.process-autogen-runs"]);
   });
 
   it("l'index public expose les interfaces consommées par 010 et 032", () => {

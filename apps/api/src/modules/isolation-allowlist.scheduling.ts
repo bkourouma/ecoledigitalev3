@@ -2,7 +2,7 @@
  * Tables GLOBALES du module `scheduling` (hors RLS « tenant »), jointes à la liste blanche du test
  * d'isolation (`pnpm test:isolation`) avec la justification de chacune (ADR-002 §5).
  *
- * AUCUNE : les 19 tables du schéma `scheduling` portent `tenant_id uuid NOT NULL` et la policy
+ * AUCUNE : les 20 tables du schéma `scheduling` portent `tenant_id uuid NOT NULL` et la policy
  * `tenant_isolation` — référentiels de pack (`room_types`, `calendar_event_kinds`) compris, car un
  * établissement les adapte (libellés, types d'événement) ; la table dérivée `resource_claims` aussi.
  *
@@ -45,6 +45,7 @@ export const schedulingTenantTables: readonly string[] = Object.freeze([
   "scheduling.resource_claims",
   "scheduling.occurrence_changes",
   "scheduling.ics_tokens",
+  "scheduling.autogen_runs",
 ]);
 
 export const fixtures: Record<string, Record<string, unknown>> = {
@@ -55,6 +56,7 @@ export const fixtures: Record<string, Record<string, unknown>> = {
   "scheduling.time_slots": { code: "TEST", starts_time: "08:00", ends_time: "09:00" },
   "scheduling.timetables": { valid_from: "2026-09-01", valid_to: "2027-06-30" },
   "scheduling.ics_tokens": { scope: "ROOM", token_hash: "a".repeat(64) },
+  "scheduling.autogen_runs": { seed: "graine", params: {} },
   // Séance : le générateur donne `starts_at = ends_at` (CHECK ends_at > starts_at) et une `occurs_on` sans rapport avec
   // `starts_at` (CHECK |occurs_on - date UTC de starts_at| <= 1). Les clés étrangères composites (patron, salle) sont
   // facultatives et restent NULL ; `kind`, `status`, `origin`… prennent leur défaut.

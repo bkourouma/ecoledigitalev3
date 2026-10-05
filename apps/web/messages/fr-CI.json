@@ -5784,6 +5784,7 @@
       "today": "Aujourd'hui",
       "occurrences": "Séances",
       "timetables": "Patrons récurrents",
+      "generator": "Générateur",
       "replacements": "Remplacements",
       "rooms": "Salles et équipements",
       "export": "Export calendrier"
@@ -6319,6 +6320,226 @@
         "lastUsed": "Dernière utilisation",
         "status": "État",
         "actions": "Actions"
+      }
+    },
+    "generator": {
+      "status": {
+        "QUEUED": "En attente",
+        "RUNNING": "Calcul en cours",
+        "COMPLETED": "Proposition prête",
+        "FAILED": "Échec",
+        "APPLIED": "Appliquée",
+        "DISCARDED": "Abandonnée"
+      },
+      "reasons": {
+        "NO_CONTIGUOUS_PERIODS": "Pas assez de périodes consécutives dans la journée",
+        "SLOT_CLOSED": "Créneaux fermés (établissement, classe ou salle)",
+        "CLASS_BUSY": "La classe a déjà cours sur ces créneaux",
+        "REQUIREMENT_DAY_CAP": "Plafond de séances de cette matière par jour atteint",
+        "TEACHER_UNAVAILABLE": "Enseignant indisponible sur ces créneaux",
+        "TEACHER_BUSY": "Enseignant déjà occupé sur ces créneaux",
+        "TEACHER_LIMIT": "Plafond d'heures de l'enseignant atteint",
+        "NO_ROOM_CANDIDATE": "Aucune salle ne convient (type, équipement ou capacité)",
+        "ROOM_BUSY": "Toutes les salles convenables sont occupées",
+        "CLASS_OVERLOADED": "La classe demande plus d'heures que la semaine n'en offre"
+      },
+      "weights": {
+        "gap": "Trous des classes",
+        "gapHint": "Coût d'une période vide entre deux cours d'une classe.",
+        "teacherGap": "Trous des enseignants",
+        "teacherGapHint": "Coût d'une période vide entre deux cours d'un enseignant.",
+        "spread": "Répartition des séances",
+        "spreadHint": "Coût de deux séances de la même matière le même jour.",
+        "balance": "Équilibre des journées",
+        "balanceHint": "Pénalise les journées très chargées et d'autres très légères.",
+        "preference": "Préférences",
+        "preferenceHint": "Coût d'un créneau évité ou non préféré par l'enseignant ou la matière.",
+        "teacherChange": "Changements d'enseignant",
+        "teacherChangeHint": "Coût d'un changement d'enseignant pour une même matière."
+      },
+      "runs": {
+        "title": "Générateur d'emploi du temps",
+        "description": "Calcule une proposition d'emploi du temps à partir des besoins, des disponibilités et des salles. Vous l'examinez, puis vous l'appliquez.",
+        "launch": "Nouvelle génération",
+        "safety": "Une proposition n'est qu'un brouillon de calcul : elle ne publie rien et n'écrase jamais un emploi du temps publié. Seule votre validation l'applique, dans un nouveau brouillon.",
+        "caption": "Propositions d'emploi du temps",
+        "empty": "Aucune génération pour le moment.",
+        "emptyHint": "Lancez une génération pour obtenir une première proposition.",
+        "placedValue": "{placed} sur {total}",
+        "sessionsValue": "{total} séances",
+        "columns": {
+          "name": "Nom",
+          "status": "État",
+          "placed": "Séances placées",
+          "unplaced": "Non placées",
+          "seed": "Graine",
+          "requested": "Demandée le"
+        }
+      },
+      "launch": {
+        "title": "Nouvelle génération d'emploi du temps",
+        "description": "Décrivez ce qu'il faut placer ; les conflits (enseignant, classe, salle) sont toujours exclus.",
+        "safety": "Le résultat sera une proposition à examiner. Aucun emploi du temps existant n'est modifié par le calcul.",
+        "submit": "Lancer le calcul",
+        "submitting": "Envoi…",
+        "cancel": "Annuler",
+        "frame": {
+          "title": "Cadre",
+          "year": "Année scolaire",
+          "name": "Nom de la proposition",
+          "validFrom": "Valable du",
+          "validTo": "Valable jusqu'au",
+          "defaultYear": "Par défaut : début de l'année.",
+          "noGrid": "Aucune grille horaire ni heures d'ouverture ne sont renseignées : définissez-les dans les paramètres de l'emploi du temps avant de lancer un calcul.",
+          "gridSummary": "Jours ouvrés : {days} · {periods} périodes par jour de {first} à {last} · {rooms} salle(s) disponible(s)."
+        },
+        "needs": {
+          "title": "Besoins à placer",
+          "hint": "Choisissez une classe, puis ajoutez ses matières. Pour chaque matière : nombre de séances par semaine, durée en périodes consécutives et enseignant.",
+          "pickClass": "Classe",
+          "pickClassPlaceholder": "Choisir une classe",
+          "addAll": "Ajouter toutes ses matières",
+          "nodesLabel": "Matières de la classe",
+          "noNodes": "Cette classe n'a aucune matière à placer.",
+          "empty": "Aucun besoin pour le moment : ajoutez les matières d'une classe.",
+          "caption": "Besoins par matière et par classe",
+          "columns": {
+            "subject": "Matière et classe",
+            "sessions": "Séances par semaine",
+            "periods": "Périodes par séance",
+            "teacher": "Enseignant",
+            "actions": "Actions"
+          },
+          "sessionsOf": "Séances par semaine : {subject}, {classroom}",
+          "periodsOf": "Périodes par séance : {subject}, {classroom}",
+          "teacherOf": "Enseignant : {subject}, {classroom}",
+          "teacherNone": "Aucun enseignant",
+          "teacherAuto": "Selon les compétences",
+          "remove": "Retirer",
+          "total": "{rows} besoin(s), {sessions} séance(s) par semaine à placer.",
+          "derive": "Proposer les enseignants sans choix selon leurs compétences déclarées",
+          "deriveHint": "Pour les lignes sans enseignant, le calcul retient jusqu'à cinq enseignants dont la compétence est déclarée pour la matière."
+        },
+        "params": {
+          "title": "Paramètres",
+          "days": "Jours à planifier",
+          "seed": "Graine",
+          "seedHint": "Même graine, même résultat. Laissez vide pour une graine automatique.",
+          "timeLimit": "Limite de temps (secondes)",
+          "timeLimitHint": "Au plus {max} secondes.",
+          "iterations": "Itérations d'amélioration",
+          "iterationsHint": "Plus il y en a, plus le calcul cherche une proposition soignée.",
+          "fixed": "Respecter l'occupation d'un emploi du temps",
+          "fixedHint": "Les enseignants, salles et classes déjà pris dans cet emploi du temps ne seront pas utilisés sur ces créneaux.",
+          "fixedNone": "Aucun",
+          "weights": "Importance des préférences",
+          "weightsHint": "Plus la valeur est élevée, plus le calcul évite ce défaut. Vide : valeur par défaut."
+        }
+      },
+      "run": {
+        "loading": "Chargement de la proposition…",
+        "seedLine": "Graine : {seed}",
+        "relaunch": "Relancer avec une autre graine",
+        "discard": "Abandonner",
+        "apply": "Examiner et appliquer",
+        "queued": "La demande est en file d'attente : le calcul démarre dans un instant. Cette page se met à jour toute seule.",
+        "running": "Calcul en cours… Cette page se met à jour toute seule.",
+        "failed": "Le calcul n'a pas abouti.",
+        "discarded": "Cette proposition a été abandonnée.",
+        "applied": "Cette proposition a été appliquée.",
+        "openTimetable": "Ouvrir l'emploi du temps créé",
+        "proposalNotice": "Ceci est une proposition : examinez l'aperçu et les points d'attention. Rien n'est publié tant que vous n'avez pas appliqué la proposition puis publié le brouillon obtenu.",
+        "tabs": {
+          "label": "Contenu de la proposition",
+          "preview": "Aperçu",
+          "issues": "Conflits et points d'attention ({count})"
+        },
+        "discardDialog": {
+          "title": "Abandonner cette proposition ?",
+          "description": "Elle ne pourra plus être appliquée. Aucun emploi du temps n'est modifié.",
+          "confirm": "Abandonner",
+          "reason": "Motif (facultatif)",
+          "done": "Proposition abandonnée."
+        }
+      },
+      "summary": {
+        "title": "Résumé du calcul",
+        "sessions": "Séances demandées",
+        "placed": "Séances placées",
+        "unplaced": "Non placées",
+        "softCost": "Coût des préférences",
+        "improvement": "Amélioration",
+        "improvementValue": "{from} → {to}",
+        "elapsed": "Calcul",
+        "elapsedValue": "{ms} ms · {iterations} itérations",
+        "timeLimit": "Le calcul a été interrompu par la limite de temps : la proposition est la meilleure trouvée, mais un nouveau calcul peut donner un autre résultat."
+      },
+      "preview": {
+        "title": "Aperçu de la semaine type",
+        "view": "Vue",
+        "subject": "Choix",
+        "kinds": {
+          "classroom": "Par classe",
+          "staff": "Par enseignant",
+          "room": "Par salle"
+        },
+        "none": "Aucune séance à afficher pour cette vue.",
+        "caption": "Semaine type de {name}",
+        "hour": "Heure",
+        "noTeacher": "Sans enseignant",
+        "noRoom": "Sans salle"
+      },
+      "issues": {
+        "hard": {
+          "title": "Conflits",
+          "none": "Aucun conflit enseignant, classe ou salle : la proposition a été vérifiée séance par séance avant d'être enregistrée."
+        },
+        "unplaced": {
+          "title": "Séances non placées ({count})",
+          "none": "Toutes les séances demandées ont été placées.",
+          "caption": "Séances non placées et causes",
+          "columns": {
+            "need": "Besoin",
+            "missing": "Manque",
+            "why": "Pourquoi"
+          },
+          "missingValue": "{missing} sur {requested}",
+          "count": "{count} créneaux écartés"
+        },
+        "warnings": {
+          "title": "Points d'attention"
+        },
+        "published": "Un emploi du temps publié existe déjà pour cette année (« {name} »). Il ne sera pas modifié ; pour publier le brouillon obtenu, archivez d'abord l'emploi du temps publié.",
+        "soft": {
+          "title": "Préférences",
+          "hint": "Coût pondéré de chaque préférence dans la proposition (plus petit = mieux)."
+        }
+      },
+      "apply": {
+        "title": "Appliquer la proposition",
+        "description": "La proposition est enregistrée dans un brouillon que vous pourrez encore modifier avant de le publier.",
+        "submit": "Appliquer",
+        "neverPublishes": "L'application ne publie rien et ne touche jamais un emploi du temps publié.",
+        "publishedExists": "Un emploi du temps publié existe déjà (« {name} ») : il reste inchangé.",
+        "mode": "Destination",
+        "modes": {
+          "NEW_DRAFT": "Créer un nouveau brouillon",
+          "REPLACE_DRAFT": "Remplacer le contenu d'un brouillon existant"
+        },
+        "name": "Nom du brouillon",
+        "validFrom": "Valable du",
+        "validTo": "Valable jusqu'au",
+        "validity": "Du {from} au {to}",
+        "target": "Brouillon à remplacer",
+        "targetHint": "Seuls les brouillons sont proposés.",
+        "targetPlaceholder": "Choisir un brouillon",
+        "confirmReplace": "Je confirme le remplacement du contenu de ce brouillon",
+        "confirmReplaceHint": "Ses patrons actuels seront supprimés et remplacés par la proposition.",
+        "acceptUnplaced": "J'accepte d'appliquer une proposition incomplète ({count} séance(s) non placée(s))",
+        "acceptUnplacedHint": "Les séances non placées devront être ajoutées à la main.",
+        "targetRequired": "Choisissez le brouillon à remplacer.",
+        "confirmReplaceRequired": "Confirmez le remplacement du brouillon pour continuer.",
+        "confirmUnplacedRequired": "Confirmez que vous acceptez {count} séance(s) non placée(s) pour continuer."
       }
     }
   },

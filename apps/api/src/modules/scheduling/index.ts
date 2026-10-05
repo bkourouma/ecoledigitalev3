@@ -122,6 +122,26 @@ export {
   type RollingReport,
 } from "./application/generation";
 
+// Cas d'usage — générateur d'emploi du temps (proposition -> application par un humain)
+export {
+  applyAutogenRun,
+  discardAutogenRun,
+  executeAutogenRun,
+  getAutogenDefaults,
+  getAutogenRun,
+  listAutogenRuns,
+  processQueuedAutogenRuns,
+  startAutogenRun,
+  type ApplyInput as AutogenApplyInput,
+  type ApplyResult as AutogenApplyResult,
+  type AutogenResultJson,
+  type StartResult as AutogenStartResult,
+} from "./application/autogen";
+export { AUTOGEN_DEFAULTS, type AutogenParams } from "./application/autogen-input";
+export { generateTimetable } from "./domain/autogen/engine";
+export { verifyHard as verifyGeneratedTimetable } from "./domain/autogen/verify";
+export type { GenProblem, GenResult } from "./domain/autogen/types";
+
 // Cas d'usage — aides au placement
 export { previewConflicts, suggestSlots, suggestSubstitutes, type PreviewInput, type PreviewResult, type SuggestSlotsInput } from "./application/aids";
 
