@@ -190,3 +190,54 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-28 | Pas de rôle RH ; alerte documents expirant au secrétariat | Défaut conservé |
 | Q-29 | Journal de consentement conservé tant que l'établissement existe | Défaut conservé |
 | Q-01, 10, 15, 16, 17, 20, 21, 22 | Questions techniques ou déjà livrées : défauts conservés | Défaut conservé |
+
+## 018 — Examens
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-E03 | Numéro de candidat interne sans trou (ex. CEPE2027-00001) + numéro officiel importé | Défaut conservé |
+| Q-E04 | Centre d'examen et centre d'accueil, répartition manuelle ou automatique | Défaut conservé |
+| Q-E05 | Épreuve facultative non comptée si non notée ; aucune compensation | Défaut conservé |
+| Q-E07 | Session de rattrapage prévue au modèle, aucune règle d'accès | Défaut conservé |
+| Q-E08 | Taux de réussite = admis ÷ présents, 2 décimales | Défaut conservé |
+| Q-E10 | Résultats reçus par import CSV ou saisie manuelle | Défaut conservé |
+| Q-E13 | Frais d'examen INTÉGRÉS à l'inscription du candidat (facture générée à l'inscription) | Écart |
+| Q-E14 | Examens blancs libres, jamais officiels | Défaut conservé |
+| Q-E15 | CANDIDAT LIBRE (non élève de l'établissement) géré dès la V1 | Écart (chantier : candidat sans dossier élève) |
+| Q-E16 | Listes et résultats conservés sans limite | Défaut conservé |
+| Q-E17 | Correction d'un résultat transmis : révision approuvée par un autre, motif 10+ caractères | Défaut conservé |
+| Q-E18 | Du CEPE vers l'admission en 6e : résultat ET MOYENNE transmis (pas seulement admis/non admis) | Écart (minimisation des données moindre) |
+| Q-E01, E02, E06, E09, E11, E12 | Dépendent des textes officiels (épreuves, éligibilité, seuil, mentions, formats, modèles) : à fournir | En attente |
+
+## 024 — Documents
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| Q-02 | Un seul niveau RESTREINT ; catégorie financière via droits de catégorie | Défaut conservé |
+| Q-03 | Pièces JAMAIS purgées (aucune rétention légale) | Écart |
+| Q-04 | Taille maximale 15 Mio (plafond plateforme 50 Mio) | Défaut conservé |
+| Q-05 | Quotas de stockage par plan : 5 Gio / 50 Gio / 250 Gio | Écart |
+| Q-06 | Antivirus optionnel ; sans scanner = « non scanné » + avertissement | Défaut conservé |
+| Q-10 | Dépôt parent/élève sans validation préalable | Défaut conservé |
+| Q-11 | Doublon refusé (409) | Défaut conservé |
+| Q-13 | Alerte d'expiration : déposant, propriétaire et gestion | Défaut conservé |
+| Q-14 | Recherche DANS LE TEXTE DES PDF dès la V1 (extraction de texte) | Écart (chantier) |
+| Q-15 | Partage à toute identité IAM, en un clic | Défaut conservé |
+| Q-17 | Changement de catégorie refusé sauf même type | Défaut conservé |
+| Q-01, 07, 08, 09, 12, 16 | Questions techniques : défauts conservés | Défaut conservé |
+
+## 031 — Imports
+
+| Id | Décision | Statut |
+|----|----------|--------|
+| O-01 | Plafond 5 000 lignes ; VALID_ONLY pour les gros fichiers | Défaut conservé |
+| O-02 | Import de notes aussi pour les ENSEIGNANTS sur leurs classes | Écart |
+| O-03 | Permissions : secrétariat (élèves/tuteurs), directeur d'études (classes), économe (préparation) ; soldes d'ouverture à la direction | Défaut conservé |
+| O-05 | Doublons : rejet ou acquittement avec motif, aucune fusion | Défaut conservé |
+| O-08 | 5 000 lignes par défaut, 20 000 maximum | Défaut conservé |
+| O-10 | Fichier d'origine conservé 30 jours | Défaut conservé |
+| O-11 | Accepter AUSSI .xls et .ods (conversion côté serveur — risque de sécurité à étudier) | Écart à risque |
+| O-12 | Aucune reprise de données legacy (Imhotep / V1) | Défaut conservé |
+| O-13 | AJOUTER l'import des inscriptions maintenant | Écart |
+| O-15 | Avoir sans facture de reprise refusé | Défaut conservé |
+| O-04, 06, 07, 09, 14 | Questions techniques : défauts conservés | Défaut conservé |
