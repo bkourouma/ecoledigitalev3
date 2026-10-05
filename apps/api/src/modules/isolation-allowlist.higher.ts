@@ -2,8 +2,8 @@
  * Tables GLOBALES du module `higher` (hors RLS « tenant »), à joindre à la liste blanche du test d'isolation avec la
  * justification de chaque entrée (ADR-002 §5).
  *
- * AUCUNE : les 12 tables du schéma `higher` portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation` — réglages,
- * compteurs de numérotation, définitions et exigences de diplômes, registre de crédits, dettes, prérequis, fenêtres et
+ * AUCUNE : les 13 tables du schéma `higher` portent `tenant_id uuid NOT NULL` et la policy `tenant_isolation` — réglages,
+ * compteurs et motifs de numérotation, définitions et exigences de diplômes, registre de crédits, dettes, prérequis, fenêtres et
  * inscriptions de rattrapage, octrois, documents officiels, emplacements de signature. Même les compteurs de références sont
  * PAR TENANT (`DIP-AAAA-NNNNNN` est continu pour chaque établissement, sans trou).
  */
@@ -25,6 +25,7 @@ export const higherTenantTables: readonly string[] = Object.freeze([
   "higher.resit_windows",
   "higher.resit_registrations",
   "higher.number_counters",
+  "higher.numbering_settings",
   "higher.diploma_awards",
   "higher.official_documents",
   "higher.official_document_slots",
@@ -62,6 +63,7 @@ export const higherIsolationFixtures: Readonly<Record<string, Readonly<Record<st
   "higher.ue_prerequisites": { ue_node_id: uuid, prerequisite_node_id: uuid },
   "higher.resit_windows": { classroom_id: uuid, academic_period_id: uuid, opens_on: "2026-01-01", closes_on: "2026-01-31", opened_by: uuid, opened_at: now },
   "higher.number_counters": { counter_key: "DIPLOMA", year: 2026 },
+  "higher.numbering_settings": { counter_key: "DIPLOMA", pattern: "ISO-{SEQ:4}" },
   "higher.official_document_slots": { slot_key: "DIPLOMA_LEFT", signatory_id: uuid, valid_from: "2026-01-01", created_by: uuid, created_at: now },
 });
 

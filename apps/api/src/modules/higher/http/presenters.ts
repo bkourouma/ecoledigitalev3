@@ -3,6 +3,7 @@ import type { DiplomaCandidate, DiplomaDetail, DiplomaProgressView, SyncReport }
 import type { RecomputeReport } from "../application/awards";
 import type { AttestationRosterRow, IssuedDocument } from "../application/documents";
 import type { CreditSummary } from "../application/ledger";
+import type { NumberingView } from "../application/numbering";
 import type { PrerequisiteWarning } from "../application/prerequisites";
 import type { StudentResitView } from "../application/resit";
 import type { StudentDiplomaView, StudentPathway } from "../application/student-view";
@@ -114,6 +115,11 @@ export const issuedDocumentDto = (r: IssuedDocument) => ({ document: documentDet
 export const rosterRowDto = (r: AttestationRosterRow) => ({ ...r, missingUeNodeIds: [...r.missingUeNodeIds] });
 
 export const slotDto = (s: DocumentSlot) => ({ id: s.id, slotKey: s.slotKey, signatoryId: s.signatoryId, validFrom: s.validFrom, validTo: s.validTo, createdAt: s.createdAt.toISOString() });
+
+export const numberingDto = (n: NumberingView) => ({
+  counterKey: n.counterKey, pattern: n.pattern, gapless: n.gapless, isDefault: n.isDefault, continuous: n.continuous,
+  nextNumber: n.nextNumber, nextReference: n.nextReference, updatedAt: iso(n.updatedAt),
+});
 
 export const pathwayDto = (p: StudentPathway) => ({
   studentId: p.studentId,

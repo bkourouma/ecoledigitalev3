@@ -12,6 +12,52 @@ export async function nextNumber(tx: Tx, key: CounterKey, year: number): Promise
   return Number((r as { n: string }).n);
 }
 
+// --- numérotation libre (Q-24) -------------------------------------------------------------------------------------
+
+export interface NumberingSettingRow {
+  readonly counterKey: CounterKey;
+  readonly pattern: string;
+  readonly gapless: boolean;
+  readonly updatedAt: Date;
+}
+
+export async function listNumberingSettings(tx: Tx): Promise<NumberingSettingRow[]> {
+  const rows = await tx.many<{ counter_key: CounterKey; pattern: string; gapless: boolean; updated_at: Date }>(
+    `SELECT counter_key, pattern, gapless, updated_at FROM higher.numbering_settings ORDER BY counter_key`,
+  );
+  return rows.map((r) => ({ counterKey: r.counter_key, pattern: r.pattern, gapless: r.gapless, updatedAt: r.updated_at }));
+}
+
+export async function getNumberingSetting(tx: Tx, key: CounterKey): Promise<NumberingSettingRow | null> {
+  return (await listNumberingSettings(tx)).find((s) => s.counterKey === key) ?? null;
+}
+
+export async function upsertNumberingSetting(tx: Tx, tenantId: Uuid, key: CounterKey, pattern: string, gapless: boolean, userId: Uuid | null, at: Date): Promise<void> {
+  await tx.query(
+    `INSERT INTO higher.numbering_settings (tenant_id, counter_key, pattern, gapless, updated_by, updated_at) VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (tenant_id, counter_key) DO UPDATE SET pattern = EXCLUDED.pattern, gapless = EXCLUDED.gapless, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at`,
+    [tenantId, key, pattern, gapless, userId, at.toISOString()],
+  );
+}
+
+/** Dernier numéro attribué d'un compteur (0 si le compteur n'existe pas encore). */
+export async function lastCounterValue(tx: Tx, key: CounterKey, year: number): Promise<number> {
+  const r = await tx.queryOne<{ v: string }>(`SELECT last_value::text AS v FROM higher.number_counters WHERE counter_key = $1 AND year = $2`, [key, year]);
+  return r ? Number(r.v) : 0;
+}
+
+/**
+ * Avance le compteur pour que le PROCHAIN numéro soit `nextValue` (saut volontaire). Le déclencheur refuse tout saut tant que
+ * la garantie « sans trou » est active pour cette nature, et tout recul. Verrouille la ligne jusqu'au COMMIT.
+ */
+export async function advanceCounter(tx: Tx, tenantId: Uuid, key: CounterKey, year: number, nextValue: number): Promise<void> {
+  await tx.query(
+    `INSERT INTO higher.number_counters AS c (tenant_id, counter_key, year, last_value) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (tenant_id, counter_key, year) DO UPDATE SET last_value = EXCLUDED.last_value, updated_at = now()`,
+    [tenantId, key, year, nextValue - 1],
+  );
+}
+
 // --- documents ----------------------------------------------------------------------------------------------------
 
 export interface DocumentInsert {

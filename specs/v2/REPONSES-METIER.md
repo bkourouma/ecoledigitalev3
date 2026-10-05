@@ -132,7 +132,7 @@ Décisions antérieures (conversation) : conduite non notée = semestre « en at
 | Q-21 | Aucun signataire par défaut ; pas d'impression sans signataires | Défaut conservé |
 | Q-22 | Diplôme révoqué : définitif sauf décision écrite du directeur général | Défaut conservé |
 | Q-23 | Moyenne de matière simple (notes ramenées sur 20) | Défaut conservé |
-| Q-24 | Numérotation des diplômes/attestations : FORMAT LIBRE par établissement (pas de séquence imposée sans trou) | Écart |
+| Q-24 | Numérotation des diplômes/attestations : FORMAT LIBRE par établissement (pas de séquence imposée sans trou) | Écart — **implémenté** (module `higher`, migration 1409) |
 | Q-25 | Crédit acquis définitivement | Défaut conservé |
 | Q-26 | Prérequis satisfait par UE validée seulement | Défaut conservé |
 | Q-27 | Paie : francs entiers, calcul mois par mois | Décidé |

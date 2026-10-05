@@ -18,7 +18,8 @@ import { isCurrentlyValid, lastAcquisitionDate, sumCredits } from "../domain/cre
 import { MENTION_PENDING } from "../domain/diploma";
 import { HigherCode, conflict, notFound, validation } from "../domain/errors";
 import { HigherEvents } from "../domain/events";
-import { duplicateReference, formatAttestationReference, formatAuthenticityReference } from "../domain/numbering";
+import { duplicateReference } from "../domain/numbering";
+import { allocateReference } from "./numbering";
 import { REQUIRED_SLOTS, previousDay, slotInForce } from "../domain/signatures";
 import { snapshotHash } from "../domain/snapshot";
 import type { DiplomaAward, DocumentKind, DocumentSlot, IsoDate, OfficialDocument, SlotKey, SnapshotSchema, Uuid } from "../domain/types";
@@ -189,9 +190,10 @@ export async function issueAwardDocument(deps: HigherDeps, ctx: RequestContext, 
       }
       reference = duplicateReference(award.reference, version);
     } else {
-      referenceYear = year;
-      referenceSeq = await repo.nextNumber(tx, "AUTHENTICITY", year);
-      reference = formatAuthenticityReference(referenceYear, referenceSeq);
+      const numbered = await allocateReference(tx, "AUTHENTICITY", year);
+      referenceYear = numbered.referenceYear;
+      referenceSeq = numbered.referenceSeq;
+      reference = numbered.reference;
     }
 
     const snapshotSchema: SnapshotSchema = input.kind === "DIPLOMA" ? "diploma/1" : "attestation-authenticity/1";
@@ -365,8 +367,8 @@ export async function issueSuccessAttestation(deps: HigherDeps, ctx: RequestCont
 
     const now = deps.clock.now();
     const year = currentYear(deps);
-    const seq = await repo.nextNumber(tx, "ATTESTATION", year);
-    const reference = formatAttestationReference(year, seq);
+    const numbered = await allocateReference(tx, "ATTESTATION", year);
+    const reference = numbered.reference;
     const snapshot = {
       v: 1,
       schema: "attestation-success/1",
@@ -388,7 +390,7 @@ export async function issueSuccessAttestation(deps: HigherDeps, ctx: RequestCont
       (t) =>
         repo.insertDocument(t, {
           id: deps.newId(), tenantId: ctx.tenantId, documentKind: "ATTESTATION_SUCCESS", awardId: null, studentId: input.studentId, programNodeId: input.programNodeId,
-          reference, referenceYear: year, referenceSeq: seq, version: 1, supersedesId: null, snapshotSchema: "attestation-success/1", snapshot, snapshotHash: snapshotHash(snapshot),
+          reference, referenceYear: numbered.referenceYear, referenceSeq: numbered.referenceSeq, version: 1, supersedesId: null, snapshotSchema: "attestation-success/1", snapshot, snapshotHash: snapshotHash(snapshot),
           verificationCode: deps.newVerificationCode(), issuedAt: now, issuedBy: issuer, issuedByName: issuerName,
         }),
       () => conflict(HigherCode.INVALID_INPUT, "Cette attestation existe déjà."),

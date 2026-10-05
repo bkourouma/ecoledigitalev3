@@ -13,6 +13,7 @@ import {
   higherDiplomaDtoSchema,
   higherDiplomaProgressViewDtoSchema,
   higherDocumentDetailDtoSchema,
+  higherNumberingDtoSchema,
   higherDocumentDtoSchema,
   higherIssuedDocumentDtoSchema,
   higherLedgerEntryDtoSchema,
@@ -171,6 +172,9 @@ describeIntegration("API HTTP /api/v1/higher/* (Fastify + registre + Postgres r�
       ["GET", `/ue/${school.ues[0]!.nodeId}/prerequisites`, undefined],
       ["PUT", "/document-slots", {}],
       ["GET", "/settings", undefined],
+      ["GET", "/numbering", undefined],
+      ["PUT", "/numbering/DIPLOMA", { pattern: "X-{SEQ}", gapless: true }],
+      ["POST", "/numbering/DIPLOMA/advance", { nextNumber: 50, reason: "Reprise du registre papier" }],
       ["GET", "/me/credits", undefined],
       ["GET", `/children/${school.students[0]!.studentId}/credits`, undefined],
     ] as const) {
@@ -201,6 +205,11 @@ describeIntegration("API HTTP /api/v1/higher/* (Fastify + registre + Postgres r�
       ["POST", "/resit-windows", { classroomId: school.classroomId, academicPeriodId: school.periodId, opensOn: "2026-02-30", closesOn: "2026-03-05" }],
       ["PUT", "/document-slots", { slotKey: "SECRET", signatoryId: newId(), validFrom: "2026-01-01" }],
       ["PUT", "/settings", { creditValidityMonths: 0 }],
+      ["PUT", "/numbering/DIPLOMA", { pattern: "SANS-SEQUENCE", gapless: true }],
+      ["PUT", "/numbering/DIPLOMA", { pattern: "X-{SEQ}", gapless: true, extra: 1 }],
+      ["PUT", "/numbering/INCONNU", { pattern: "X-{SEQ}", gapless: true }],
+      ["POST", "/numbering/DIPLOMA/advance", { nextNumber: 1, reason: "Reprise du registre papier" }],
+      ["POST", "/numbering/DIPLOMA/advance", { nextNumber: 50, reason: "court" }],
       ["GET", "/diplomas?status=ZOMBIE", undefined],
       ["GET", "/diplomas/pas-un-uuid", undefined],
     ] as const) {
@@ -422,6 +431,16 @@ describeIntegration("API HTTP /api/v1/higher/* (Fastify + registre + Postgres r�
     expect(ok(await call("admin", "GET", "/settings"))).toEqual({ creditValidityMonths: null });
     expect(ok(await call("admin", "PUT", "/settings", { creditValidityMonths: 36 }))).toEqual({ creditValidityMonths: 36 });
     expect((await call("registrar", "GET", "/settings")).status).toBe(403);
+
+    // Q-24 : numérotation libre (défaut historique, motif propre, saut refusé tant que « sans trou » est actif).
+    const defaults = ok(await call("admin", "GET", "/numbering")) as { items: unknown[] };
+    expect(defaults.items.map((n) => higherNumberingDtoSchema.parse(n))).toHaveLength(3);
+    expect(defaults.items[2]).toMatchObject({ counterKey: "ATTESTATION", pattern: "ATT-{YYYY}-{SEQ:6}", gapless: true, isDefault: true });
+    expect((await call("admin", "POST", "/numbering/ATTESTATION/advance", { nextNumber: 50, reason: "Reprise du registre papier" })).json).toMatchObject({ code: "higher.numbering_gapless" });
+    const custom = higherNumberingDtoSchema.parse(ok(await call("admin", "PUT", "/numbering/ATTESTATION", { pattern: "UNI-{YY}-{SEQ:4}", gapless: false })));
+    expect(custom).toMatchObject({ pattern: "UNI-{YY}-{SEQ:4}", isDefault: false, gapless: false });
+    expect(higherNumberingDtoSchema.parse(ok(await call("admin", "POST", "/numbering/ATTESTATION/advance", { nextNumber: 50, reason: "Reprise du registre papier" })))).toMatchObject({ nextNumber: 50 });
+    expect((await call("registrar", "GET", "/numbering")).status).toBe(403);
   });
 
   it("révocation d'un octroi par l'API : le diplôme et ses documents passent « révoqués » ; suppression de la définition refusée", async () => {

@@ -17,7 +17,7 @@ import { lastAcquisitionDate } from "../domain/credits";
 import { MENTION_PENDING, buildRequirementsSnapshot, toEligibilityContext, type RequirementState } from "../domain/diploma";
 import { HigherCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import { HigherEvents } from "../domain/events";
-import { formatDiplomaReference } from "../domain/numbering";
+import { allocateReference } from "./numbering";
 import { snapshotHash } from "../domain/snapshot";
 import type { AwardedVia, DiplomaAward, DiplomaDefinition, IsoDate, Uuid } from "../domain/types";
 import * as repo from "../infrastructure/diplomas-repository";
@@ -159,13 +159,13 @@ export async function awardDiploma(deps: HigherDeps, ctx: RequestContext, input:
       requirements: states.map((s) => ({ ueNodeId: s.ueNodeId, mandatory: s.mandatory })),
     });
     const year = currentYear(deps);
-    const seq = await docs.nextNumber(tx, "DIPLOMA", year);
+    const numbered = await allocateReference(tx, "DIPLOMA", year);
     const inserted = await insertOrConflict(
       tx,
       (t) =>
         repo.insertAward(t, {
           id: deps.newId(), tenantId: ctx.tenantId, definitionId: def.id, studentId: input.studentId, lastEnrollmentId: lastEnrollment?.enrollmentId ?? null,
-          academicYearId: lastEnrollment?.academicYearId ?? null, reference: formatDiplomaReference(year, seq), referenceYear: year, referenceSeq: seq,
+          academicYearId: lastEnrollment?.academicYearId ?? null, reference: numbered.reference, referenceYear: numbered.referenceYear, referenceSeq: numbered.referenceSeq,
           awardedVia: via, forcedReason, creditsTotal: standing.progress.uvValidated, requirementsSnapshot: snapshot,
           eligibility: {
             v: 1,

@@ -76,9 +76,9 @@ describe("manifeste du module higher", () => {
     }
   });
 
-  it("allowlist d'isolation : aucune table globale, 12 tables de tenant attendues", () => {
+  it("allowlist d'isolation : aucune table globale, 13 tables de tenant attendues", () => {
     expect(allowlist).toEqual([]);
-    expect(higherTenantTables).toHaveLength(12);
+    expect(higherTenantTables).toHaveLength(13);
   });
 });
 

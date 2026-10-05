@@ -53,6 +53,8 @@ export const HigherCode = {
   ATTESTATION_NOT_ELIGIBLE: "higher.attestation_not_eligible",
   ATTESTATION_NO_UE: "higher.attestation_no_ue_configured",
   STUDENT_NOT_FOUND: "higher.student_not_found",
+  // Numérotation libre (Q-24)
+  NUMBERING_GAPLESS: "higher.numbering_gapless",
   // Accès
   NOT_GUARDIAN: "higher.not_guardian",
   NO_STUDENT_PROFILE: "higher.no_student_profile",
