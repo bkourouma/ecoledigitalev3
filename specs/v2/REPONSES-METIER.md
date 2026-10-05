@@ -309,3 +309,12 @@ Fusionnés dans `feat/v2-phase-0` (suite API complète 6778 tests verts) : O-01,
 Pas encore faits :
 - À cadrer avant code (à risque) : Q-P18, Q-PAY-30, Q-13 (msg), O-11 (imp, .xls/.ods), Q-PAY-38.
 - Chantiers non lancés : O-05 (générateur d'emploi du temps complet), Q-14 (recherche dans le texte des PDF).
+
+## Cadrage des écarts à risque (2026-10-05, réponses de l'utilisateur)
+
+- Q-P18 : rangs et compétences visibles des parents après que l'enseignant marque « prêts » (ou après validation), jamais en brouillon.
+- Q-PAY-30 : compte fournisseur par école, avec repli sur le compte plateforme ; rapprochement séparé par école.
+- Q-13 (msg) : permission explicite accordée par la direction pour écrire à toute famille, chaque envoi journalisé.
+- O-11 (imp) : conversion .xls/.ods par un convertisseur isolé (processus séparé, limites de taille et de durée, sans réseau).
+- Q-PAY-38 : résolution manuelle d'un paiement bloqué par une seule personne, MFA récente, motif obligatoire, audit renforcé.
+- O-05 (générateur d'emploi du temps complet) et Q-14 (recherche dans le texte des PDF) : lancés.
