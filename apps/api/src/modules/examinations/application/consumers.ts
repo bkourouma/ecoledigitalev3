@@ -38,7 +38,7 @@ export async function onEnrollmentWithdrawn(deps: ExaminationsDeps, tenantId: st
         const withdrawn = await cand.withdrawCandidate(inner, c.id, AUTOMATIC_WITHDRAWAL_REASON);
         if (!withdrawn) return ok(false);
         if (ASSIGNMENT_OPEN.includes(s.status)) await sess.deleteAssignment(inner, c.id);
-        events.add(ExaminationsEvents.CANDIDATE_WITHDRAWN, { v: 1, sessionId: c.sessionId, candidateId: c.id, studentId: c.studentId, reasonCode: "ENROLLMENT_WITHDRAWN" }, { type: "examinations.candidate", id: c.id });
+        events.add(ExaminationsEvents.CANDIDATE_WITHDRAWN, { v: 1, sessionId: c.sessionId, candidateId: c.id, studentId: c.studentId, candidateKind: c.candidateKind, reasonCode: "ENROLLMENT_WITHDRAWN" }, { type: "examinations.candidate", id: c.id });
         return ok(true);
       });
       // Retrait refusé par la base (résultats déjà saisis) : le candidat est conservé, ce n'est pas une erreur du consommateur.

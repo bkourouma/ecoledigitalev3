@@ -2,7 +2,7 @@
 
 Moteur d'examens **générique** : CEPE, BEPC, BAC, BTS sont des **types** (lignes de données), pas du code. Séries, épreuves, coefficients, pièces exigées, formats d'export et d'import sont des **données** ; l'éligibilité, la moyenne et l'issue d'un examen **blanc**, le taux de réussite sont des **règles** (`rules`, contrat `exam-national@1`). **Aucune constante réglementaire dans le module** (test `module.unit.test.ts` : lint R2). L'admission d'un examen **officiel** est celle que l'autorité prononce : le module l'**enregistre** (saisie ou import), il ne la **calcule jamais** (déclencheur `official_not_computed`).
 
-- Schéma Postgres : `examinations` — migrations **2000–2004** (plage 2000–2099).
+- Schéma Postgres : `examinations` — migrations **2000–2005** (plage 2000–2099).
 - Packs : `PRIMARY`, `SECONDARY`, `HIGHER` ; features `examinations.core`, `.mock`, `.exports`.
 - CEPE livré en **données FICTIVES** marquées `source_kind = placeholder` (3 épreuves `EP1`–`EP3`, pièce « acte de naissance », 2 formats d'export, 1 format d'import) : `POST /exam-types/instantiate-pack {"pack":"PRIMARY"}` (idempotent). Un bandeau « Règles de démonstration » (`demoRules`) et un filigrane sur les documents scellés sont reportés tant que les données ou la règle sont fictives.
 
@@ -59,9 +59,25 @@ Les migrations sont rejouées par `specs/v2/018-examinations/ddl/run.mjs` (195 t
 | Statistiques | `GET /sessions/:id/statistics?groupBy=ALL|INSTITUTION|TRACK|SEX|GRADE&compare=previous_year|mock` | `exam.statistics.read` |
 | Exports | `GET/POST /export-formats`, `GET/PATCH /export-formats/:id`, `POST …/publish`, `POST …/new-version`, `GET/POST /sessions/:id/exports`, `GET /exports/:id`, `GET /exports/:id/download` | `exam.export.manage` / `.run` |
 | Documents | `POST /candidates/:id/documents/issue`, `POST /sessions/:id/documents/issue-batch`, `GET /sessions/:id/issued-documents`, `POST /issued-documents/:id/revoke`, `GET /issued-documents/:id/file` | `exam.document.issue` |
+| Candidats libres (Q-E15) | `POST /sessions/:id/external-candidates`, `POST …/external-candidates/batch` (import en lot), `GET/PUT /candidates/:id/external-profile` (`?reveal=true` : numéro de pièce entier), `POST /candidates/:id/anonymize` | `exam.external.manage` ; `exam.external.read` (lecture auditée) ; `exam.external.anonymize` (sensible) |
 | Famille | `GET /me/exams`, `/me/exam-documents`, `/family/exams`, `/children/:studentId/exams`, `/children/:studentId/exam-documents`, `GET /family/exam-documents/:id/file` | `exam.document.self.read` / `.child.read` |
 
 Permissions ajoutées à la liste de la spec (additives) : `exam.candidate.read` (consultation par l'enseignant), `exam.result.read` (consultation des résultats et des demandes de révision).
+
+## Candidat libre (décision métier Q-E15)
+
+Une personne qui n'est **pas élève** de l'établissement peut être inscrite à une session **officielle** (jamais à un examen blanc). Elle n'a **aucun dossier `people`** : `candidates.student_id` est nul, `candidate_kind = 'EXTERNAL'`.
+
+| Sujet | Mécanisme |
+|---|---|
+| Identité | nom, prénoms, naissance, sexe saisis (ou importés par `POST …/external-candidates/batch`, source `IMPORTED` tracée) ; figée à l'inscription comme pour un élève ; un libre vivant par identité et par session |
+| Numéros | numéro interne `CEPE2027-00001` du **même compteur sans trou** que les élèves ; numéro officiel importé = identifiant `OFFICIAL_NUMBER` |
+| Minimisation | contact, pièce d'identité, tuteur : table `external_candidate_profiles`, lue par `exam.external.read` (**lecture auditée**, numéro de pièce masqué sauf demande expresse, elle aussi auditée) ; absents des listes, exports, événements, audit, journaux et documents scellés |
+| Éligibilité | faits **saisis** (`declaredInExamGrade`, `declaredPriorAttempts`) ; l'âge est calculé de la naissance et de `starts_on` de la session (nul sans date) ; la règle `exam-national@1` (de démonstration) est inchangée et reçoit les mêmes variables que pour un élève |
+| Pièces | pas de GED d'élève : action `SIGHT` (« vue sur place », note facultative) puis `ACCEPT`/`REJECT` ; les pièces obligatoires restent exigées avant l'inscription |
+| Documents | convocation, attestation, relevé : mêmes gabarits scellés par `reportcards` (identité tirée du candidat figé) ; aucun accès famille (pas de tuteur lié) |
+| Anonymisation | `POST /candidates/:id/anonymize` (motif ≥ 10 caractères, sensible, irréversible) : profil et identifiants personnels effacés, identité neutre (année de naissance seule), numéro, résultat et historique conservés ; plus aucun document nominatif |
+| Événements | `studentId: null` et `candidateKind: "EXTERNAL"` ; jamais de nom, contact ni pièce |
 
 ## Événements
 

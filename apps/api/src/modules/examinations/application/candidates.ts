@@ -2,7 +2,7 @@
  * Cas d'usage des CANDIDATS : sélection depuis une classe, fiche, inscription (identité figée, numéro SANS TROU attribué par
  * la base), retrait motivé, identifiants officiels, historique.
  *
- *  - Un candidat est un ÉLÈVE de l'établissement de la session (pas de candidat libre en V1, Q-E15).
+ *  - Un candidat est un ÉLÈVE de l'établissement de la session OU un candidat LIBRE sans dossier élève (Q-E15 : voir `external-candidates.ts`).
  *  - Le numéro de candidat est attribué par un compteur transactionnel de la base à l'inscription : une inscription annulée
  *    ne consomme aucun numéro, deux inscriptions concurrentes se sérialisent, un numéro n'est jamais réattribué.
  *  - L'éligibilité et l'issue ne se posent jamais à la main : elles sont dérivées (journal d'éligibilité, résultat).
@@ -63,7 +63,7 @@ export async function listCandidates(
   const fallback = new Map<string, string>();
   let looked = 0;
   for (const c of page.items) {
-    if (c.lastName || c.firstName || looked >= NAME_LOOKUP_CAP) continue;
+    if (c.lastName || c.firstName || looked >= NAME_LOOKUP_CAP || !c.studentId) continue;
     looked += 1;
     try {
       const id = await deps.ports.students.getIdentity(ctx, c.studentId);
@@ -112,7 +112,7 @@ export async function getCandidateDetail(deps: ExaminationsDeps, ctx: RequestCon
   if (!loaded.ok) return loaded;
   const v = loaded.value;
   let fallbackName: string | null = null;
-  if (!v.c.lastName && !v.c.firstName) {
+  if (!v.c.lastName && !v.c.firstName && v.c.studentId) {
     try {
       const identity = await deps.ports.students.getIdentity(ctx, v.c.studentId);
       if (identity) fallbackName = `${identity.lastName.toLocaleUpperCase("fr-FR")} ${identity.firstName}`;
@@ -232,6 +232,30 @@ export async function updateCandidateTrack(deps: ExaminationsDeps, ctx: RequestC
 
 // ------------------------------------------------------------------ inscription et retrait
 
+/** Inscription d'un candidat LIBRE : identité déjà saisie (nom, prénoms, naissance, sexe), profil présent ; le numéro vient du même compteur sans trou. */
+async function registerExternal(deps: ExaminationsDeps, ctx: RequestContext, id: string): Promise<Result<ExamCandidateDto, AppError>> {
+  return inTx(deps, ctx, async (tx) => {
+    const c = await cand.getCandidate(tx, id, { forUpdate: true });
+    if (!c) return err(notFound(ExamCode.CANDIDATE_NOT_FOUND, "Candidat", id));
+    if (c.anonymizedAt) return err(conflict(ExamCode.CANDIDATE_ANONYMIZED, "Ce candidat est anonymisé : il ne peut plus être inscrit."));
+    const profile = await cand.getExternalProfile(tx, id);
+    if (!profile) return err(validation(ExamCode.EXTERNAL_PROFILE_INCOMPLETE, "Le profil du candidat libre (contact, faits d'éligibilité) est introuvable.", "profile"));
+    const missing: string[] = [];
+    if (!c.lastName?.trim()) missing.push("nom");
+    if (!c.firstName?.trim()) missing.push("prénoms");
+    if (!c.birthDate) missing.push("date de naissance");
+    if (!c.sex) missing.push("sexe");
+    if (missing.length > 0) return err(validation(ExamCode.IDENTITY_INCOMPLETE, `L'identité du candidat libre est incomplète (${missing.join(", ")}).`, "identity", { missing }));
+    const registered = (await cand.registerCandidate(tx, id, { lastName: c.lastName as string, firstName: c.firstName as string, birthDate: c.birthDate as string, birthPlace: c.birthPlace, sex: c.sex as "F" | "M" })) as CandidateRow;
+    const s = (await sess.getSession(tx, registered.sessionId)) as SessionRow;
+    const events = new EventBuffer(deps, ctx);
+    events.add(ExaminationsEvents.CANDIDATE_REGISTERED, { v: 1, sessionId: registered.sessionId, candidateId: registered.id, studentId: null, candidateKind: "EXTERNAL", institutionId: s.institutionId, candidateNumber: registered.candidateNumber ?? "" }, { type: "examinations.candidate", id: registered.id });
+    events.audit({ action: "examinations.candidate.register", resourceType: "candidate", resourceId: id, after: { candidateNumber: registered.candidateNumber }, metadata: { sessionId: registered.sessionId, candidateKind: "EXTERNAL" } });
+    await events.flush(tx);
+    return ok(toCandidateDto(registered));
+  });
+}
+
 /** Inscrit le candidat : identité figée à cet instant, numéro attribué par la base. Les gardes (éligibilité, pièces) sont celles de la base. */
 export async function registerCandidate(deps: ExaminationsDeps, ctx: RequestContext, id: string): Promise<Result<ExamCandidateDto, AppError>> {
   const probe = await inTx(deps, ctx, async (tx) => {
@@ -240,7 +264,9 @@ export async function registerCandidate(deps: ExaminationsDeps, ctx: RequestCont
   }, { readOnly: true });
   if (!probe.ok) return probe;
   if (probe.value.registrationStatus === "REGISTERED") return ok(toCandidateDto(probe.value));
-  const identity = await deps.ports.students.getIdentity(ctx, probe.value.studentId);
+  // Candidat LIBRE : l'identité saisie à la création est celle qui se fige ; aucun annuaire d'élèves n'est consulté.
+  if (probe.value.candidateKind === "EXTERNAL") return registerExternal(deps, ctx, id);
+  const identity = await deps.ports.students.getIdentity(ctx, probe.value.studentId as string);
   if (!identity) return err(validation(ExamCode.IDENTITY_INCOMPLETE, "L'élève est introuvable dans le dossier des personnes.", "studentId"));
   const missing: string[] = [];
   if (!identity.lastName.trim()) missing.push("nom");
@@ -257,7 +283,7 @@ export async function registerCandidate(deps: ExaminationsDeps, ctx: RequestCont
     const row = registered as CandidateRow;
     const s = (await sess.getSession(tx, row.sessionId)) as SessionRow;
     const events = new EventBuffer(deps, ctx);
-    events.add(ExaminationsEvents.CANDIDATE_REGISTERED, { v: 1, sessionId: row.sessionId, candidateId: row.id, studentId: row.studentId, institutionId: s.institutionId, candidateNumber: row.candidateNumber ?? "" }, { type: "examinations.candidate", id: row.id });
+    events.add(ExaminationsEvents.CANDIDATE_REGISTERED, { v: 1, sessionId: row.sessionId, candidateId: row.id, studentId: row.studentId, candidateKind: row.candidateKind, institutionId: s.institutionId, candidateNumber: row.candidateNumber ?? "" }, { type: "examinations.candidate", id: row.id });
     events.audit({ action: "examinations.candidate.register", resourceType: "candidate", resourceId: id, after: { candidateNumber: row.candidateNumber }, metadata: { sessionId: row.sessionId } });
     await events.flush(tx);
     return ok(toCandidateDto(row));
@@ -289,7 +315,7 @@ export async function withdrawCandidate(deps: ExaminationsDeps, ctx: RequestCont
     // La place est libérée tant que la répartition n'est pas figée ; le numéro, lui, est CONSERVÉ et jamais réattribué.
     if (ASSIGNMENT_OPEN.includes(s.status)) await sess.deleteAssignment(tx, id);
     const events = new EventBuffer(deps, ctx);
-    events.add(ExaminationsEvents.CANDIDATE_WITHDRAWN, { v: 1, sessionId: c.sessionId, candidateId: id, studentId: c.studentId, reasonCode: options.reasonCode ?? "MANUAL" }, { type: "examinations.candidate", id });
+    events.add(ExaminationsEvents.CANDIDATE_WITHDRAWN, { v: 1, sessionId: c.sessionId, candidateId: id, studentId: c.studentId, candidateKind: c.candidateKind, reasonCode: options.reasonCode ?? "MANUAL" }, { type: "examinations.candidate", id });
     events.audit({ action: "examinations.candidate.withdraw", resourceType: "candidate", resourceId: id, reason: reason.trim(), metadata: { sessionId: c.sessionId, hadNumber: c.candidateNumber !== null } });
     await events.flush(tx);
     return ok(toCandidateDto(withdrawn));

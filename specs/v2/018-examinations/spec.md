@@ -257,7 +257,7 @@ Schémas Zod dans `packages/contracts/src/v2/examinations.ts`. Erreurs `examinat
 
 ## 15. Cas limites
 
-- **Candidat libre** (non inscrit dans l'établissement) : hors V1 (le candidat est un **élève** de l'établissement) ; question Q-E15.
+- **Candidat libre** (non inscrit dans l'établissement) : géré (décision Q-E15). Il n'a **pas de dossier élève** : identité saisie ou importée, profil restreint à part, faits d'éligibilité saisis, pièces « vues sur place », aucun accès famille, anonymisation sur demande ; uniquement en session **officielle**.
 - **Élève redoublant de CM2** : deux sessions successives, deux candidats ; `nombre_tentatives` (règle) lit les candidatures antérieures.
 - **Retrait d'une inscription** (élève quitte l'établissement) avant l'examen : candidat retiré avec motif, numéro conservé.
 - **Épreuve facultative / options** : épreuve `is_optional` ; règle d'agrégation fournie ; question Q-E05.

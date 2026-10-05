@@ -12,6 +12,7 @@
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import type { Tx } from "@ecoledigitale/database";
 import type { ExamCandidateDto, ExamEligibilityBody, ExamEligibilityCheckDto } from "@ecoledigitale/contracts/src/v2/examinations";
+import { ageYearsAt } from "../domain/age";
 import { combineInputHashes } from "../domain/mock";
 import { ExaminationsEvents } from "../domain/events";
 import { ExamCode, conflict, notFound, validation } from "../domain/errors";
@@ -55,10 +56,18 @@ async function openRule(deps: ExaminationsDeps, ctx: RequestContext, session: Se
   return deps.ports.rules.open(ctx, session.ruleVersionRef);
 }
 
-/** Lit les faits d'un candidat (hors transaction d'écriture) : annuaire académique en échec fermé, pièces et tentatives en base. */
-async function prepare(deps: ExaminationsDeps, ctx: RequestContext, c: CandidateRow, context: Context, extra: { piecesComplete: boolean; priorAttempts: number }): Promise<Result<Prepared, AppError>> {
+/**
+ * Lit les faits d'un candidat (hors transaction d'écriture) : annuaire académique en échec fermé, pièces et tentatives en base.
+ * Un candidat LIBRE n'a pas de dossier scolaire : ses faits sont ceux de sa SAISIE (classe d'examen déclarée, tentatives déclarées) ;
+ * l'âge est calculé de sa date de naissance et de la date de la session. La règle est la même.
+ */
+async function prepare(deps: ExaminationsDeps, ctx: RequestContext, c: CandidateRow, context: Context, extra: { piecesComplete: boolean; priorAttempts: number; declared?: { inExamGrade: boolean } | undefined }): Promise<Result<Prepared, AppError>> {
+  if (c.candidateKind === "EXTERNAL") {
+    if (!extra.declared) return err(validation(ExamCode.EXTERNAL_PROFILE_INCOMPLETE, "Le profil du candidat libre est introuvable : ses faits d'éligibilité ne sont pas saisis.", "profile"));
+    return ok({ candidate: c, facts: { inExamGrade: extra.declared.inExamGrade, ageYears: ageYearsAt(c.birthDate, context.session.startsOn) }, piecesComplete: extra.piecesComplete, priorAttempts: extra.priorAttempts });
+  }
   if (!c.enrollmentId) return err(validation(ExamCode.ENROLLMENT_MISMATCH, "Ce candidat n'a pas d'inscription : ses faits d'éligibilité sont introuvables.", "enrollmentId"));
-  const facts = await deps.ports.eligibility.getEligibilityFacts(ctx, { enrollmentId: c.enrollmentId, studentId: c.studentId, examGradeLevelCode: context.type.gradeLevelCode, referenceDate: context.session.startsOn });
+  const facts = await deps.ports.eligibility.getEligibilityFacts(ctx, { enrollmentId: c.enrollmentId, studentId: c.studentId as string, examGradeLevelCode: context.type.gradeLevelCode, referenceDate: context.session.startsOn });
   if (!facts.ok) return facts;
   return ok({ candidate: c, facts: facts.value, piecesComplete: extra.piecesComplete, priorAttempts: extra.priorAttempts });
 }
@@ -128,9 +137,15 @@ export async function evaluateEligibility(deps: ExaminationsDeps, ctx: RequestCo
   if (body.mode === "EVALUATE") {
     const rule = await openRule(deps, ctx, session);
     if (!rule.ok) return rule;
-    const attempts = await inTx(deps, ctx, async (tx) => ok(await cand.countPriorAttempts(tx, c.studentId, session.examTypeId, session.id)), { readOnly: true });
+    const attempts = await inTx(deps, ctx, async (tx) => {
+      if (c.candidateKind === "EXTERNAL") {
+        const profile = await cand.getExternalProfile(tx, c.id);
+        return ok({ prior: profile?.declaredPriorAttempts ?? 0, declared: profile ? { inExamGrade: profile.declaredInExamGrade } : undefined });
+      }
+      return ok({ prior: await cand.countPriorAttempts(tx, c.studentId as string, session.examTypeId, session.id), declared: undefined });
+    }, { readOnly: true });
     if (!attempts.ok) return attempts;
-    const prepared = await prepare(deps, ctx, c, context.value, { piecesComplete: missing.length === 0, priorAttempts: attempts.value });
+    const prepared = await prepare(deps, ctx, c, context.value, { piecesComplete: missing.length === 0, priorAttempts: attempts.value.prior, declared: attempts.value.declared });
     if (!prepared.ok) return prepared;
     const evaluated = evaluateWithRule(rule.value, ruleVariables(prepared.value, context.value));
     if (!evaluated.ok) return evaluated;
@@ -173,14 +188,21 @@ export async function evaluateAll(deps: ExaminationsDeps, ctx: RequestContext, s
     const candidates = await cand.listEligibleToEvaluate(tx, sessionId);
     const missing = await cand.missingPiecesOf(tx, candidates.map((c) => c.id));
     const attempts = new Map<string, number>();
-    for (const c of candidates) attempts.set(c.id, await cand.countPriorAttempts(tx, c.studentId, context.value.session.examTypeId, sessionId));
-    return ok({ candidates, missing, attempts });
+    const declared = new Map<string, { inExamGrade: boolean }>();
+    for (const c of candidates) {
+      if (c.candidateKind === "EXTERNAL") {
+        const profile = await cand.getExternalProfile(tx, c.id);
+        attempts.set(c.id, profile?.declaredPriorAttempts ?? 0);
+        if (profile) declared.set(c.id, { inExamGrade: profile.declaredInExamGrade });
+      } else attempts.set(c.id, await cand.countPriorAttempts(tx, c.studentId as string, context.value.session.examTypeId, sessionId));
+    }
+    return ok({ candidates, missing, attempts, declared });
   }, { readOnly: true });
   if (!loaded.ok) return loaded;
   const report: EvaluateAllReport = { evaluated: 0, byResult: {}, failed: [] };
   const done: Array<{ c: CandidateRow; evaluated: Evaluated }> = [];
   for (const c of loaded.value.candidates) {
-    const prepared = await prepare(deps, ctx, c, context.value, { piecesComplete: (loaded.value.missing.get(c.id) ?? []).length === 0, priorAttempts: loaded.value.attempts.get(c.id) ?? 0 });
+    const prepared = await prepare(deps, ctx, c, context.value, { piecesComplete: (loaded.value.missing.get(c.id) ?? []).length === 0, priorAttempts: loaded.value.attempts.get(c.id) ?? 0, declared: loaded.value.declared.get(c.id) });
     if (!prepared.ok) {
       report.failed.push({ candidateId: c.id, code: prepared.error.code, message: prepared.error.message });
       continue;

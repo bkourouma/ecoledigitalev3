@@ -152,11 +152,17 @@ export interface SessionPaperRow {
   sourceKind: SourceKind;
 }
 
+export type CandidateKind = "STUDENT" | "EXTERNAL";
+
 export interface CandidateRow {
   id: string;
   sessionId: string;
   institutionId: string;
-  studentId: string;
+  /** `null` pour un candidat LIBRE (sans dossier élève, Q-E15). */
+  studentId: string | null;
+  candidateKind: CandidateKind;
+  /** Renseigné quand l'identité du candidat libre a été anonymisée. */
+  anonymizedAt: Date | null;
   enrollmentId: string | null;
   gradeLevelCode: string | null;
   trackCode: string | null;
@@ -212,6 +218,9 @@ export interface CandidatePieceRow {
   required: boolean;
   status: PieceStatus;
   documentRef: string | null;
+  /** `SIGHTED` : pièce vue sur place (candidat libre, sans document de la GED). */
+  presentationKind: "DOCUMENT" | "SIGHTED";
+  sightedNote: string | null;
   rejectionReason: string | null;
   reviewedBy: string | null;
   reviewedAt: Date | null;
@@ -431,3 +440,26 @@ export interface CountsRow {
 
 export const COUNT_GROUPS = ["ALL", "INSTITUTION", "TRACK", "SEX", "GRADE"] as const;
 export type CountGroup = (typeof COUNT_GROUPS)[number];
+
+/** Données personnelles RESTREINTES d'un candidat libre (coordonnées, pièce d'identité, tuteur) + faits d'éligibilité saisis. */
+export interface ExternalProfileRow {
+  id: string;
+  candidateId: string;
+  sessionId: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  addressLine: string | null;
+  idPieceKind: string | null;
+  idPieceNumber: string | null;
+  guardianName: string | null;
+  guardianRelation: string | null;
+  guardianPhone: string | null;
+  guardianEmail: string | null;
+  declaredInExamGrade: boolean;
+  declaredPriorAttempts: number;
+  dataSource: "ENTERED" | "IMPORTED";
+  enteredBy: string | null;
+  anonymizedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

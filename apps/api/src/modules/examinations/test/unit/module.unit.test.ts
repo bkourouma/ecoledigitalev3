@@ -34,7 +34,7 @@ describe("module examinations : manifeste", () => {
   });
   it("marque SENSIBLES la publication, l'application d'un import, la révision et la dérogation ; les menus visent des permissions et features du module", () => {
     const sensitive = manifest.permissions.filter((p) => p.sensitive).map((p) => p.key).sort();
-    expect(sensitive).toEqual(["exam.eligibility.override", "exam.result.publish", "exam.result.release", "exam.result.revise"]);
+    expect(sensitive).toEqual(["exam.eligibility.override", "exam.external.anonymize", "exam.result.publish", "exam.result.release", "exam.result.revise"]);
     const perms = new Set(manifest.permissions.map((p) => p.key));
     const features = new Set(manifest.features.map((f) => f.key));
     expect([...features].sort()).toEqual(["examinations.core", "examinations.exports", "examinations.mock"]);

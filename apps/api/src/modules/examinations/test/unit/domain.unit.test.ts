@@ -3,6 +3,7 @@
  * (injection de formule neutralisée, encodages), analyse d'un fichier de l'autorité, entrées des règles d'examen blanc, erreurs de la base.
  */
 import { describe, expect, it } from "vitest";
+import { ageYearsAt } from "../../domain/age";
 import { compareDecimal, normalizeDecimal } from "../../domain/decimal";
 import { ExamCode, dbRuleCode, fromDbError } from "../../domain/errors";
 import { buildTable, applyTransform, csvField, encodeText, neutralizeFormula, toCsv, toFixedWidth, toJson } from "../../domain/export-render";
@@ -228,5 +229,17 @@ describe("traduction des erreurs de la base", () => {
     expect(fromDbError(pg("check", { code: "23514", constraint: "x" }))).toMatchObject({ kind: "validation" });
     expect(fromDbError(pg("connexion perdue", { code: "08006" }))).toBeNull();
     expect(fromDbError(new Error("boom"))).toBeNull();
+  });
+});
+
+describe("âge d'un candidat libre (calculé, jamais inventé)", () => {
+  it("compte les années entières à la date de référence ; sans date de référence ou de naissance : null (jamais 0)", () => {
+    expect(ageYearsAt("2015-03-04", "2027-06-10")).toBe(12);
+    expect(ageYearsAt("2015-06-10", "2027-06-10")).toBe(12); // jour anniversaire
+    expect(ageYearsAt("2015-06-11", "2027-06-10")).toBe(11); // veille de l'anniversaire
+    expect(ageYearsAt("2015-03-04", null)).toBeNull();
+    expect(ageYearsAt(null, "2027-06-10")).toBeNull();
+    expect(ageYearsAt("2030-01-01", "2027-06-10")).toBeNull(); // naissance postérieure : donnée incohérente
+    expect(ageYearsAt("n'importe quoi", "2027-06-10")).toBeNull();
   });
 });

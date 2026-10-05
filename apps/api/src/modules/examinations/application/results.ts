@@ -109,7 +109,7 @@ export async function publishResult(deps: ExaminationsDeps, ctx: RequestContext,
     if (session.sessionKind === "OFFICIAL" && candidate) {
       events.add(
         ExaminationsEvents.RESULT_PUBLISHED,
-        { v: 1, sessionId: session.id, candidateId: published.candidateId, studentId: candidate.studentId, institutionId: session.institutionId, examTypeCode: type?.code ?? "", sessionYear: session.sessionYear, outcome: published.resultCode },
+        { v: 1, sessionId: session.id, candidateId: published.candidateId, studentId: candidate.studentId, candidateKind: candidate.candidateKind, institutionId: session.institutionId, examTypeCode: type?.code ?? "", sessionYear: session.sessionYear, outcome: published.resultCode },
         { type: "examinations.result", id: published.id },
       );
     }

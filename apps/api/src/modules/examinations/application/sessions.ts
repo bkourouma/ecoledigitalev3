@@ -188,16 +188,16 @@ export async function transitionSession(deps: ExaminationsDeps, ctx: RequestCont
     if (to === "PUBLISHED") {
       // Publication des résultats : étape distincte du saisi, faite ici dans la même transaction que le passage d'état.
       const published = await res.publishAllDraft(tx, id, actor.value);
-      const students = new Map<string, string>();
+      const students = new Map<string, { studentId: string | null; candidateKind: "STUDENT" | "EXTERNAL" }>();
       for (let i = 0; i < published.length; i += 500) {
-        for (const c of await cand.listCandidatesByIds(tx, published.slice(i, i + 500).map((r) => r.candidateId))) students.set(c.id, c.studentId);
+        for (const c of await cand.listCandidatesByIds(tx, published.slice(i, i + 500).map((r) => r.candidateId))) students.set(c.id, { studentId: c.studentId, candidateKind: c.candidateKind });
       }
       publishedCount = (await sess.sessionCounts(tx, id)).published;
       if (s.sessionKind === "OFFICIAL") {
         for (const r of published) {
           events.add(
             ExaminationsEvents.RESULT_PUBLISHED,
-            { v: 1, sessionId: id, candidateId: r.candidateId, studentId: students.get(r.candidateId) ?? "", institutionId: s.institutionId, examTypeCode: type?.code ?? "", sessionYear: s.sessionYear, outcome: r.resultCode },
+            { v: 1, sessionId: id, candidateId: r.candidateId, studentId: students.get(r.candidateId)?.studentId ?? null, candidateKind: students.get(r.candidateId)?.candidateKind ?? "STUDENT", institutionId: s.institutionId, examTypeCode: type?.code ?? "", sessionYear: s.sessionYear, outcome: r.resultCode },
             { type: "examinations.result", id: r.id },
           );
         }

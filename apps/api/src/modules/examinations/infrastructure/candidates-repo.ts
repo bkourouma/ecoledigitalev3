@@ -4,8 +4,10 @@
  */
 import type { Tx } from "@ecoledigitale/database";
 import type {
+  CandidateKind,
   CandidatePieceRow,
   CandidateRow,
+  ExternalProfileRow,
   EligibilityCheckRow,
   EligibilityResult,
   EligibilityStatus,
@@ -16,17 +18,17 @@ import type {
   RegistrationStatus,
 } from "../domain/types";
 
-const CAND_COLS = `id, session_id, institution_id, student_id, enrollment_id, grade_level_code, track_code, last_name, first_name, birth_date::text AS birth_date, birth_place, sex, snapshot_taken_at,
+const CAND_COLS = `id, session_id, institution_id, student_id, candidate_kind, anonymized_at, enrollment_id, grade_level_code, track_code, last_name, first_name, birth_date::text AS birth_date, birth_place, sex, snapshot_taken_at,
   registration_status, eligibility_status, outcome, candidate_seq::text AS candidate_seq, candidate_number, registered_at, withdrawn_at, withdrawn_reason, created_by, row_version, created_at, updated_at`;
 
 interface CandSql {
-  id: string; session_id: string; institution_id: string; student_id: string; enrollment_id: string | null; grade_level_code: string | null; track_code: string | null; last_name: string | null;
+  id: string; session_id: string; institution_id: string; student_id: string | null; candidate_kind: CandidateKind; anonymized_at: Date | null; enrollment_id: string | null; grade_level_code: string | null; track_code: string | null; last_name: string | null;
   first_name: string | null; birth_date: string | null; birth_place: string | null; sex: "F" | "M" | null; snapshot_taken_at: Date | null; registration_status: RegistrationStatus;
   eligibility_status: EligibilityStatus; outcome: Outcome; candidate_seq: string | null; candidate_number: string | null; registered_at: Date | null; withdrawn_at: Date | null;
   withdrawn_reason: string | null; created_by: string | null; row_version: number; created_at: Date; updated_at: Date;
 }
 const toCandidate = (r: CandSql): CandidateRow => ({
-  id: r.id, sessionId: r.session_id, institutionId: r.institution_id, studentId: r.student_id, enrollmentId: r.enrollment_id, gradeLevelCode: r.grade_level_code, trackCode: r.track_code,
+  id: r.id, sessionId: r.session_id, institutionId: r.institution_id, studentId: r.student_id, candidateKind: r.candidate_kind, anonymizedAt: r.anonymized_at, enrollmentId: r.enrollment_id, gradeLevelCode: r.grade_level_code, trackCode: r.track_code,
   lastName: r.last_name, firstName: r.first_name, birthDate: r.birth_date, birthPlace: r.birth_place, sex: r.sex, snapshotTakenAt: r.snapshot_taken_at, registrationStatus: r.registration_status,
   eligibilityStatus: r.eligibility_status, outcome: r.outcome, candidateSeq: r.candidate_seq, candidateNumber: r.candidate_number, registeredAt: r.registered_at, withdrawnAt: r.withdrawn_at,
   withdrawnReason: r.withdrawn_reason, createdBy: r.created_by, rowVersion: r.row_version, createdAt: r.created_at, updatedAt: r.updated_at,
@@ -106,6 +108,94 @@ export async function insertCandidate(tx: Tx, tenantId: string, c: { id: string;
     [c.id, tenantId, c.sessionId, c.institutionId, c.studentId, c.enrollmentId, c.gradeLevelCode, c.trackCode, c.createdBy],
   );
   return toCandidate(r as CandSql);
+}
+
+/** Candidat LIBRE (sans dossier élève) : l'identité est posée dès la création, figée à l'inscription comme pour un élève. */
+export async function insertExternalCandidate(
+  tx: Tx,
+  tenantId: string,
+  c: { id: string; sessionId: string; institutionId: string; trackCode: string | null; createdBy: string | null; lastName: string; firstName: string; birthDate: string; birthPlace: string | null; sex: "F" | "M" },
+): Promise<CandidateRow> {
+  const r = await tx.queryOne<CandSql>(
+    `INSERT INTO examinations.candidates (id, tenant_id, session_id, institution_id, student_id, candidate_kind, track_code, created_by, last_name, first_name, birth_date, birth_place, sex)
+     VALUES ($1, $2, $3, $4, NULL, 'EXTERNAL', $5, $6, $7, $8, $9::date, $10, $11) RETURNING ${CAND_COLS}`,
+    [c.id, tenantId, c.sessionId, c.institutionId, c.trackCode, c.createdBy, c.lastName, c.firstName, c.birthDate, c.birthPlace, c.sex],
+  );
+  return toCandidate(r as CandSql);
+}
+
+/** Mise à jour de l'identité d'un candidat libre NON encore inscrit (la base fige l'identité à l'inscription). */
+export async function updateExternalIdentity(
+  tx: Tx,
+  id: string,
+  v: { lastName: string; firstName: string; birthDate: string; birthPlace: string | null; sex: "F" | "M" },
+): Promise<CandidateRow | null> {
+  const r = await tx.queryOne<CandSql>(
+    `UPDATE examinations.candidates SET last_name = $2, first_name = $3, birth_date = $4::date, birth_place = $5, sex = $6 WHERE id = $1 AND candidate_kind = 'EXTERNAL' RETURNING ${CAND_COLS}`,
+    [id, v.lastName, v.firstName, v.birthDate, v.birthPlace, v.sex],
+  );
+  return r ? toCandidate(r) : null;
+}
+
+// ------------------------------------------------------------------ profil du candidat libre (données restreintes)
+
+const PROFILE_COLS = `id, candidate_id, session_id, contact_phone, contact_email, address_line, id_piece_kind, id_piece_number, guardian_name, guardian_relation, guardian_phone, guardian_email,
+  declared_in_exam_grade, declared_prior_attempts, data_source, entered_by, anonymized_at, created_at, updated_at`;
+
+interface ProfileSql {
+  id: string; candidate_id: string; session_id: string; contact_phone: string | null; contact_email: string | null; address_line: string | null; id_piece_kind: string | null;
+  id_piece_number: string | null; guardian_name: string | null; guardian_relation: string | null; guardian_phone: string | null; guardian_email: string | null;
+  declared_in_exam_grade: boolean; declared_prior_attempts: number; data_source: "ENTERED" | "IMPORTED"; entered_by: string | null; anonymized_at: Date | null; created_at: Date; updated_at: Date;
+}
+const toProfile = (r: ProfileSql): ExternalProfileRow => ({
+  id: r.id, candidateId: r.candidate_id, sessionId: r.session_id, contactPhone: r.contact_phone, contactEmail: r.contact_email, addressLine: r.address_line, idPieceKind: r.id_piece_kind,
+  idPieceNumber: r.id_piece_number, guardianName: r.guardian_name, guardianRelation: r.guardian_relation, guardianPhone: r.guardian_phone, guardianEmail: r.guardian_email,
+  declaredInExamGrade: r.declared_in_exam_grade, declaredPriorAttempts: r.declared_prior_attempts, dataSource: r.data_source, enteredBy: r.entered_by, anonymizedAt: r.anonymized_at,
+  createdAt: r.created_at, updatedAt: r.updated_at,
+});
+
+export interface ProfileWrite {
+  contactPhone: string | null;
+  contactEmail: string | null;
+  addressLine: string | null;
+  idPieceKind: string | null;
+  idPieceNumber: string | null;
+  guardianName: string | null;
+  guardianRelation: string | null;
+  guardianPhone: string | null;
+  guardianEmail: string | null;
+  declaredInExamGrade: boolean;
+  declaredPriorAttempts: number;
+}
+
+export async function getExternalProfile(tx: Tx, candidateId: string): Promise<ExternalProfileRow | null> {
+  const r = await tx.queryOne<ProfileSql>(`SELECT ${PROFILE_COLS} FROM examinations.external_candidate_profiles WHERE candidate_id = $1`, [candidateId]);
+  return r ? toProfile(r) : null;
+}
+
+export async function insertExternalProfile(tx: Tx, tenantId: string, p: ProfileWrite & { id: string; sessionId: string; candidateId: string; dataSource: "ENTERED" | "IMPORTED"; enteredBy: string | null }): Promise<ExternalProfileRow> {
+  const r = await tx.queryOne<ProfileSql>(
+    `INSERT INTO examinations.external_candidate_profiles (id, tenant_id, session_id, candidate_id, contact_phone, contact_email, address_line, id_piece_kind, id_piece_number,
+        guardian_name, guardian_relation, guardian_phone, guardian_email, declared_in_exam_grade, declared_prior_attempts, data_source, entered_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING ${PROFILE_COLS}`,
+    [p.id, tenantId, p.sessionId, p.candidateId, p.contactPhone, p.contactEmail, p.addressLine, p.idPieceKind, p.idPieceNumber, p.guardianName, p.guardianRelation, p.guardianPhone, p.guardianEmail, p.declaredInExamGrade, p.declaredPriorAttempts, p.dataSource, p.enteredBy],
+  );
+  return toProfile(r as ProfileSql);
+}
+
+export async function updateExternalProfile(tx: Tx, candidateId: string, p: ProfileWrite): Promise<ExternalProfileRow | null> {
+  const r = await tx.queryOne<ProfileSql>(
+    `UPDATE examinations.external_candidate_profiles SET contact_phone = $2, contact_email = $3, address_line = $4, id_piece_kind = $5, id_piece_number = $6,
+        guardian_name = $7, guardian_relation = $8, guardian_phone = $9, guardian_email = $10, declared_in_exam_grade = $11, declared_prior_attempts = $12
+      WHERE candidate_id = $1 RETURNING ${PROFILE_COLS}`,
+    [candidateId, p.contactPhone, p.contactEmail, p.addressLine, p.idPieceKind, p.idPieceNumber, p.guardianName, p.guardianRelation, p.guardianPhone, p.guardianEmail, p.declaredInExamGrade, p.declaredPriorAttempts],
+  );
+  return r ? toProfile(r) : null;
+}
+
+/** Anonymise (fonction SQL) : profil effacé, identifiants rendus neutres, identité dégradée ; irréversible. */
+export async function anonymizeExternal(tx: Tx, candidateId: string, reason: string): Promise<void> {
+  await tx.query(`SELECT examinations.anonymize_external_candidate($1, $2)`, [candidateId, reason]);
 }
 
 export async function setCandidateTrack(tx: Tx, id: string, trackCode: string | null): Promise<CandidateRow | null> {
@@ -206,13 +296,13 @@ export async function insertCheck(
 
 interface PieceSql {
   id: string | null; candidate_id: string; requirement_id: string; code: string; label: string; required: boolean; status: PieceStatus | null; document_ref: string | null;
-  rejection_reason: string | null; reviewed_by: string | null; reviewed_at: Date | null; updated_at: Date | null;
+  presentation_kind: "DOCUMENT" | "SIGHTED" | null; sighted_note: string | null; rejection_reason: string | null; reviewed_by: string | null; reviewed_at: Date | null; updated_at: Date | null;
 }
 
 /** Pièces d'un candidat : toutes les exigences ACTIVES du type, avec l'état de dépôt (MISSING si aucune ligne). */
 export async function listPieces(tx: Tx, candidateId: string): Promise<CandidatePieceRow[]> {
   const rows = await tx.many<PieceSql>(
-    `SELECT d.id, c.id AS candidate_id, r.id AS requirement_id, r.code, r.label, r.required, d.status, d.document_ref, d.rejection_reason, d.reviewed_by, d.reviewed_at, d.updated_at
+    `SELECT d.id, c.id AS candidate_id, r.id AS requirement_id, r.code, r.label, r.required, d.status, d.document_ref, d.presentation_kind, d.sighted_note, d.rejection_reason, d.reviewed_by, d.reviewed_at, d.updated_at
        FROM examinations.candidates c
        JOIN examinations.sessions s ON s.tenant_id = c.tenant_id AND s.id = c.session_id
        JOIN examinations.document_requirements r ON r.tenant_id = c.tenant_id AND r.exam_type_id = s.exam_type_id AND r.active
@@ -222,7 +312,7 @@ export async function listPieces(tx: Tx, candidateId: string): Promise<Candidate
   );
   return rows.map((r) => ({
     id: r.id ?? "", candidateId: r.candidate_id, requirementId: r.requirement_id, requirementCode: r.code, requirementLabel: r.label, required: r.required, status: r.status ?? "MISSING",
-    documentRef: r.document_ref, rejectionReason: r.rejection_reason, reviewedBy: r.reviewed_by, reviewedAt: r.reviewed_at, updatedAt: r.updated_at,
+    documentRef: r.document_ref, presentationKind: r.presentation_kind ?? "DOCUMENT", sightedNote: r.sighted_note, rejectionReason: r.rejection_reason, reviewedBy: r.reviewed_by, reviewedAt: r.reviewed_at, updatedAt: r.updated_at,
   }));
 }
 
@@ -235,8 +325,20 @@ export async function submitPiece(tx: Tx, tenantId: string, p: { id: string; can
   await tx.query(
     `INSERT INTO examinations.candidate_documents (id, tenant_id, candidate_id, requirement_id, status, document_ref)
      VALUES ($1, $2, $3, $4, 'SUBMITTED', $5)
-     ON CONFLICT (tenant_id, candidate_id, requirement_id) DO UPDATE SET status = 'SUBMITTED', document_ref = EXCLUDED.document_ref, rejection_reason = NULL, reviewed_by = NULL, reviewed_at = NULL, updated_at = now()`,
+     ON CONFLICT (tenant_id, candidate_id, requirement_id) DO UPDATE SET status = 'SUBMITTED', document_ref = EXCLUDED.document_ref, presentation_kind = 'DOCUMENT', sighted_note = NULL,
+        rejection_reason = NULL, reviewed_by = NULL, reviewed_at = NULL, updated_at = now()`,
     [p.id, tenantId, p.candidateId, p.requirementId, p.documentRef],
+  );
+}
+
+/** Pièce d'un candidat libre « vue sur place » (aucun document de la GED d'un élève) ; reste à relire (accepter / refuser). */
+export async function submitSightedPiece(tx: Tx, tenantId: string, p: { id: string; candidateId: string; requirementId: string; note: string | null }): Promise<void> {
+  await tx.query(
+    `INSERT INTO examinations.candidate_documents (id, tenant_id, candidate_id, requirement_id, status, presentation_kind, sighted_note)
+     VALUES ($1, $2, $3, $4, 'SUBMITTED', 'SIGHTED', $5)
+     ON CONFLICT (tenant_id, candidate_id, requirement_id) DO UPDATE SET status = 'SUBMITTED', document_ref = NULL, presentation_kind = 'SIGHTED', sighted_note = EXCLUDED.sighted_note,
+        rejection_reason = NULL, reviewed_by = NULL, reviewed_at = NULL, updated_at = now()`,
+    [p.id, tenantId, p.candidateId, p.requirementId, p.note],
   );
 }
 

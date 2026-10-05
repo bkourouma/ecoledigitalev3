@@ -103,6 +103,7 @@ async function issueInTx(deps: ExaminationsDeps, ctx: RequestContext, tx: Tx, ac
   const s = (await sess.getSession(tx, c.sessionId)) as SessionRow;
   if (s.sessionKind === "MOCK") return err(conflict(ExamCode.MOCK_NO_OFFICIAL_DOCUMENT, "Un examen blanc ne produit aucun document officiel : ses résultats sont calculés, pas prononcés par l'autorité."));
   if (c.registrationStatus !== "REGISTERED") return err(conflict(ExamCode.CANDIDATE_NOT_REGISTERED, "Aucun document pour un candidat non inscrit."));
+  if (c.anonymizedAt) return err(conflict(ExamCode.CANDIDATE_ANONYMIZED, "Ce candidat est anonymisé : aucun nouveau document nominatif."));
   const live = await out.getLiveDocument(tx, candidateId, kind);
   if (live) return err(conflict(ExamCode.DOCUMENT_ALREADY_LIVE, "Ce candidat a déjà un document vivant de cette nature : le révoquer (avec motif) avant d'en émettre un nouveau.", { documentId: live.id }));
   const type = await ref.getType(tx, s.examTypeId);
@@ -122,7 +123,7 @@ async function issueInTx(deps: ExaminationsDeps, ctx: RequestContext, tx: Tx, ac
   const issued = await out.markDocumentIssued(tx, id, sealed.value.documentId);
   if (!issued) return err(conflict(ExamCode.DOCUMENT_ISSUED, "Le document n'a pas pu être finalisé."));
   const events = new EventBuffer(deps, ctx);
-  events.add(ExaminationsEvents.DOCUMENT_ISSUED, { v: 1, sessionId: s.id, candidateId, studentId: c.studentId, documentId: id, kind, version }, { type: "examinations.document", id });
+  events.add(ExaminationsEvents.DOCUMENT_ISSUED, { v: 1, sessionId: s.id, candidateId, studentId: c.studentId, candidateKind: c.candidateKind, documentId: id, kind, version }, { type: "examinations.document", id });
   events.audit({ action: "examinations.document.issue", resourceType: "issued_document", resourceId: id, sensitive: true, metadata: { sessionId: s.id, candidateId, kind, version, officialDocumentId: sealed.value.documentId } });
   await events.flush(tx);
   return ok(issued);
