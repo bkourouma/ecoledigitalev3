@@ -54,6 +54,7 @@ export type { StaffRow } from "./importers/staff";
 export type { ClassroomRow } from "./importers/classrooms";
 export type { CurriculumRow } from "./importers/curriculum";
 export type { GradeRow, GradeEntry } from "./importers/grades";
+export type { EnrollmentRow } from "./importers/enrollments";
 export type { BalanceRow } from "./importers/opening-balances";
 export { ALL_IMPORT_EVENT_TYPES, ImportEvents } from "./domain/events";
 export { detectMapping, matchTemplate, validateMapping } from "./domain/mapping";

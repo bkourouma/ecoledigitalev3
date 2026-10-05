@@ -6,6 +6,11 @@
  * L'import ne calcule RIEN : la note est transmise telle que saisie (chaîne décimale), jamais arrondie ni convertie ; les
  * moyennes, rangs et décisions restent l'affaire de `results` (recalcul déclenché par les événements d'`assess`).
  *
+ * Périmètre (O-02) : `scope: "ALL"` (importeur « notes », `assessment.manage`) agit sur toute évaluation ; `scope: "OWN"` (importeur
+ * « notes de mes classes ») travaille SANS capacité étendue : `assess` n'ouvre alors que les évaluations dont l'auteur est
+ * l'enseignant ET encore affecté à la matière dans la classe. Ni liste, ni lecture, ni écriture ne contourne ce contrôle, et un
+ * matricule d'une autre classe n'est pas distinguable d'un matricule inconnu (pas d'énumération d'élèves).
+ *
  * Écriture en LOT (`applyBatch`) : une seule feuille lue et un seul `saveGrades` par lot ; si le lot est refusé, repli ligne
  * à ligne (chaque ligne dans son SAVEPOINT) pour isoler les lignes fautives.
  */
@@ -16,7 +21,8 @@ import { resolveStudentRefs } from "../../modules/people";
 import { issue, issuesFromError, type ImportWriteEnv } from "./imports-support";
 
 const norm = (s: string): string => s.trim().toUpperCase();
-const CAPS = { manage: true } as const;
+export type GradesImportScope = "ALL" | "OWN";
+const CAPS_BY_SCOPE: Readonly<Record<GradesImportScope, { manage?: true }>> = { ALL: { manage: true }, OWN: {} };
 
 interface Sheet {
   assessmentId: string;
@@ -27,7 +33,9 @@ interface Sheet {
   byStudent: Map<string, { enrollmentId: string; gradeId: string | null; rowVersion: number | null; entryStatus: string | null; score: string | null; comment: string | null }>;
 }
 
-export function createGradesImportPort(env: ImportWriteEnv): ImportTargetPort<GradeRow> {
+export function createGradesImportPort(env: ImportWriteEnv, scope: GradesImportScope = "ALL"): ImportTargetPort<GradeRow> {
+  const CAPS = CAPS_BY_SCOPE[scope];
+  const notYours = (ref: string) => issue("studentRef", "imports.reference_unknown", `L'élève « ${ref} » n'est pas inscrit dans la classe de cette évaluation.`);
   async function loadSheet(ctx: RequestContext, assessmentId: string): Promise<Sheet | { error: ReturnType<typeof issuesFromError> }> {
     const sheet = await getGradeSheet(env.assess, ctx, { assessmentId, caps: CAPS });
     if (!sheet.ok) return { error: issuesFromError(sheet.error) };
@@ -56,7 +64,7 @@ export function createGradesImportPort(env: ImportWriteEnv): ImportTargetPort<Gr
       const studentId = studentIds.get(norm(item.row.studentRef));
       const cur = studentId ? sheet.byStudent.get(studentId) : undefined;
       if (!studentId || !cur) {
-        results.set(item.rowNo, { rowNo: item.rowNo, outcome: "FAILED", issues: [issue("studentRef", "imports.reference_unknown", `L'élève « ${item.row.studentRef} » n'est pas inscrit dans la classe de cette évaluation.`)] });
+        results.set(item.rowNo, { rowNo: item.rowNo, outcome: "FAILED", issues: [notYours(item.row.studentRef)] });
         continue;
       }
       const exists = cur.gradeId !== null && cur.entryStatus !== "NOT_GRADED";
@@ -97,12 +105,16 @@ export function createGradesImportPort(env: ImportWriteEnv): ImportTargetPort<Gr
   return {
     async choices(ctx, optionKey) {
       if (optionKey !== "assessmentId") return [];
+      // OWN : `assess` ne restitue que les évaluations de l'auteur (enseignant de l'évaluation).
       const r = await listAssessmentsView(env.assess, ctx, { status: "DRAFT", limit: 100, caps: CAPS });
       return (r.ok ? r.value.items : []).map((a) => ({ value: a.id, label: `${a.title} — ${a.assessedOn} (barème ${a.scaleMax})` }));
     },
     async checkOptions(ctx, options) {
       const r = await getAssessmentView(env.assess, ctx, { assessmentId: String(options["assessmentId"]), caps: CAPS });
-      if (!r.ok) return [issue("assessmentId", "imports.options_invalid", "Évaluation inconnue.")];
+      if (!r.ok) {
+        // Même message pour une évaluation inconnue et pour une évaluation d'un autre enseignant : aucune énumération.
+        return [issue("assessmentId", "imports.options_invalid", scope === "OWN" ? "Évaluation inconnue ou hors de vos classes : vous ne pouvez importer que les notes de vos propres évaluations." : "Évaluation inconnue.")];
+      }
       if (r.value.status !== "DRAFT") return [issue("assessmentId", "imports.options_invalid", "Les notes de cette évaluation sont figées : retournez la feuille en brouillon avant d'importer.")];
       return [];
     },
@@ -117,8 +129,8 @@ export function createGradesImportPort(env: ImportWriteEnv): ImportTargetPort<Gr
         if (sheet.status !== "DRAFT") issues.push(issue(null, "assess.grade_frozen", "Les notes de cette évaluation sont figées (la feuille n'est plus en brouillon)."));
         const studentId = ids.get(norm(row.studentRef));
         const cur = studentId ? sheet.byStudent.get(studentId) : undefined;
-        if (!studentId) issues.push(issue("studentRef", "imports.reference_unknown", `Aucun élève avec le matricule « ${row.studentRef} ».`));
-        else if (!cur) issues.push(issue("studentRef", "imports.reference_unknown", `L'élève « ${row.studentRef} » n'est pas inscrit dans la classe de cette évaluation.`));
+        if (!studentId && scope === "ALL") issues.push(issue("studentRef", "imports.reference_unknown", `Aucun élève avec le matricule « ${row.studentRef} ».`));
+        else if (!cur) issues.push(notYours(row.studentRef));
         if (cur) {
           const n = normalizeEntry({ enrollmentId: cur.enrollmentId, ...entryOf(row) } as never, sheet.scaleMax, sheet.maxDecimals);
           if (!n.ok) issues.push(issue("entry", n.error.code, n.error.message));

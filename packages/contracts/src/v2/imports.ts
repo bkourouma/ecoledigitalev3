@@ -19,7 +19,7 @@ import { z } from "zod";
 export const importsUuidSchema = z.string().uuid();
 export const importsInstantSchema = z.string().datetime({ offset: true });
 
-export const IMPORTER_KEYS = ["students", "guardians", "staff", "classrooms", "curriculum", "grades", "opening_balances"] as const;
+export const IMPORTER_KEYS = ["students", "guardians", "staff", "classrooms", "curriculum", "grades", "grades_own", "enrollments", "opening_balances"] as const;
 export const importerKeySchema = z.enum(IMPORTER_KEYS);
 export type ImporterKey = z.infer<typeof importerKeySchema>;
 

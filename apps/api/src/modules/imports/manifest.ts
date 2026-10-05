@@ -31,6 +31,12 @@ export default defineModule({
     { key: "imports.import.curriculum", label: "Lancer l'import des matières et du curriculum" },
     { key: "imports.import.grades", label: "Lancer l'import des notes" },
     {
+      key: "imports.import.grades_own",
+      label: "Lancer l'import des notes de SES évaluations (enseignant)",
+      description: "Périmètre vérifié côté serveur par l'affectation d'enseignement : jamais une classe ni une matière où l'on n'enseigne pas. Exige aussi grade.enter.",
+    },
+    { key: "imports.import.enrollments", label: "Lancer l'import des inscriptions (élèves vers les classes de l'année)" },
+    {
       key: "imports.import.opening_balances",
       label: "Lancer l'import des soldes financiers d'ouverture",
       description: "Crée des factures et des avoirs de reprise : acte sensible, audité, authentification forte requise.",

@@ -5,15 +5,16 @@
  * probables détectés par le module cible, refus d'une ligne sans effet partiel, MFA des soldes financiers.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { unwrap, type RequestContext } from "@ecoledigitale/kernel";
+import { createRequestContext, newId, unwrap, type RequestContext } from "@ecoledigitale/kernel";
 import { createAssessment } from "../../src/modules/assess";
 import { createProgram, createCurriculumVersion, listReference } from "../../src/modules/academic";
-import { createImportsDeps, getImportJob, requestImportRun, type ImportsDeps } from "../../src/modules/imports";
+import { createStaff, createStudent } from "../../src/modules/people";
+import { createImportsDeps, getImportJob, getImportPreview, listImportRows, listOptionChoices, requestImportRun, setImportMapping, uploadImportFile, type ImportsDeps } from "../../src/modules/imports";
 import { buildPlatformPorts } from "../../src/platform/adapters";
 import { MemoryStorage, prepareJob, runJob, type World as ImportWorld } from "../../src/modules/imports/test/support/world";
 import { csvOf } from "../../src/modules/imports/test/support/files";
 import { describeIntegration } from "../helpers/fixtures";
-import { adminRows, createAssemblyWorld, seedHigherSchool, type AssemblyWorld, type HigherSchool } from "./support/world";
+import { adminRows, createAssemblyWorld, ctxOf, seedHigherSchool, type AssemblyWorld, type HigherSchool } from "./support/world";
 
 describeIntegration("imports : adaptateurs réels sur les modules cibles", () => {
   let w: AssemblyWorld;
@@ -229,6 +230,148 @@ describeIntegration("imports : adaptateurs réels sur les modules cibles", () =>
     const again = await prepareJob(world, deps, ctx, csvOf([header, ...rows]), { importerKey: "grades", importerOptions: { assessmentId: assessment.id } });
     expect(again.plannedSkip).toBe(2);
     expect(await count("SELECT count(*) AS n FROM results.period_results WHERE true")).toBe(0); // aucun résultat calculé par l'import
+  });
+
+  it("notes de l'enseignant (O-02) : périmètre vérifié par l'affectation d'enseignement ; un autre enseignant et un autre tenant sont refusés sans énumération", async () => {
+    const teacher = school.teacher.ctx;
+    const assessment = unwrap(
+      await createAssessment(school.assess, teacher, {
+        typeId: school.types["DEVOIR"] as string,
+        classroomId: school.seed.classroomId,
+        curriculumNodeId: school.seed.ue1.ecueIds[0] as string,
+        academicPeriodId: school.ref.academicPeriodId,
+        title: "Devoir de l'enseignant",
+        assessedOn: (await adminRows<{ d: string }>(w, "SELECT (starts_on + 14)::text AS d FROM academic.academic_periods WHERE id = $1", [school.ref.academicPeriodId]))[0]!.d,
+      }),
+    );
+    const numbers = await adminRows<{ student_number: string }>(w, "SELECT s.student_number FROM people.students s JOIN people.persons p ON p.id = s.person_id WHERE s.id = ANY($1::uuid[]) ORDER BY p.last_name", [school.pupils.map((p) => p.studentId)]);
+    const header = ["Matricule", "Note"];
+    // Un élève d'une AUTRE classe (inscrit nulle part dans cette évaluation) et un matricule inconnu : même refus, aucune énumération.
+    const outsider = unwrap(await createStudent(w.kit.people, w.director, { person: { lastName: "AILLEURS", firstName: "Eleve", sex: "M", birthDate: "2006-02-02" }, externalRef: "OWN-OUT-1" }));
+    if (outsider.kind !== "created") throw new Error("création attendue");
+    const rows = [
+      [numbers[0]!.student_number, "13,5"],
+      [numbers[1]!.student_number, "DISP"],
+      ["OWN-OUT-1", "12"],
+      ["MATRICULE-INCONNU", "12"],
+    ];
+    const bytes = csvOf([header, ...rows]);
+    const options = { assessmentId: assessment.id };
+
+    // 1. L'enseignant affecté : son évaluation figure dans les choix, l'import passe, SANS capacité étendue (assessment.manage).
+    const choices = unwrap(await listOptionChoices(deps, teacher, "grades_own", "assessmentId"));
+    expect(choices.map((c) => c.value)).toContain(assessment.id);
+    const job = await prepareJob(world, deps, teacher, bytes, { importerKey: "grades_own", importerOptions: options });
+    expect(job).toMatchObject({ importerKey: "grades_own", validRows: 2, invalidRows: 2 });
+    const issues = unwrap(await listImportRows(deps, teacher, job.id, { onlyProblems: true, limit: 10, offset: 0 }, world.viewer)).items.flatMap((r) => r.issues.map((i) => i.message));
+    expect(issues).toHaveLength(2);
+    expect(new Set(issues.map((m) => m.replace(/« [^»]+ »/, "« X »"))).size).toBe(1); // matricule d'un autre élève = matricule inconnu
+    expect(issues.join(" ")).toContain("n'est pas inscrit dans la classe de cette évaluation");
+    await runJob(world, deps, teacher, job.id);
+    const saved = await adminRows<{ entry_status: string; score: string | null }>(w, "SELECT entry_status, score::text FROM assess.grades WHERE assessment_id = $1 AND entry_status <> 'NOT_GRADED'", [assessment.id]);
+    expect(saved.map((g) => g.entry_status).sort()).toEqual(["ENTERED", "EXEMPT"]);
+    expect(Number(saved.find((g) => g.entry_status === "ENTERED")!.score)).toBe(13.5);
+
+    // 2. Un autre enseignant (fiche et compte, AUCUNE affectation à cette classe) : évaluation hors périmètre, choix vides.
+    const other = unwrap(await createStaff(w.kit.people, w.director, { person: { lastName: "AUTRE", firstName: "Prof", sex: "F", birthDate: "1988-03-03", email: "autre@example.test" }, categoryCode: "TEACHER" }));
+    if (other.kind !== "created") throw new Error("création attendue");
+    const otherUser = newId();
+    await w.db.admin.query("UPDATE people.persons SET identity_id = $2 WHERE id = $1", [other.staff.personId, otherUser]);
+    const otherCtx = ctxOf(w, otherUser, ["enseignant"], false);
+    expect(unwrap(await listOptionChoices(deps, otherCtx, "grades_own", "assessmentId")).map((c) => c.value)).not.toContain(assessment.id);
+    const uploaded = unwrap(await uploadImportFile(deps, otherCtx, { importerKey: "grades_own", fileName: "notes.csv", bytes }));
+    const refused = await setImportMapping(deps, otherCtx, uploaded.job.id, { mapping: uploaded.suggestedMapping, options, runMode: "VALID_ONLY", onExisting: "SKIP" }, world.viewer);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.code).toBe("imports.options_invalid");
+    const unknown = await setImportMapping(deps, otherCtx, uploaded.job.id, { mapping: uploaded.suggestedMapping, options: { assessmentId: newId() }, runMode: "VALID_ONLY", onExisting: "SKIP" }, world.viewer);
+    expect(unknown.ok).toBe(false);
+    if (!unknown.ok && !refused.ok) expect(unknown.error.message).toBe(refused.error.message); // même réponse : évaluation d'un collègue = évaluation inconnue
+
+    // 3. Autre tenant (RLS A/B) : l'évaluation de A est invisible, même avec les mêmes identifiants d'utilisateur.
+    const tenantB = newId();
+    await w.db.admin.query("INSERT INTO kernel.tenants (id, slug, name) VALUES ($1, $2, $3)", [tenantB, `asm-b-${tenantB.slice(-8)}`, "École B"]);
+    const ctxB = createRequestContext({ tenantId: tenantB, userId: teacher.userId, roles: ["enseignant"], mfa: false });
+    const uploadedB = unwrap(await uploadImportFile(deps, ctxB, { importerKey: "grades_own", fileName: "notes.csv", bytes }));
+    const crossTenant = await setImportMapping(deps, ctxB, uploadedB.job.id, { mapping: uploadedB.suggestedMapping, options, runMode: "VALID_ONLY", onExisting: "SKIP" }, world.viewer);
+    expect(crossTenant.ok).toBe(false);
+    expect(unwrap(await listOptionChoices(deps, ctxB, "grades_own", "assessmentId"))).toEqual([]);
+    expect((await adminRows<{ n: string }>(w, "SELECT count(*) AS n FROM imports.jobs WHERE tenant_id = $1 AND importer_key = 'grades_own' AND created_by = $2", [w.tenantId, teacher.userId]))[0]!.n).toBe("1");
+
+    // 4. La direction garde son importeur étendu (toute évaluation) : « notes » sur cette évaluation fonctionne toujours.
+    const dirJob = await prepareJob(world, deps, ctx, bytes, { importerKey: "grades", importerOptions: options });
+    expect(dirJob.plannedSkip + dirJob.plannedUpdate + dirJob.plannedCreate).toBe(2);
+  });
+
+  it("inscriptions (O-13) : validation sans écriture, doublons, refus d'un changement de classe, import des lignes valides, rejeu sans doublon", async () => {
+    // Deux élèves déjà enregistrés mais NON inscrits (matricule d'origine) ; une classe de plus pour tester le refus de transfert.
+    for (const [index, [ref, last]] of ([["ENR-001", "GBAGBO"], ["ENR-002", "SANOGO"], ["ENR-003", "COULIBALY"], ["ENR-004", "OUEDRAOGO"]] as const).entries()) {
+      const s = unwrap(await createStudent(w.kit.people, w.director, { person: { lastName: last, firstName: `Inscrit${index}`, sex: "F", birthDate: `200${index + 3}-0${index + 3}-1${index + 2}` }, externalRef: ref }));
+      if (s.kind !== "created") throw new Error("création attendue");
+    }
+    const classOptions = { institutionId: w.academic.institutionId, academicYearId: school.seed.yearId };
+    const classes = await prepareJob(world, deps, ctx, csvOf([["Code", "Nom", "Programme", "Niveau", "Effectif"], ["L1-E", "Licence 1 E", "INFO", "L1", "50"]]), { importerKey: "classrooms", importerOptions: classOptions });
+    await runJob(world, deps, ctx, classes.id);
+    const enrolled = await adminRows<{ student_number: string }>(w, "SELECT s.student_number FROM people.students s WHERE s.id = $1", [school.pupils[0]!.studentId]);
+    const movedPupil = await adminRows<{ student_number: string }>(w, "SELECT s.student_number FROM people.students s WHERE s.id = $1", [school.pupils[1]!.studentId]);
+
+    const header = ["Matricule", "Classe", "Financement"];
+    const rows = [
+      ["ENR-001", "L1-A", "PRIVATE"],
+      ["ENR-002", "L1-A", ""],
+      ["ENR-003", "CLASSE-INCONNUE", ""],
+      ["ENR-INCONNU", "L1-A", ""],
+      ["ENR-001", "L1-A", ""], // doublon dans le fichier
+      [enrolled[0]!.student_number, "L1-A", ""], // déjà inscrit dans cette classe : ignoré
+      [movedPupil[0]!.student_number, "L1-E", ""], // déjà inscrit dans L1-A cette année : changement de classe refusé
+      ["ENR-004", "L1-A", "FINANCEMENT-INCONNU"],
+    ];
+    const options = { academicYearId: school.seed.yearId };
+    const before = await count("SELECT count(*) AS n FROM academic.enrollments");
+    const job = await prepareJob(world, deps, ctx, csvOf([header, ...rows]), { importerKey: "enrollments", importerOptions: options });
+    expect(job.status).toBe("VALIDATED");
+    expect(job).toMatchObject({ totalRows: 8, plannedCreate: 2, plannedSkip: 1, validRows: 3, invalidRows: 5 });
+    // dry-run : aucune inscription, aucun événement d'inscription de plus
+    expect(await count("SELECT count(*) AS n FROM academic.enrollments")).toBe(before);
+    const pv = unwrap(await getImportPreview(deps, ctx, job.id, world.viewer));
+    expect(pv.topIssues.map((t) => t.code)).toEqual(expect.arrayContaining(["imports.reference_unknown", "imports.duplicate_in_file", "academic.class_enrollment_exists"]));
+    const bad = unwrap(await listImportRows(deps, ctx, job.id, { onlyProblems: true, limit: 20, offset: 0 }, world.viewer));
+    const messages = bad.items.flatMap((r) => r.issues.map((i) => i.message)).join(" | ");
+    expect(messages).toContain("CLASSE-INCONNUE");
+    expect(messages).toContain("ENR-INCONNU");
+    expect(messages).toContain("L1-A");
+    expect(messages).toContain("FINANCEMENT-INCONNU");
+
+    const eventsBefore = await count("SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'academic.enrollment.created'");
+    const out = await runJob(world, deps, ctx, job.id, "VALID_ONLY");
+    expect(out.status).toBe("COMPLETED_WITH_ERRORS");
+    expect(await count("SELECT count(*) AS n FROM academic.enrollments")).toBe(before + 2);
+    const created = await adminRows<{ ref: string; source_kind: string; classroom_code: string }>(
+      w,
+      "SELECT s.external_ref AS ref, e.source_kind, c.code AS classroom_code FROM academic.enrollments e JOIN people.students s ON s.id = e.student_id JOIN academic.classrooms c ON c.id = e.classroom_id WHERE s.external_ref IN ('ENR-001','ENR-002','ENR-003') ORDER BY s.external_ref",
+    );
+    expect(created).toEqual([
+      { ref: "ENR-001", source_kind: "IMPORT", classroom_code: "L1-A" },
+      { ref: "ENR-002", source_kind: "IMPORT", classroom_code: "L1-A" },
+    ]);
+    // événements de l'inscription : ceux du module academic, comme par ses routes
+    expect(await count("SELECT count(*) AS n FROM kernel.domain_events WHERE type = 'academic.enrollment.created'")).toBe(eventsBefore + 2);
+    expect(audited.some((a) => a.action === "imports.run.request")).toBe(true); // l'import est audité (academic ne journalise pas la création, seulement l'événement)
+    // ni fiche élève créée ni modifiée par l'import
+    expect(await count("SELECT count(*) AS n FROM people.students WHERE external_ref IN ('ENR-001','ENR-002','ENR-003','ENR-004')")).toBe(4);
+
+    // rejeu du même fichier : les deux inscriptions sont reconnues, aucune de plus
+    const again = await prepareJob(world, deps, ctx, csvOf([header, ...rows]), { importerKey: "enrollments", importerOptions: options });
+    expect(again.plannedCreate).toBe(0);
+    expect(again.plannedSkip).toBe(3);
+    await runJob(world, deps, ctx, again.id);
+    expect(await count("SELECT count(*) AS n FROM academic.enrollments")).toBe(before + 2);
+
+    // une année qui n'accepte plus d'inscription est refusée dès le mapping
+    const closedYear = newId();
+    await w.db.admin.query("INSERT INTO academic.academic_years (id, tenant_id, institution_id, code, label, starts_on, ends_on, status) SELECT $1, tenant_id, institution_id, 'ANCIENNE', 'Ancienne année', '2001-09-01', '2002-06-30', 'CLOSED' FROM academic.academic_years WHERE id = $2", [closedYear, school.seed.yearId]);
+    const uploaded = unwrap(await uploadImportFile(deps, ctx, { importerKey: "enrollments", fileName: "inscriptions.csv", bytes: csvOf([header, rows[0]!]) }));
+    const refused = await setImportMapping(deps, ctx, uploaded.job.id, { mapping: uploaded.suggestedMapping, options: { academicYearId: closedYear }, runMode: "VALID_ONLY", onExisting: "SKIP" }, world.viewer);
+    expect(refused.ok).toBe(false);
   });
 
   it("soldes d'ouverture : factures et avoir de reprise, montants entiers XOF, MFA exigée, rejeu neutre", async () => {

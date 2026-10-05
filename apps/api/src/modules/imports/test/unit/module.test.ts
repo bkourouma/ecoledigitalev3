@@ -48,6 +48,8 @@ describe("module imports : manifeste", () => {
     expect(required["classrooms"]).toContain("academic.classroom.manage");
     expect(required["curriculum"]).toContain("curriculum.manage");
     expect(required["grades"]).toContain("grade.enter");
+    expect(required["grades_own"]).toEqual(["grade.enter"]); // O-02 : jamais assessment.manage
+    expect(required["enrollments"]).toEqual(["enrollment.create"]); // O-13
     expect(required["opening_balances"]).toContain("finance.invoice.create");
     const students = IMPORTER_LIST.find((i) => i.key === "students")!;
     expect(students.extraPermissions({ mappedColumns: new Set(["classCode"]), onExisting: "SKIP", options: {} })).toEqual(["enrollment.create"]);
