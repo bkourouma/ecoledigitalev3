@@ -148,6 +148,7 @@ export {
   recordEnrollmentOutcome,
   transferEnrollment,
   transitionEnrollment,
+  confirmEnrollmentManually,
 } from "./application/enrollments";
 
 // Sélections de cours, éligibilité, registre d'inscriptions aux cours
@@ -228,6 +229,8 @@ export {
   type RolloverAssistOptions,
 } from "./application/rollover-run";
 export { createHoliday, deleteHoliday, holidaysOn, listHolidays, updateHoliday, type Holiday } from "./application/holidays";
+export { DEFAULT_HOLIDAY_COUNTRY, listEffectiveHolidays, listNationalHolidays, setNationalHolidayEnabled, type NationalHolidayView } from "./application/national-holidays";
+export { expandNationalHolidays, type EffectiveHoliday, type NationalHoliday } from "./domain/national-holidays";
 export type { PromotionDecision, PromotionDecisionPort } from "./application/ports";
 export { expireHoldsForAllTenants, finalizeOfferingsForAllTenants } from "./application/jobs";
 

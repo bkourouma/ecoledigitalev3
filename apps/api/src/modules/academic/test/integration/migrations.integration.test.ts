@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { academicTenantTables } from "../../../isolation-allowlist.academic";
+import { academicIsolationAllowlist, academicTenantTables } from "../../../isolation-allowlist.academic";
 import { adminRows, createAcademicTestDb, describeIntegration, type AcademicTestDb } from "../support/db";
 
-describeIntegration("migrations 0700-0705 (Postgres réel)", () => {
+describeIntegration("migrations 0700-0711 (Postgres réel)", () => {
   let db: AcademicTestDb;
   beforeAll(async () => {
     db = await createAcademicTestDb();
@@ -16,7 +16,7 @@ describeIntegration("migrations 0700-0705 (Postgres réel)", () => {
       db,
       "SELECT table_schema || '.' || table_name AS t FROM information_schema.tables WHERE table_schema = 'academic' AND table_type = 'BASE TABLE' ORDER BY 1",
     );
-    expect(tables.map((r) => r.t)).toEqual([...academicTenantTables].sort());
+    expect(tables.map((r) => r.t)).toEqual([...academicTenantTables, ...academicIsolationAllowlist.map((e) => e.table)].sort());
     const noRls = await adminRows(
       db,
       "SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'academic' AND c.relkind = 'r' AND NOT (c.relrowsecurity AND c.relforcerowsecurity)",

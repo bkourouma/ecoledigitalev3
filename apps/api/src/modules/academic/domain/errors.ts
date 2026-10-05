@@ -126,6 +126,8 @@ export const AcademicCode = {
   ENROLLMENT_NOT_FOUND: "academic.enrollment_not_found",
   ENROLLMENT_TRANSITION: "academic.enrollment_transition",
   ENROLLMENT_REASON_REQUIRED: "academic.enrollment_reason_required",
+  /** O-01 : confirmer à la main une inscription dont la politique est liée au paiement est une dérogation (permission dédiée + motif). */
+  ENROLLMENT_OVERRIDE_REQUIRED: "academic.enrollment_override_required",
   ENROLLMENT_NOT_PENDING: "academic.enrollment_not_pending",
   ENROLLMENT_IDENTITY_IMMUTABLE: "academic.enrollment_identity_immutable",
   ENROLLMENT_CLASS_MISMATCH: "academic.enrollment_class_mismatch",
@@ -170,6 +172,7 @@ export const AcademicCode = {
   HOLIDAY_NOT_FOUND: "academic.holiday_not_found",
   HOLIDAY_DUPLICATE: "academic.holiday_duplicate",
   HOLIDAY_DATES_INVALID: "academic.holiday_dates_invalid",
+  NATIONAL_HOLIDAY_NOT_FOUND: "academic.national_holiday_not_found",
   // Technique
   IMMUTABLE: "academic.immutable",
   FORBIDDEN_SCOPE: "academic.forbidden_scope",

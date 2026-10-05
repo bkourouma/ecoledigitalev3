@@ -190,21 +190,54 @@ const detailRoutes = (status: string, extra: Record<string, unknown> = {}) => ({
 });
 
 describe("EnrollmentDetail", () => {
-  it("en attente : politique de confirmation, actions de l'état, historique et placements", async () => {
+  const settingsRoute = (policy: string) => ({
+    [`GET /api/v1/academic/institutions/${uuid(1)}/settings`]: { institutionId: uuid(1), enrollmentConfirmationPolicy: policy, courseConfirmationPolicy: "AUTO", pendingHoldMinutes: null, registrationNumberPrefix: null, registrationNumberPattern: null },
+  });
+
+  it("en attente sous une politique liée au paiement : pas de confirmation directe sans la permission de dérogation", async () => {
     setTestApi(detailRoutes("PENDING"));
     renderWithProviders(<EnrollmentDetail id={uuid(1000)} />);
     expect(await screen.findByRole("heading", { level: 1, name: "Inscription 2026-0001" })).toBeTruthy();
     expect(await screen.findByText(/confirmée au paiement des frais d'inscription/)).toBeTruthy();
     expect(screen.getByText(/attend sa confirmation/)).toBeTruthy();
-    await screen.findByRole("button", { name: "Confirmer" });
+    await screen.findByText(/confirmée automatiquement au paiement/);
     expect(screen.getByRole("button", { name: "Annuler" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Confirmer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirmer sans paiement" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Suspendre" })).toBeNull();
     expect(await screen.findByText("Création")).toBeTruthy();
     expect(await screen.findByRole("table", { name: "Placements de l'élève dans les classes" })).toBeTruthy();
   });
 
-  it("confirmer envoie POST /confirm sans motif", async () => {
-    const api = setTestApi(detailRoutes("PENDING", { [`POST /api/v1/academic/enrollments/${uuid(1000)}/confirm`]: enrollment({ status: "ACTIVE" }) }));
+  it("O-01 dérogation : la direction confirme sans paiement avec un motif obligatoire (5 caractères), envoyé à l'API", async () => {
+    const api = setTestApi(
+      detailRoutes("PENDING", {
+        ...accessRoutes(["enrollment.read", "enrollment.update", "enrollment.confirm.override"]),
+        [`POST /api/v1/academic/enrollments/${uuid(1000)}/confirm`]: enrollment({ status: "ACTIVE", confirmationMode: "OVERRIDE", confirmationReason: "Échéancier accepté" }),
+      }),
+    );
+    renderWithProviders(<EnrollmentDetail id={uuid(1000)} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmer sans paiement" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/dérogation de la direction/)).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText(/Motif/), { target: { value: "ab" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmer sans paiement" }));
+    expect(api.calls.filter((c) => c.method === "POST")).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText(/Motif/), { target: { value: "Échéancier accepté par la direction" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmer sans paiement" }));
+    await screen.findByText("L'inscription est confirmée par dérogation.");
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ reason: "Échéancier accepté par la direction" });
+  });
+
+  it("O-01 : une inscription confirmée par dérogation affiche son mode et le motif au personnel", async () => {
+    setTestApi(detailRoutes("ACTIVE", { [`GET /api/v1/academic/enrollments/${uuid(1000)}`]: { enrollment: enrollment({ status: "ACTIVE", confirmedAt: "2026-09-06T08:00:00.000Z", confirmationMode: "OVERRIDE", confirmationReason: "Échéancier accepté par la direction" }), courses: [], placements: [] } }));
+    renderWithProviders(<EnrollmentDetail id={uuid(1000)} />);
+    expect(await screen.findByText(/Mode de confirmation : dérogation de la direction/)).toBeTruthy();
+    expect(screen.getByText(/Motif de la dérogation : Échéancier accepté par la direction/)).toBeTruthy();
+  });
+
+  it("politique manuelle : confirmer envoie POST /confirm sans motif (confirmation ordinaire)", async () => {
+    const api = setTestApi(detailRoutes("PENDING", { ...settingsRoute("MANUAL"), [`POST /api/v1/academic/enrollments/${uuid(1000)}/confirm`]: enrollment({ status: "ACTIVE" }) }));
     renderWithProviders(<EnrollmentDetail id={uuid(1000)} />);
     fireEvent.click(await screen.findByRole("button", { name: "Confirmer" }));
     await screen.findByText("L'inscription est confirmée.");

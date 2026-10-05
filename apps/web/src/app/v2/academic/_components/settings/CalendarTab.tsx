@@ -17,6 +17,7 @@ import { FormDialog, ModalDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
+import { NationalHolidaysSection } from "./NationalHolidaysSection";
 import { CardList, ItemCard, SettingsSection } from "./shared";
 
 /**
@@ -57,6 +58,7 @@ export function CalendarTab({ institutionId, canManage }: { institutionId: strin
       }
     >
       <Notice kind="info">{t("movableNote")}</Notice>
+      <NationalHolidaysSection institutionId={institutionId} canManage={canManage} />
       {flash.node}
       {years.isError ? <ErrorBlock error={years.error} onRetry={() => void years.refetch()} /> : null}
       {years.data && list.length === 0 ? <EmptyBlock title={t("noYear")} description={t("noYearHint")} /> : null}

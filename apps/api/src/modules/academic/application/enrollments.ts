@@ -19,13 +19,15 @@ import {
   courseConfirmationPolicyFor,
   initialCourseStatus,
   initialEnrollmentStatus,
+  manualConfirmationMode,
   normalizeFunding,
+  OVERRIDE_REASON_MIN_LENGTH,
   statusHistory,
   validateEnrollmentAction,
   validateFunding,
   type EnrollmentAction,
 } from "../domain/enrollment";
-import { AcademicCode, conflict, notFound, validation } from "../domain/errors";
+import { AcademicCode, conflict, forbidden, notFound, validation } from "../domain/errors";
 import { AcademicEvents, ENROLLMENT_ACTION_EVENTS } from "../domain/events";
 import { formatRegistrationNumber } from "../domain/registration-number";
 import type { Classroom, Enrollment, EnrollmentCourse, HistoryEntry, InstitutionSettings, Placement } from "../domain/records";
@@ -298,7 +300,7 @@ export async function transitionEnrollmentInTx(
   enrollment: Enrollment,
   action: EnrollmentAction,
   reason: string | null,
-  options: { toStatus?: "TRANSFERRED_OUT" } = {},
+  options: { toStatus?: "TRANSFERRED_OUT"; confirmation?: { mode: "PAYMENT" | "MANUAL" | "OVERRIDE"; reason: string | null } } = {},
 ): Promise<Result<Enrollment, AppError>> {
   const target = options.toStatus ?? ENROLLMENT_ACTION_TARGETS[action];
   if (options.toStatus) {
@@ -322,6 +324,7 @@ export async function transitionEnrollmentInTx(
     endReason: ends && target !== "COMPLETED" ? why : null,
     confirmed: target === "ACTIVE" && enrollment.status === "PENDING",
     cancelled: target === "CANCELLED",
+    ...(options.confirmation && action === "confirm" ? { confirmation: { mode: options.confirmation.mode, reason: options.confirmation.reason, by: actorId(ctx) } } : {}),
   });
   if (endedOn && target !== "COMPLETED") {
     const open = await enr.getOpenPlacement(tx, enrollment.id);
@@ -330,7 +333,11 @@ export async function transitionEnrollmentInTx(
   await writeHistory(deps, ctx, tx, enrollment.id, statusHistory(enrollment.status, target, why));
   const updated = (await enr.getEnrollment(tx, enrollment.id)) as Enrollment;
   const classroomFacts = await classroomsRepo.getClassroom(tx, updated.classroomId);
-  events.add(ENROLLMENT_ACTION_EVENTS[action], enrollmentPayload(updated, enrollment.status, why, classroomFacts), { type: "enrollment", id: enrollment.id });
+  events.add(
+    ENROLLMENT_ACTION_EVENTS[action],
+    { ...enrollmentPayload(updated, enrollment.status, why, classroomFacts), ...(action === "confirm" && updated.confirmationMode ? { confirmationMode: updated.confirmationMode } : {}) },
+    { type: "enrollment", id: enrollment.id },
+  );
 
   // Répercussions sur les sélections de cours.
   if (target === "CANCELLED" || target === "WITHDRAWN" || target === "TRANSFERRED_OUT") {
@@ -373,6 +380,69 @@ export async function transitionEnrollment(deps: AcademicDeps, ctx: RequestConte
     if (!r.ok) return r;
     await events.flush(tx);
     return r;
+  });
+}
+
+export interface ManualConfirmationInput {
+  /** Motif de la confirmation (obligatoire, 5 caractères au moins, quand elle déroge à une politique liée au paiement). */
+  reason?: string | null | undefined;
+  /**
+   * L'appelant détient `enrollment.confirm.override`. Calculé par la couche HTTP (jamais lu du corps de la requête) ;
+   * sans lui, une confirmation qui déroge à une politique liée au paiement est REFUSÉE (403).
+   */
+  overridePermitted: boolean;
+}
+
+/**
+ * O-01 — confirmation MANUELLE d'une inscription en attente (décision métier : le paiement des frais d'inscription OU une
+ * confirmation manuelle de la direction).
+ *
+ *  - politique `MANUAL` : confirmation ordinaire d'une personne habilitée (`enrollment.update`), mode `MANUAL`, motif facultatif ;
+ *  - politique liée au paiement (`ON_REGISTRATION_FEE_PAID`, `ON_FULL_PAYMENT`) : DÉROGATION — permission dédiée
+ *    `enrollment.confirm.override`, motif obligatoire, mode `OVERRIDE`, audit SENSIBLE ; l'inscription est confirmée sans
+ *    que la facture soit soldée (la dette reste due : AUCUN paiement n'est touché, AC4.4).
+ *
+ * Le mode, le motif et l'auteur sont conservés sur l'inscription, dans l'historique immuable, dans l'événement
+ * `academic.enrollment.confirmed` (`confirmationMode`) et dans l'audit.
+ */
+export async function confirmEnrollmentManually(deps: AcademicDeps, ctx: RequestContext, id: string, input: ManualConfirmationInput): Promise<Result<Enrollment, AppError>> {
+  return inTx(deps, ctx, async (tx) => {
+    const l = await loadEnrollmentInScope(tx, ctx, id, true);
+    if (!l.ok) return l;
+    const enrollment = l.value;
+    if (enrollment.status !== "PENDING") {
+      return err(conflict(AcademicCode.ENROLLMENT_TRANSITION, `Transition interdite pour l'inscription : ${enrollment.status} -> ACTIVE.`, { from: enrollment.status, to: "ACTIVE", action: "confirm" }));
+    }
+    const settings = await loadSettings(tx, enrollment.institutionId);
+    const mode = manualConfirmationMode(settings.enrollmentConfirmationPolicy);
+    const reason = input.reason?.trim() || null;
+    if (mode === "OVERRIDE") {
+      if (!input.overridePermitted) {
+        return err(
+          forbidden(
+            AcademicCode.ENROLLMENT_OVERRIDE_REQUIRED,
+            "Cette inscription attend le paiement des frais : la confirmer à la main est une dérogation, réservée aux personnes habilitées (permission « enrollment.confirm.override »).",
+            { policy: settings.enrollmentConfirmationPolicy },
+          ),
+        );
+      }
+      if ((reason?.length ?? 0) < OVERRIDE_REASON_MIN_LENGTH) {
+        return err(validation(AcademicCode.ENROLLMENT_REASON_REQUIRED, `Un motif de ${OVERRIDE_REASON_MIN_LENGTH} caractères minimum est requis pour confirmer sans paiement.`, "reason"));
+      }
+    }
+    const events = new EventBuffer(deps, ctx);
+    const confirmed = await transitionEnrollmentInTx(deps, ctx, tx, events, enrollment, "confirm", mode === "OVERRIDE" ? `dérogation : ${reason}` : reason, { confirmation: { mode, reason } });
+    if (!confirmed.ok) return confirmed;
+    events.audit({
+      action: mode === "OVERRIDE" ? "academic.enrollment.confirmation_overridden" : "academic.enrollment.confirmed_manually",
+      resourceType: "enrollment",
+      resourceId: enrollment.id,
+      sensitive: mode === "OVERRIDE",
+      ...(reason ? { reason } : {}),
+      metadata: { policy: settings.enrollmentConfirmationPolicy, mode, studentId: enrollment.studentId, classroomId: enrollment.classroomId },
+    });
+    await events.flush(tx);
+    return confirmed;
   });
 }
 

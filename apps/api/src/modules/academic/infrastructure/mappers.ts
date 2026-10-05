@@ -299,7 +299,7 @@ export const mapOffering = (r: Row): Offering => ({
 export const ENROLLMENT_COLS = `e.id, e.institution_id, e.campus_id, e.academic_year_id, e.student_id, e.classroom_id, e.mode, e.status, e.registration_number,
   ${D("e.enrolled_on", "enrolled_on")}, ${D("e.ended_on", "ended_on")}, e.end_reason, e.is_repeating, e.is_transfer_in, e.origin_school, e.previous_enrollment_id,
   e.funding_type, e.assignment_reference, ${D("e.assignment_issued_on", "assignment_issued_on")}, e.funder_label, e.funding_notes,
-  e.outcome_code, e.outcome_decided_at, e.outcome_source_ref, e.source_kind, e.source_ref, e.confirmed_at, e.cancelled_at, e.created_at`;
+  e.outcome_code, e.outcome_decided_at, e.outcome_source_ref, e.source_kind, e.source_ref, e.confirmed_at, e.confirmation_mode, e.confirmation_reason, e.confirmed_by, e.cancelled_at, e.created_at`;
 export const mapEnrollment = (r: Row): Enrollment => ({
   id: r.id,
   institutionId: r.institution_id,
@@ -328,6 +328,9 @@ export const mapEnrollment = (r: Row): Enrollment => ({
   sourceKind: r.source_kind,
   sourceRef: r.source_ref,
   confirmedAt: iso(r.confirmed_at),
+  confirmationMode: r.confirmation_mode ?? null,
+  confirmationReason: r.confirmation_reason ?? null,
+  confirmedBy: r.confirmed_by ?? null,
   cancelledAt: iso(r.cancelled_at),
   createdAt: isoReq(r.created_at),
 });

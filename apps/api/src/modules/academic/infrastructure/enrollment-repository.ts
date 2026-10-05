@@ -97,8 +97,8 @@ export async function insertEnrollment(tx: Tx, v: EnrollmentInsert): Promise<voi
   await tx.query(
     `INSERT INTO academic.enrollments (id, tenant_id, institution_id, campus_id, academic_year_id, student_id, classroom_id, mode, status, registration_number, enrolled_on,
         is_repeating, is_transfer_in, origin_school, previous_enrollment_id, funding_type, assignment_reference, assignment_issued_on, funder_label, funding_notes,
-        source_kind, source_ref, confirmed_at)
-     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, $12, $13, $14, $15, $16, $17::date, $18, $19, $20, $21, CASE WHEN $22::boolean THEN now() ELSE NULL END)`,
+        source_kind, source_ref, confirmed_at, confirmation_mode)
+     VALUES ($1, kernel.current_tenant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, $12, $13, $14, $15, $16, $17::date, $18, $19, $20, $21, CASE WHEN $22::boolean THEN now() ELSE NULL END, CASE WHEN $22::boolean THEN 'AUTO' ELSE NULL END)`,
     [v.id, v.institutionId, v.campusId, v.academicYearId, v.studentId, v.classroomId, v.mode, v.status, v.registrationNumber, v.enrolledOn, v.isRepeating, v.isTransferIn, v.originSchool, v.previousEnrollmentId, v.fundingType, v.assignmentReference, v.assignmentIssuedOn, v.funderLabel, v.fundingNotes, v.sourceKind, v.sourceRef, v.confirmedAt],
   );
 }
@@ -106,14 +106,25 @@ export async function insertEnrollment(tx: Tx, v: EnrollmentInsert): Promise<voi
 export async function setEnrollmentStatus(
   tx: Tx,
   id: string,
-  v: { status: AcademicEnrollmentStatus; endedOn: string | null; endReason: string | null; confirmed?: boolean; cancelled?: boolean },
+  v: {
+    status: AcademicEnrollmentStatus;
+    endedOn: string | null;
+    endReason: string | null;
+    confirmed?: boolean;
+    cancelled?: boolean;
+    /** O-01 : mode, motif et auteur de la confirmation (posés avec `confirmed`). */
+    confirmation?: { mode: "PAYMENT" | "MANUAL" | "OVERRIDE"; reason: string | null; by: string | null };
+  },
 ): Promise<void> {
   await tx.query(
     `UPDATE academic.enrollments SET status = $2, ended_on = $3::date, end_reason = $4,
         confirmed_at = CASE WHEN $5::boolean THEN COALESCE(confirmed_at, now()) ELSE confirmed_at END,
+        confirmation_mode = CASE WHEN $5::boolean AND $7::text IS NOT NULL THEN $7::text ELSE confirmation_mode END,
+        confirmation_reason = CASE WHEN $5::boolean AND $7::text IS NOT NULL THEN $8::text ELSE confirmation_reason END,
+        confirmed_by = CASE WHEN $5::boolean AND $7::text IS NOT NULL THEN $9::uuid ELSE confirmed_by END,
         cancelled_at = CASE WHEN $6::boolean THEN now() ELSE cancelled_at END, updated_at = now()
       WHERE id = $1`,
-    [id, v.status, v.endedOn, v.endReason, v.confirmed === true, v.cancelled === true],
+    [id, v.status, v.endedOn, v.endReason, v.confirmed === true, v.cancelled === true, v.confirmation?.mode ?? null, v.confirmation?.reason ?? null, v.confirmation?.by ?? null],
   );
 }
 

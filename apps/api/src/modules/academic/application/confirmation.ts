@@ -67,7 +67,7 @@ export async function handleInvoicePaid(deps: AcademicDeps, ctx: RequestContext,
       if (enrollment) {
         const settings = await loadSettings(tx, enrollment.institutionId);
         if (invoicePaidConfirmsEnrollment(settings.enrollmentConfirmationPolicy, { enrollmentId: facts.enrollmentId, containsRegistrationFee: facts.containsRegistrationFee }, enrollment.status)) {
-          const confirmed = await transitionEnrollmentInTx(deps, ctx, tx, events, enrollment, "confirm", facts.containsRegistrationFee ? "frais d'inscription soldés" : "facture d'inscription soldée");
+          const confirmed = await transitionEnrollmentInTx(deps, ctx, tx, events, enrollment, "confirm", facts.containsRegistrationFee ? "frais d'inscription soldés" : "facture d'inscription soldée", { confirmation: { mode: "PAYMENT", reason: null } });
           if (!confirmed.ok) return confirmed;
           enrollment = confirmed.value;
           report.enrollmentConfirmed = enrollment.id;
