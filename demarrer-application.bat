@@ -46,7 +46,7 @@ echo API : http://localhost:4000/api/v1/health
 echo.
 
 if exist ".dev-v2\env.local" (
-  echo Mode ancien + v2 : Docker ed-dev-pg / ed-dev-redis, API, Web et worker.
+  echo Mode ancien + v2 : base ecoledigitale_v2_dev sur le Postgres local, API, Web et worker.
   call npx --yes pnpm@10.14.0 dev:v2
 ) else (
   echo Mode ancien seul : la plateforme v2 n'est pas configuree.
