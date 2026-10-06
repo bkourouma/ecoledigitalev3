@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { isAuthV2 } from "@/platform/auth/iam-config";
-import { LoginFlow } from "@/platform/auth/ui/LoginFlow";
+import { LoginWithTechnicalAccounts } from "@/platform/auth/ui/LoginWithTechnicalAccounts";
+import { TechnicalAccountsPanel } from "@/platform/auth/ui/TechnicalAccountsPanel";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default function LoginPage() {
   if (isAuthV2()) {
     return (
       <Suspense fallback={null}>
-        <LoginFlow />
+        <LoginWithTechnicalAccounts />
       </Suspense>
     );
   }
@@ -248,16 +249,15 @@ function LegacyLoginPage() {
           </Card>
 
           {panelEnabled && (
-            <Card variant="glass" className="hover-lift">
-              <CardHeader>
-                <CardTitle>Comptes par tenant</CardTitle>
-                <CardDescription>
-                  {selectedSlug
-                    ? `Tenant : ${selectedTenant?.name || selectedSlug} — cliquez un compte pour remplir le formulaire.`
-                    : "Choisissez un tenant pour voir ses comptes."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <TechnicalAccountsPanel
+              accounts={technicalAccounts}
+              onPick={fillForm}
+              description={
+                selectedSlug
+                  ? `Tenant : ${selectedTenant?.name || selectedSlug} — cliquez un compte pour remplir le formulaire.`
+                  : "Choisissez un tenant pour voir ses comptes."
+              }
+              header={
                 <div className="space-y-1">
                   <Label>Tenant</Label>
                   <Select value={selectedSlug || undefined} onValueChange={handleSelectTenant}>
@@ -273,36 +273,8 @@ function LegacyLoginPage() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {technicalAccounts.length > 0 && technicalAccounts.every((account) => !account.password) && (
-                  <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                    Mot de passe non configuré : un clic remplit seulement l'e-mail. Définissez{" "}
-                    <code>TECHNICAL_ACCOUNT_PASSWORD</code> dans <code>apps/web/.env.local</code> (et la même valeur côté API),
-                    puis redémarrez le serveur web.
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  {technicalAccounts.map((account, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="w-full justify-start text-left h-auto p-3"
-                      onClick={() => fillForm(account)}
-                    >
-                      <div className="w-full">
-                        <div className="font-medium flex items-center gap-2">
-                          {account.name}
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                            {account.role}
-                          </span>
-                        </div>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+              }
+            />
           )}
         </div>
       </div>

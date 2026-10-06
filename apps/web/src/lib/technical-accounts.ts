@@ -24,6 +24,20 @@ export type TechnicalAccount = {
   password: string;
   role: string;
   name: string;
+  /** Slug de l'établissement (comptes issus de `DEV_CREDENTIALS_FILE`). */
+  tenant?: string;
+  /** Libellé lisible du rôle, en français. */
+  label?: string;
+  /** Le compte exige un code MFA : voir `GET /api/technical-accounts/totp`. Le secret TOTP, lui, ne quitte jamais le serveur. */
+  mfa?: boolean;
+};
+
+/** Shape returned by `GET /api/technical-accounts/totp?email=…`. */
+export type TechnicalAccountTotpResponse = {
+  /** Code à 6 chiffres valable pour la fenêtre de 30 s en cours. */
+  code: string;
+  /** Secondes restantes avant le changement de code. */
+  expiresIn: number;
 };
 
 /** Shape returned by `GET /api/technical-accounts`. */
