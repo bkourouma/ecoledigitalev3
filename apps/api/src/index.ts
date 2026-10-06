@@ -228,7 +228,7 @@ async function start() {
     await fastify.register(teacherCorrectionsRoutes, { prefix: "/api/v1/teacher" });
 
     // Attendance management routes
-    await fastify.register(attendanceRoutes, { prefix: "/api/v1/attendance" });
+    await fastify.register(attendanceRoutes, { prefix: "/api/v1/attendance-legacy" });
 
     // Course materials routes
     await fastify.register(materialsRoutes, { prefix: "/api/v1/courses" });

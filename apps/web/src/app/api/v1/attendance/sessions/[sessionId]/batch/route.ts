@@ -40,10 +40,10 @@ export async function POST(
       tenantId,
       userId,
       recordsCount: body.attendanceRecords?.length || 0,
-      url: `${API_BASE_URL}/api/v1/attendance/sessions/${sessionId}/batch`
+      url: `${API_BASE_URL}/api/v1/attendance-legacy/sessions/${sessionId}/batch`
     });
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/attendance/sessions/${sessionId}/batch`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/attendance-legacy/sessions/${sessionId}/batch`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body)

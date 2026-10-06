@@ -130,7 +130,7 @@ const AttendancePage = () => {
       const enrollmentsData = await enrollmentsResponse.json();
 
       // Fetch attendance records for this session
-      const attendanceResponse = await fetch(`/api/v1/attendance/records?sessionId=${session.id}`, {
+      const attendanceResponse = await fetch(`/api/v1/attendance-legacy/records?sessionId=${session.id}`, {
         headers: {
           "Content-Type": "application/json",
         },

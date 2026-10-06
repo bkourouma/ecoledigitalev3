@@ -117,31 +117,31 @@ async function fetchAttendanceSessions(query: AttendanceSessionQuery = { page: 1
   });
 
   const queryString = params.toString();
-  const endpoint = `/attendance/sessions${queryString ? `?${queryString}` : ""}`;
+  const endpoint = `/attendance-legacy/sessions${queryString ? `?${queryString}` : ""}`;
 
   return fetchWithTenant(endpoint);
 }
 
 async function fetchAttendanceSession(id: string) {
-  return fetchWithTenant(`/attendance/sessions/${id}`);
+  return fetchWithTenant(`/attendance-legacy/sessions/${id}`);
 }
 
 async function createAttendanceSession(data: CreateAttendanceSession) {
-  return fetchWithTenant("/attendance/sessions", {
+  return fetchWithTenant("/attendance-legacy/sessions", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
 async function updateAttendanceSession(id: string, data: UpdateAttendanceSession) {
-  return fetchWithTenant(`/attendance/sessions/${id}`, {
+  return fetchWithTenant(`/attendance-legacy/sessions/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
 }
 
 async function deleteAttendanceSession(id: string) {
-  return fetchWithTenant(`/attendance/sessions/${id}`, {
+  return fetchWithTenant(`/attendance-legacy/sessions/${id}`, {
     method: "DELETE",
   });
 }
@@ -156,20 +156,20 @@ async function fetchAttendanceRecords(query: StudentAttendanceQuery = { page: 1,
   });
 
   const queryString = params.toString();
-  const endpoint = `/attendance/records${queryString ? `?${queryString}` : ""}`;
+  const endpoint = `/attendance-legacy/records${queryString ? `?${queryString}` : ""}`;
   
   return fetchWithTenant(endpoint);
 }
 
 async function batchMarkAttendance(sessionId: string, data: BatchAttendance) {
-  return fetchWithTenant(`/attendance/sessions/${sessionId}/batch`, {
+  return fetchWithTenant(`/attendance-legacy/sessions/${sessionId}/batch`, {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
 async function updateAttendanceRecord(id: string, data: UpdateStudentAttendance) {
-  return fetchWithTenant(`/attendance/records/${id}`, {
+  return fetchWithTenant(`/attendance-legacy/records/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });

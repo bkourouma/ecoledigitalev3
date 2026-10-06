@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Get tenant ID from session (prefer tenantId over tenantSlug)
     const tenantId = (session as any).tenantId || tenantSlug;
 
-    const backendUrl = `${API_BASE_URL}/api/v1/attendance/records${search ? `?${search}` : ''}`;
+    const backendUrl = `${API_BASE_URL}/api/v1/attendance-legacy/records${search ? `?${search}` : ''}`;
 
     const resp = await fetch(backendUrl, {
       method: 'GET',
