@@ -62,6 +62,10 @@ export function GeneratorLaunchScreen() {
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [fixedId, setFixedId] = useState("");
   const [derive, setDerive] = useState(false);
+  // Grille saisie à la main quand l'établissement n'en a pas (QA C-03-03) : journée type en périodes régulières.
+  const [dayStart, setDayStart] = useState("08:00");
+  const [dayEnd, setDayEnd] = useState("17:00");
+  const [periodMinutes, setPeriodMinutes] = useState("60");
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const classrooms = useClassrooms({ academicYearId: year?.id, pageSize: 200 }, { enabled: Boolean(year?.id) });
@@ -107,6 +111,7 @@ export function GeneratorLaunchScreen() {
       ...(timeLimit ? { timeLimitSeconds: Number(timeLimit) } : {}),
       ...(iterations ? { maxIterations: Number(iterations) } : {}),
       ...(days ? { weekdays: days } : {}),
+      ...(defaults.data?.gridSource === "NONE" ? { grid: { mode: "REGULAR" as const, dayStart, dayEnd, periodMinutes: Number(periodMinutes) } } : {}),
       ...(Object.keys(w).length > 0 ? { weights: w } : {}),
       ...(fixedId ? { fixedTimetableId: fixedId } : {}),
       deriveTeachers: derive,
@@ -163,7 +168,20 @@ export function GeneratorLaunchScreen() {
         </div>
         {defaults.data ? (
           defaults.data.gridSource === "NONE" ? (
-            <Notice kind="warning">{t("frame.noGrid")}</Notice>
+            <>
+              <Notice kind="warning">{t("frame.noGrid")}</Notice>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <FormField label={t("frame.dayStart")} error={fieldError("grid.dayStart")}>
+                  {(c) => <TextControl {...c} type="time" value={dayStart} onChange={setDayStart} />}
+                </FormField>
+                <FormField label={t("frame.dayEnd")} error={fieldError("grid.dayEnd")}>
+                  {(c) => <TextControl {...c} type="time" value={dayEnd} onChange={setDayEnd} />}
+                </FormField>
+                <FormField label={t("frame.periodMinutes")} error={fieldError("grid.periodMinutes")} hint={t("frame.periodMinutesHint")}>
+                  {(c) => <TextControl {...c} type="number" min={20} max={240} value={periodMinutes} onChange={setPeriodMinutes} />}
+                </FormField>
+              </div>
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               {t("frame.gridSummary", { days: weekdays.map((d) => tDay(String(d))).join(", "), periods: periods.length, first: periods[0]?.startTime ?? "", last: periods[periods.length - 1]?.endTime ?? "", rooms: defaults.data.rooms })}

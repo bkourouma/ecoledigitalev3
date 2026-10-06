@@ -69,6 +69,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
       // notifications
       "notifications.read", "notifications.send",
       // academic (structure, curriculum, inscriptions)
+      "tenancy.institution.read",
       "academic.read", "academic.year.read", "academic.year.manage", "academic.period.read", "academic.period.manage", "academic.period.close",
       "academic.program.read", "academic.program.manage", "academic.classroom.read", "academic.classroom.manage", "academic.settings.manage",
       "curriculum.read", "curriculum.manage", "curriculum.publish",

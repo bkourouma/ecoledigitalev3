@@ -186,6 +186,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
       "notifications.send",
       // Structure académique (années, périodes, programmes, classes, réglages). La clôture/reconduction
       // d'année, la réouverture d'une période et l'application d'un modèle de pack restent à la direction.
+      // Lecture des établissements : les écrans de création (année, classe, salle) en ont besoin pour choisir l'établissement
+      // (rapport QA C-03-01 : sans elle, « Action non autorisée » à l'ouverture de chaque formulaire).
+      "tenancy.institution.read",
       "academic.read",
       "academic.year.read",
       "academic.year.manage",

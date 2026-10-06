@@ -198,7 +198,11 @@ describe("Générateur : écran de lancement", () => {
   it("sans grille horaire ni ouverture : avertissement explicite, rien n'est deviné", async () => {
     setTestApi({ ...routes(), [`GET ${S}/autogen/defaults`]: { ...defaults, gridSource: "NONE", weekdays: [], periods: [] } });
     renderWithProviders(<GeneratorLaunchScreen />);
-    expect(await screen.findByText(/Aucune grille horaire ni heures d'ouverture/)).toBeTruthy();
+    expect(await screen.findByText(/Aucune grille horaire n'est enregistrée/)).toBeTruthy();
+    // La journée type se saisit directement dans le formulaire (QA C-03-03) ; valeurs proposées par défaut.
+    expect((screen.getByLabelText("Début de la journée") as HTMLInputElement).value).toBe("08:00");
+    expect((screen.getByLabelText("Fin de la journée") as HTMLInputElement).value).toBe("17:00");
+    expect((screen.getByLabelText(/Durée d'une période/) as HTMLInputElement).value).toBe("60");
   });
 
   it("erreur de l'API (enseignant parti) : message affiché, pas de navigation", async () => {

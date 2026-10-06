@@ -6410,7 +6410,11 @@
           "validFrom": "Valable du",
           "validTo": "Valable jusqu'au",
           "defaultYear": "Par défaut : début de l'année.",
-          "noGrid": "Aucune grille horaire ni heures d'ouverture ne sont renseignées : définissez-les dans les paramètres de l'emploi du temps avant de lancer un calcul.",
+          "noGrid": "Aucune grille horaire n'est enregistrée pour l'établissement : indiquez ci-dessous le début et la fin de la journée et la durée d'une période pour ce calcul.",
+          "dayStart": "Début de la journée",
+          "dayEnd": "Fin de la journée",
+          "periodMinutes": "Durée d'une période (minutes)",
+          "periodMinutesHint": "Entre 20 et 240 minutes.",
           "gridSummary": "Jours ouvrés : {days} · {periods} périodes par jour de {first} à {last} · {rooms} salle(s) disponible(s)."
         },
         "needs": {
