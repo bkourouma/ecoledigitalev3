@@ -18,11 +18,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { platformEnv } from "../demo/lib/env.mjs";
+import { generateSecrets } from "../demo/lib/secrets.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dir = resolve(root, ".dev-v2");
 const secretsFile = resolve(dir, "secrets.json");
 const envFile = resolve(dir, "env.local");
+const credentialsFile = resolve(dir, "credentials.json");
 const DB = "ecoledigitale_v2";
 const ROLE = "ed_dev_app";
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -115,18 +118,31 @@ async function setup() {
   u.username = ROLE;
   u.password = s.appPassword;
   const app = u.toString();
-  const lines = [
-    "# Généré par `pnpm dev:v2:setup` : local, ignoré par git. Ne jamais committer.",
-    `V2_DATABASE_URL=${app}`,
-    `WORKER_DATABASE_URL=${app}`,
-    "WORKER_QUEUE_PREFIX=eddev",
-    `IAM_JWT_SECRET=${s.iamJwtSecret}`,
-    `IAM_MFA_ENCRYPTION_KEY=${s.iamMfaEncryptionKey}`,
-    "IAM_COOKIE_SECURE=false",
-    "V2_APP_BASE_URL=http://localhost:3000",
-    "",
-  ];
-  writeFileSync(envFile, lines.join("\n"));
+  // Secrets de plateforme (paiements sandbox, signature des bulletins, notifications SIMULÉES, stockage disque) : générés une
+  // fois, persistés dans `.dev-v2/secrets.json`, partagés par l'API, le worker et le seed (mêmes clés partout).
+  const all = { ...generateSecrets(), ...s };
+  writeFileSync(secretsFile, JSON.stringify(all, null, 2), { mode: 0o600 });
+  const platform = platformEnv({ secrets: all, ports: { pg: 5432, redis: 6379, api: 4000, web: 3000, worker: 8012 } });
+  delete platform.AUDIT_HMAC_KEY; // la chaîne d'audit reste en SHA-256 simple comme celle de l'API déjà démarrée
+  delete platform.REDIS_URL; // Redis vient de `.env`
+  const vars = {
+    ...platform,
+    V2_DATABASE_URL: app,
+    WORKER_DATABASE_URL: app,
+    WORKER_QUEUE_PREFIX: "eddev",
+    IAM_MFA_TOTP_ISSUER: "EcoleDigitale (test)",
+    STORAGE_DISK_DIR: resolve(dir, "objects"),
+    REPORTCARDS_VERIFICATION_BASE_URL: "http://localhost:3000",
+    REPORTCARDS_SIGNING_KEY_ID: "ed-dev-key-1",
+    // Web : connexion v2, panneau des comptes de test alimenté par le seed (DEV_V2_AUTH=0 pour garder l'ancienne connexion).
+    NEXT_PUBLIC_AUTH_V2: process.env.DEV_V2_AUTH === "0" ? "0" : "1",
+    NEXT_PUBLIC_V2_LANDING: "1",
+    NEXTAUTH_SECRET: all.nextAuthSecret,
+    SHOW_TECHNICAL_ACCOUNTS: "true",
+    DEV_CREDENTIALS_FILE: credentialsFile,
+  };
+  const lines = ["# Généré par `pnpm dev:v2:setup` : local, ignoré par git. Ne jamais committer.", ...Object.entries(vars).map(([k, v]) => `${k}=${JSON.stringify(String(v))}`), ""];
+  writeFileSync(envFile, lines.join("\n"), { mode: 0o600 });
   console.log("[dev-v2] prêt. Lancez : pnpm dev:v2 (ou demarrer-application.bat).");
 }
 
@@ -134,9 +150,25 @@ function loadEnvLocal() {
   const env = {};
   for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {
     const m = /^([A-Z0-9_]+)=(.*)$/.exec(line);
-    if (m) env[m[1]] = m[2];
+    if (!m) continue;
+    try {
+      env[m[1]] = m[2].startsWith('"') ? JSON.parse(m[2]) : m[2];
+    } catch {
+      env[m[1]] = m[2];
+    }
   }
   return env;
+}
+
+async function seed() {
+  if (!(await dbReady())) await setup();
+  const env = { ...process.env, ...loadEnvLocal(), ALLOW_SEED: "1", NODE_ENV: "development" };
+  const redis = fromDotEnv("REDIS_URL");
+  if (!redis) die("REDIS_URL est absent de `.env` (Redis local requis pour le worker du seed).");
+  env.REDIS_URL = redis;
+  const r = spawnSync(process.execPath, [resolve(root, "node_modules", "tsx", "dist", "cli.mjs"), "scripts/dev-v2/seed.ts"], { cwd: root, stdio: "inherit", env: { ...env, TSX_TSCONFIG_PATH: resolve(root, "apps", "api", "tsconfig.json") }, windowsHide: true });
+  if (r.status !== 0) die("seed en échec.");
+  console.log(`[dev-v2] comptes de test écrits dans .dev-v2/credentials.json (local). Relancez l'application : le panneau de /login les affiche.`);
 }
 
 async function up() {
@@ -146,6 +178,7 @@ async function up() {
   }
   // Ce que vous avez exporté dans le shell l'emporte ; REDIS_URL vient de `.env` (lu par l'API et le worker).
   const env = { ...loadEnvLocal(), ...process.env };
+  env.DEV_CREDENTIALS_FILE = credentialsFile;
   const redis = fromDotEnv("REDIS_URL");
   if (redis) env.REDIS_URL = redis;
   console.log("[dev-v2] API http://localhost:4000 · Web http://localhost:3000 · worker (santé :8012). Ctrl+C pour arrêter.");
@@ -164,5 +197,6 @@ async function up() {
 const cmd = process.argv[2] ?? "up";
 if (cmd === "setup") await setup();
 else if (cmd === "up") await up();
+else if (cmd === "seed") await seed();
 else if (cmd === "status") console.log(`base ${DB} + rôle ${ROLE} : ${(await dbReady()) ? "prêts" : "à configurer (pnpm dev:v2:setup)"}`);
 else die(`commande inconnue : ${cmd} (setup | up | status)`);
