@@ -22,7 +22,7 @@ export default defineConfig({
     ],
   },
   test: {
-    include: ["src/platform/**/*.test.{ts,tsx}", "src/app/v2/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts"],
+    include: ["src/platform/**/*.test.{ts,tsx}", "src/app/v2/**/*.test.{ts,tsx}", "src/lib/__tests__/env.server.test.ts", "src/app/api/technical-accounts/**/*.test.ts"],
     environment: "node",
     // Les écrans RTL (jsdom + Radix + react-query) dépassent parfois 5 s sur une machine chargée (plusieurs agents / CI partagée).
     testTimeout: 20_000,

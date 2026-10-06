@@ -40,7 +40,10 @@ export function describeSignInError(error: string): { message: string; step?: "c
   return { message: GENERIC_ERROR };
 }
 
-export function LoginFlow() {
+/** Préremplissage du formulaire (comptes de test, développement). `seq` change à chaque clic, même sur le même compte. */
+export type LoginPrefill = { email: string; password: string; seq: number };
+
+export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
   const router = useRouter();
   const params = useSearchParams();
   const { update, status } = useSession();
@@ -55,6 +58,16 @@ export function LoginFlow() {
   const heading = useRef<HTMLDivElement>(null);
   const expired = params?.get("expired") === "1";
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1";
+
+  // Clic sur un compte de test : remplit e-mail + mot de passe et revient à l'étape des identifiants.
+  useEffect(() => {
+    if (!prefill) return;
+    setEmail(prefill.email);
+    setPassword(prefill.password);
+    setError("");
+    setStep((s) => (s.kind === "credentials" ? s : { kind: "credentials" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.seq]);
 
   // Le focus suit l'étape (lecteurs d'écran et clavier) : le conteneur de l'étape reçoit le focus à chaque changement.
   useEffect(() => {
