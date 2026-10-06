@@ -45,7 +45,14 @@ echo Web : http://localhost:3000
 echo API : http://localhost:4000/api/v1/health
 echo.
 
-call npx --yes pnpm@10.14.0 dev
+if exist ".dev-v2\env.local" (
+  echo Mode ancien + v2 : Docker ed-dev-pg / ed-dev-redis, API, Web et worker.
+  call npx --yes pnpm@10.14.0 dev:v2
+) else (
+  echo Mode ancien seul : la plateforme v2 n'est pas configuree.
+  echo Pour l'activer, lance une fois : pnpm dev:v2:setup  ^(Docker requis^)
+  call npx --yes pnpm@10.14.0 dev
+)
 
 echo.
 echo Application arretee.

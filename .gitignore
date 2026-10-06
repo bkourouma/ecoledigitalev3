@@ -130,3 +130,5 @@ infra/backups/
 
 # Repli disque du stockage d objets (developpement)
 .data/
+
+.dev-v2/
