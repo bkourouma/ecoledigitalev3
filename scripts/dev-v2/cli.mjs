@@ -2,10 +2,10 @@
 /**
  * Mode développement « ancien + v2 ensemble » : `pnpm dev:v2:setup` puis `pnpm dev:v2` (ou demarrer-application.bat).
  *
- * La plateforme v2 utilise une base SÉPARÉE `ecoledigitale_v2_dev` sur le MÊME serveur Postgres local que l'ancienne
+ * La plateforme v2 utilise une base SÉPARÉE `ecoledigitale_v2` sur le MÊME serveur Postgres local que l'ancienne
  * application (celui de DATABASE_URL dans `.env`) ; Redis est celui de REDIS_URL. Aucun Docker.
  *
- *   setup  : crée la base `ecoledigitale_v2_dev` si elle n'existe pas (aucune autre base n'est touchée), applique les
+ *   setup  : crée la base `ecoledigitale_v2` si elle n'existe pas (aucune autre base n'est touchée), applique les
  *            migrations v2, crée le rôle applicatif `ed_dev_app` (membre de `app_user`, sans BYPASSRLS) avec un mot de passe
  *            aléatoire, et écrit `.dev-v2/env.local` (ignoré par git) : URL du rôle applicatif + secrets IAM générés.
  *            Le mot de passe administrateur de `.env` n'est JAMAIS recopié ailleurs.
@@ -23,7 +23,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dir = resolve(root, ".dev-v2");
 const secretsFile = resolve(dir, "secrets.json");
 const envFile = resolve(dir, "env.local");
-const DB = "ecoledigitale_v2_dev";
+const DB = "ecoledigitale_v2";
 const ROLE = "ed_dev_app";
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const { Client } = createRequire(resolve(root, "apps", "worker", "package.json"))("pg");
@@ -97,9 +97,20 @@ async function setup() {
     cwd: root,
     stdio: "inherit",
     shell: process.platform === "win32",
-    env: { ...process.env, DEVV2_MIGRATOR_URL: adminUrl(DB), DEVV2_APP_ROLE: ROLE, DEVV2_APP_ROLE_PASSWORD: s.appPassword },
+    env: { ...process.env, DEVV2_MIGRATOR_URL: adminUrl(DB),  },
   });
   if (r.status !== 0) die("migrations v2 en échec.");
+  // Rôle applicatif : membre de `app_user` (créé par les migrations), sans superuser ni BYPASSRLS. Créé ici (et non par
+  // `createLoginRole`, qui refuse les bases dont le nom ne finit pas par _dev/_test/_local).
+  await withClient(DB, async (c) => {
+    const have = (await c.query("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=$1", [ROLE])).rows[0];
+    if (have && (have.rolsuper || have.rolbypassrls)) die(`le rôle ${ROLE} existe mais n'est pas un rôle applicatif sûr.`);
+    if (!/^[A-Za-z0-9_-]{16,}$/.test(s.appPassword)) die("mot de passe généré invalide.");
+    await c.query(`${have ? "ALTER" : "CREATE"} ROLE ${ROLE} LOGIN PASSWORD '${s.appPassword}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
+    await c.query(`GRANT app_user TO ${ROLE}`);
+    await c.query(`GRANT CONNECT ON DATABASE ${DB} TO ${ROLE}`);
+  });
+  console.log(`[dev-v2] rôle applicatif « ${ROLE} » prêt (membre de app_user, sans BYPASSRLS).`);
   const u = new URL(adminUrl(DB));
   u.username = ROLE;
   u.password = s.appPassword;
