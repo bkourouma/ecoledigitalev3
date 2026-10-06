@@ -189,6 +189,10 @@ export function formatValue(def: NotifVariableDef, raw: unknown, options: Render
         return `${base}${s}`;
       }
       if (/^https:\/\/[^\s<>"']+$/i.test(s)) return s;
+      // L'adresse de base de l'application, configurée par l'exploitant (V2_APP_BASE_URL), est de confiance telle quelle : en
+      // développement local c'est `http://localhost:3000`. Toute autre adresse reste soumise à la règle « chemin interne ou https ».
+      const configured = (options.appUrl ?? "").trim().replace(/\/+$/, "");
+      if (configured !== "" && s.replace(/\/+$/, "") === configured && /^https?:\/\/[^\s<>"']+$/i.test(configured)) return s;
       return fail("doit être un chemin interne (/…) ou une adresse https");
     }
   }
