@@ -69,6 +69,33 @@ export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.seq]);
 
+  // Comptes de TEST uniquement : quand un compte du panneau de développement est sélectionné et que l'étape MFA s'ouvre, le code du
+  // moment est saisi automatiquement. La route répond 404 hors développement ou pour un compte sans secret : rien ne se passe alors.
+  const autofillEmail = prefill ? email : "";
+  useEffect(() => {
+    if (step.kind !== "challenge" || useRecovery || !autofillEmail) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fill = async (): Promise<void> => {
+      try {
+        const res = await fetch(`/api/technical-accounts/totp?email=${encodeURIComponent(autofillEmail)}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { code?: string; expiresIn?: number };
+        if (cancelled || !data.code) return;
+        // Un code qui expire dans moins de 4 s serait refusé : on attend le suivant.
+        if ((data.expiresIn ?? 30) < 4) timer = setTimeout(() => void fill(), ((data.expiresIn ?? 3) + 1) * 1000);
+        else setCode(data.code);
+      } catch {
+        /* panneau de test absent : saisie manuelle */
+      }
+    };
+    void fill();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [step.kind, useRecovery, autofillEmail]);
+
   // Le focus suit l'étape (lecteurs d'écran et clavier) : le conteneur de l'étape reçoit le focus à chaque changement.
   useEffect(() => {
     heading.current?.focus();
