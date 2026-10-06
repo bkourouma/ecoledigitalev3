@@ -133,9 +133,20 @@ function loadEnvLocal() {
   return env;
 }
 
-function up() {
+async function dbReady() {
+  const sql = `SELECT (SELECT count(*) FROM pg_database WHERE datname='${DB}') + (SELECT count(*) FROM pg_roles WHERE rolname='${ROLE}')`;
+  return docker(["exec", PG, "psql", "-U", "postgres", "-tAc", sql]).out === "2";
+}
+
+async function up() {
   const s = secrets();
   ensureContainers(s);
+  await waitPg();
+  // Conteneur ou volume recréé (Docker nettoyé, machine réinstallée) : la base et le rôle manquent, on refait la configuration.
+  if (!(await dbReady())) {
+    console.log("[dev-v2] base ou rôle v2 absents : configuration automatique.");
+    await setup();
+  }
   const local = loadEnvLocal();
   // Ce que vous avez exporté l'emporte, sauf REDIS_URL : le Redis du mode v2 est celui du conteneur ed-dev-redis.
   const env = { ...local, ...process.env, REDIS_URL: local.REDIS_URL };
@@ -154,7 +165,7 @@ function up() {
 
 const cmd = process.argv[2] ?? "up";
 if (cmd === "setup") await setup();
-else if (cmd === "up") up();
+else if (cmd === "up") await up();
 else if (cmd === "status") console.log(`${PG}: ${state(PG)} · ${REDIS}: ${state(REDIS)}`);
 else if (cmd === "down") {
   docker(["stop", PG]);
