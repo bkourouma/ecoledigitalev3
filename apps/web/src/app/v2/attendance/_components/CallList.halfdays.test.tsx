@@ -16,7 +16,7 @@ vi.mock("@/platform/api/default-client", async () => (await import("@/platform/t
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 
 const BASE = "/api/v1/attendance";
-const DAY = "2026-10-05";
+const DAY = new Date().toISOString().slice(0, 10); // jour courant : le composant compare les appels au jour réel
 const CM2 = uuid(501);
 const GS = uuid(502);
 

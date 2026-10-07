@@ -66,7 +66,8 @@ export function FormField({ label, error, hint, required, className, id: forcedI
             <span aria-hidden="true" className="ml-0.5 text-destructive">
               *
             </span>
-            <span className="sr-only"> ({t("required")})</span>
+            {" "}
+            <span className="sr-only">({t("required")})</span>
           </>
         ) : null}
       </label>
