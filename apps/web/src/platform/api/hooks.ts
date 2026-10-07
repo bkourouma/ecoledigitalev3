@@ -17,6 +17,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
 import type { ZodType, ZodTypeAny, ZodTypeDef } from "zod";
 import type { ApiClient, HttpMethod, QueryParams } from "./client";
 import type { ApiError } from "./errors";
@@ -94,6 +95,17 @@ export function buildQueryKey(tenant: string | null | undefined, parts: readonly
   return [API_KEY_ROOT, tenant && tenant.trim() !== "" ? tenant.trim() : NO_TENANT_KEY, ...parts];
 }
 
+const noopSubscribe = (): (() => void) => () => {};
+
+/**
+ * Faux sur le serveur et pendant l'hydratation, vrai ensuite côté navigateur : le tenant n'est connu que dans le navigateur
+ * (sous-domaine, stockage) ; sans cette garde, le HTML du serveur (requête désactivée) diffère du premier rendu client
+ * (requête active, squelette) et React signale « Hydration failed » (rapports QA C-02-04 et C-05).
+ */
+function useClientReady(): boolean {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 export function createQueryHooks(client: ApiClient): QueryHooks {
   const queryKey = (...parts: readonly unknown[]): QueryKey => buildQueryKey(client.getTenant(), parts);
 
@@ -102,7 +114,8 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
     path: string,
     options: ApiQueryOptions<TData, TSelected> = {},
   ): UseQueryResult<TSelected, ApiError> {
-    const tenant = client.getTenant();
+    const clientReady = useClientReady();
+    const tenant = clientReady ? client.getTenant() : null;
     const hasTenant = tenant !== null;
     const queryKey = buildQueryKey(tenant, options.query ? [...key, options.query] : key);
     // Même ressource (clé identique hors paramètres de requête) : seulement dans ce cas on garde l'ancien contenu pendant
