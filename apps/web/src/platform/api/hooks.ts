@@ -146,7 +146,8 @@ export function createQueryHooks(client: ApiClient): QueryHooks {
     path: string,
     options: ApiInfiniteQueryOptions<TPage>,
   ): UseInfiniteQueryResult<InfiniteData<TPage, string | null>, ApiError> {
-    const tenant = client.getTenant();
+    const clientReady = useClientReady();
+    const tenant = clientReady ? client.getTenant() : null;
     const cursorParam = options.cursorParam ?? "cursor";
     return useInfiniteQuery<TPage, ApiError, InfiniteData<TPage, string | null>, QueryKey, string | null>({
       queryKey: buildQueryKey(tenant, options.query ? [...key, "infinite", options.query] : [...key, "infinite"]),
