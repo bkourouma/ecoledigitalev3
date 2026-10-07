@@ -24,6 +24,7 @@ export function AssessmentsScreen({ initialClassroomId = "", initialStatus = "" 
   const [status, setStatus] = useState(initialStatus);
   const [mine, setMine] = useState(false);
   const manage = usePermission("assessment.manage");
+  const canEnter = usePermission("grade.enter");
 
   const query = useAssessments({ classroomId: classroomId || undefined, academicPeriodId: periodId || undefined, status: status || undefined, mine: mine || undefined });
   const types = useAssessmentTypes();
@@ -69,7 +70,7 @@ export function AssessmentsScreen({ initialClassroomId = "", initialStatus = "" 
       align: "right",
       cell: (a) => (
         <Link href={`/v2/assessments/${a.id}/grades`} className={buttonClass.secondary} aria-label={t("enterOf", { title: a.title })}>
-          {a.status === "DRAFT" ? t("enter") : t("view")}
+          {a.status === "DRAFT" && canEnter.allowed ? t("enter") : t("view")}
         </Link>
       ),
     },

@@ -29,6 +29,7 @@ export function AssessmentDetail({ id }: { id: string }) {
   const flash = useFlash();
   const canSeeRevisions = usePermission("grade.revise.approve");
   const canRequest = usePermission("grade.revise.request");
+  const canEnter = usePermission("grade.enter");
   const typeLabel = useMemo(() => types.data?.find((x) => x.id === a?.typeId)?.label ?? a?.typeCode ?? "—", [types.data, a]);
 
   return (
@@ -42,7 +43,7 @@ export function AssessmentDetail({ id }: { id: string }) {
               <>
                 <StatusBadge label={tStatus(a.status)} tone={toneOfStatus(a.status)} />
                 <Link href={`/v2/assessments/${a.id}/grades`} className={buttonClass.primary}>
-                  {a.status === "DRAFT" ? t("enterGrades") : t("viewGrades")}
+                  {a.status === "DRAFT" && canEnter.allowed ? t("enterGrades") : t("viewGrades")}
                 </Link>
               </>
             }
