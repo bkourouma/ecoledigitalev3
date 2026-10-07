@@ -199,13 +199,21 @@ describe("ApplicationDetailScreen : dossier", () => {
   const route = (d = detail(), extra: Record<string, unknown> = {}) => ({ [`GET ${A}/applications/${IDS.app1}`]: d, ...extra });
 
   it("affiche les seules actions annoncées par l'API et les pièces manquantes ; les actions automatiques sont masquées", async () => {
-    setTestApi(base(["admission.read"], route(detail({ allowedTransitions: [allowed(), allowed({ transitionId: uuid(99), toStageLabel: "Automatique", isAutomatic: true })] }))));
+    setTestApi(base(["admission.read", "admission.update"], route(detail({ allowedTransitions: [allowed(), allowed({ transitionId: uuid(99), toStageLabel: "Automatique", isAutomatic: true })] }))));
     renderWithProviders(<ApplicationDetailScreen applicationId={IDS.app1} />);
     expect(await screen.findByRole("heading", { name: "Awa KONÉ", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Passer à « À l'étude » (À l'étude)" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Passer à « À l'étude » (À l'étude)" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Automatique/ })).toBeNull();
     expect(screen.getByText("Pièces manquantes : Acte de naissance.")).toBeTruthy();
     expect(screen.getByText("Consentement manquant")).toBeTruthy();
+  });
+
+  it("sans le droit de décider : les décisions formelles (refus, admission) ne sont pas proposées", async () => {
+    const reject = allowed({ transitionId: uuid(97), toStageId: IDS.stageRejected, toStageLabel: "Refusée", toStatus: "REJECTED", requiresDecision: true, decisionKind: "REJECT", permissionKey: "admission.decide" });
+    setTestApi(base(["admission.read", "admission.update"], route(detail({ allowedTransitions: [allowed(), reject] }))));
+    renderWithProviders(<ApplicationDetailScreen applicationId={IDS.app1} />);
+    expect(await screen.findByRole("button", { name: "Passer à « À l'étude » (À l'étude)" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Refusée/ })).toBeNull();
   });
 
   it("refus : le motif codé est exigé par le contrat ; la décision part avec la version lue du dossier", async () => {

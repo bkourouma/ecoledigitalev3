@@ -122,6 +122,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   secretariat: {
     can: [
+      "tenancy.institution.read",
       // messaging
       "messaging.read", "messaging.send", "messaging.announcement.publish",
       // documents
@@ -155,6 +156,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   econome: {
     can: [
+      "tenancy.institution.read",
       // messaging
       "messaging.read", "messaging.send",
       // documents
@@ -225,6 +227,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   educateur: {
     can: [
+      "tenancy.institution.read",
       // messaging
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       // documents
@@ -244,6 +247,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   responsable_pedagogique: {
     can: [
+      "tenancy.institution.read",
       // messaging
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",
       // documents
@@ -262,6 +266,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
   // d'une révision et la dérogation d'éligibilité (sensibles) restent à la direction.
   responsable_examens: {
     can: [
+      "tenancy.institution.read",
       "documents.read", "messaging.read", "messaging.send", "notifications.read",
       "exam.type.read", "exam.type.manage", "exam.center.manage", "exam.session.read", "exam.session.manage", "exam.candidate.read",
       "exam.candidate.manage", "exam.eligibility.evaluate", "exam.score.enter", "exam.mock.manage", "exam.import.manage",
@@ -276,6 +281,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
   // Spec 007 §11 : « admissions_officer (secrétariat) » : traitement d'un dossier, jamais la décision ni les actes sensibles.
   admissions_officer: {
     can: [
+      "tenancy.institution.read",
       "messaging.read", "messaging.send",
       "admission.read", "admission.create", "admission.update", "admission.document.upload", "admission.document.review",
       "admission.interview.manage", "admission.offer.manage", "admission.duplicate.resolve", "admission.waitlist.manage",

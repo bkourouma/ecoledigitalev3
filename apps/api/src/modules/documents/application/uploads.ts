@@ -256,6 +256,8 @@ export async function withObject<T>(deps: DocumentsDeps, key: string, bytes: Uin
 // ---------------------------------------------------------------------------
 
 export async function createDocument(deps: DocumentsDeps, ctx: RequestContext, input: { caps?: ActorCaps; fields: DocumentCreateFields; file: UploadedFile }): Promise<Result<DocumentDetailDto, AppError>> {
+  // Calculé AVANT toute transaction : la lecture des fonctionnalités du plan ouvre sa propre session (identité système) et serait refusée à l'intérieur d'une transaction de tenant (TX_IDENTITY_SWITCH, rapport QA C-04-02).
+  const plan = await deps.ports.planQuota(ctx);
   const actorR = await actorOf(deps, ctx, input.caps);
   if (!actorR.ok) return actorR;
   const actor = actorR.value;
@@ -280,7 +282,6 @@ export async function createDocument(deps: DocumentsDeps, ctx: RequestContext, i
     if (category.requiresExpiry && !f.expiresOn) return err(validation(DocumentsCode.EXPIRY_REQUIRED, "Cette catégorie exige une date d'expiration.", "expiresOn"));
     const checked = inspectFile(deps, input.file, category, settings);
     if (!checked.ok) return checked;
-    const plan = await deps.ports.planQuota(ctx);
     const usage = await docs.usageCounts(tx, ctx.tenantId);
     if (usage.usedBytes + checked.value.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file", { quotaBytes: effectiveQuota(plan, settings), usedBytes: usage.usedBytes }));
     const duplicate = await docs.findVisibleDuplicate(tx, ctx.tenantId, actor, deps.clock.now(), { sha256: checked.value.sha256, categoryId: category.id, ownerType: f.ownerType, ownerId: f.ownerId ?? null });
@@ -309,7 +310,6 @@ export async function createDocument(deps: DocumentsDeps, ctx: RequestContext, i
   const written = await withObject(deps, key, input.file.bytes, check.mime, () =>
     inTx(deps, ctx, async (tx) => {
       const settings = await ensureDefaults(deps, tx, ctx);
-      const plan = await deps.ports.planQuota(ctx);
       const usage = await docs.usageCounts(tx, ctx.tenantId);
       if (usage.usedBytes + check.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file"));
       const persisted = await persistNewDocument(deps, ctx, tx, { id, category, fields: f, check, storageKey: key, scanStatus: scan.scanStatus, scanEngine: scan.engine, uploaderId: actor.userId, actorId: actor.userId, via });
@@ -327,6 +327,8 @@ export async function createDocument(deps: DocumentsDeps, ctx: RequestContext, i
 // ---------------------------------------------------------------------------
 
 export async function addVersion(deps: DocumentsDeps, ctx: RequestContext, input: { caps?: ActorCaps; documentId: Uuid; fields: DocumentVersionFields; file: UploadedFile }): Promise<Result<DocumentDetailDto, AppError>> {
+  // Calculé AVANT toute transaction : la lecture des fonctionnalités du plan ouvre sa propre session (identité système) et serait refusée à l'intérieur d'une transaction de tenant (TX_IDENTITY_SWITCH, rapport QA C-04-02).
+  const plan = await deps.ports.planQuota(ctx);
   const actorR = await actorOf(deps, ctx, input.caps);
   if (!actorR.ok) return actorR;
   const actor = actorR.value;
@@ -352,7 +354,6 @@ export async function addVersion(deps: DocumentsDeps, ctx: RequestContext, input
     if (!checked.ok) return checked;
     const current = await docs.getVersion(tx, ctx.tenantId, row.id, row.currentVersionNo);
     if (current && current.sha256 === checked.value.sha256) return err(conflict(DocumentsCode.VERSION_IDENTICAL, "Ce fichier est identique à la version actuelle.", { versionNo: row.currentVersionNo }));
-    const plan = await deps.ports.planQuota(ctx);
     const usage = await docs.usageCounts(tx, ctx.tenantId);
     if (usage.usedBytes + checked.value.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file", { quotaBytes: effectiveQuota(plan, settings), usedBytes: usage.usedBytes }));
     return ok({ row, check: checked.value, via: (access.via[0] ?? "LEVEL") as AccessVia });
@@ -382,7 +383,6 @@ export async function addVersion(deps: DocumentsDeps, ctx: RequestContext, input
       if (locked.value.row.currentVersionNo !== seen.currentVersionNo || locked.value.row.status !== "ACTIVE") {
         return err(conflict(DocumentsCode.VERSION_CONFLICT, "Une autre version a été déposée entre-temps : rechargez le document.", { currentVersionNo: locked.value.row.currentVersionNo }));
       }
-      const plan = await deps.ports.planQuota(ctx);
       const usage = await docs.usageCounts(tx, ctx.tenantId);
       if (usage.usedBytes + check.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file"));
       const persisted = await persistNewVersion(deps, ctx, tx, { row: locked.value.row, check, storageKey: key, versionNo, scanStatus: scan.scanStatus, scanEngine: scan.engine, uploaderId: actor.userId, actorId: actor.userId, note: f.note ?? null, expiresOn: f.expiresOn, via });

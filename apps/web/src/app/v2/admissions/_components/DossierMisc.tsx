@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { AdmissionsApplicationDetailDto } from "@ecoledigitale/contracts/v2/admissions";
 import { admissionsRecordConsentBodySchema } from "@ecoledigitale/contracts/v2/admissions";
-import { fetchApplicationExport, useAdmissionsSettings, useAnonymizeApplication, useApplicationHistory, useDetectDuplicates, useRecordConsent, useResolveDuplicate } from "@/platform/v2/admissions";
+import { fetchApplicationExport, useAdmissionsSettings, useConsentTexts, useAnonymizeApplication, useApplicationHistory, useDetectDuplicates, useRecordConsent, useResolveDuplicate } from "@/platform/v2/admissions";
 import { Can } from "@/platform/ui/AccessGate";
 import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
@@ -73,13 +73,16 @@ function ConsentDialog({ application, onClose }: { application: AdmissionsApplic
   const t = useTranslations("v2Admissions.guardians");
   const tv = useTranslations("v2Admissions.consentVia");
   const settings = useAdmissionsSettings(application.institutionId);
+  // Versions du texte de consentement en vigueur (lecture ouverte à l'agent d'admission, contrairement aux réglages) : liste de choix, la plus récente présélectionnée (QA C-04-01).
+  const texts = useConsentTexts(application.institutionId);
+  const activeVersions = [...(texts.data?.items ?? [])].filter((x) => x.retiredAt === null).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).map((x) => x.version).filter((v, i, all) => all.indexOf(v) === i);
   const record = useRecordConsent(application.id);
   const eligible = application.guardians.filter((g) => g.canConsent);
   const [guardianId, setGuardianId] = useState(eligible.find((g) => g.isPrimary)?.id ?? eligible[0]?.id ?? "");
   const [via, setVia] = useState("PAPER");
   const [evidence, setEvidence] = useState("");
   const [versionInput, setVersion] = useState<string | null>(null);
-  const version = versionInput ?? settings.data?.consentTextVersion ?? "";
+  const version = versionInput ?? settings.data?.consentTextVersion ?? activeVersions[0] ?? "";
   const [errors, setErrors] = useState<FieldErrors>({});
   const shown = { ...apiErrorToFieldErrors(record.error), ...errors };
 
@@ -99,7 +102,7 @@ function ConsentDialog({ application, onClose }: { application: AdmissionsApplic
         {(c) => <NativeSelect {...c} value={guardianId} onChange={setGuardianId} placeholder={t("choose")} options={eligible.map((g) => ({ value: g.id, label: `${g.firstName} ${g.lastName}` }))} />}
       </FormField>
       <FormField label={t("textVersion")} required error={shown["textVersion"]}>
-        {(c) => <TextControl {...c} value={version} onChange={setVersion} maxLength={20} />}
+        {(c) => (activeVersions.length > 0 ? <NativeSelect {...c} value={version} onChange={setVersion} options={activeVersions.map((v) => ({ value: v, label: v }))} /> : <TextControl {...c} value={version} onChange={setVersion} maxLength={20} />)}
       </FormField>
       <FormField label={t("via")} error={shown["givenVia"]}>
         {(c) => <NativeSelect {...c} value={via} onChange={setVia} options={[{ value: "PAPER", label: tv("PAPER") }, { value: "STAFF_ON_BEHALF", label: tv("STAFF_ON_BEHALF") }]} />}

@@ -11,6 +11,8 @@ import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { useDescribeError } from "@/platform/ui/errors";
 import { Can, GuardedLink } from "@/platform/ui/AccessGate";
+import { useMyPermissions } from "@/platform/access";
+import { hasPermission } from "@/platform/auth/policies";
 import { DecisionDialog } from "./DecisionDialog";
 import { EditApplicationDialog } from "./EditApplicationDialog";
 import { DossierAttach } from "./DossierAttach";
@@ -154,7 +156,15 @@ function Actions({ application, onDone }: { application: AdmissionsApplicationDe
   const move = useTransitionApplication();
   const [deciding, setDeciding] = useState<AdmissionsAllowedTransitionDto | null>(null);
   const [reasoning, setReasoning] = useState<AdmissionsAllowedTransitionDto | null>(null);
-  const actions = application.allowedTransitions.filter((x) => !x.isAutomatic);
+  const mine = useMyPermissions();
+  // Seules les actions que l'utilisateur peut réellement exécuter : la permission de la transition, et `admission.decide` pour une
+  // décision formelle (l'API refuse sinon ; rapport QA C-04-04). Tant que les droits ne sont pas connus : rien (refus par défaut).
+  const allowedHere = (x: AdmissionsAllowedTransitionDto): boolean => {
+    const granted = mine.data?.permissions;
+    if (!granted) return false;
+    return hasPermission(granted, x.permissionKey) && (!x.requiresDecision || hasPermission(granted, "admission.decide"));
+  };
+  const actions = application.allowedTransitions.filter((x) => !x.isAutomatic && allowedHere(x));
   if (application.anonymized) return null;
 
   function run(tr: AdmissionsAllowedTransitionDto) {

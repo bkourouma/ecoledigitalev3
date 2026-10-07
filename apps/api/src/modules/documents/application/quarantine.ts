@@ -55,6 +55,8 @@ export async function listQuarantine(deps: DocumentsDeps, ctx: RequestContext, i
 
 /** Libération d'un faux positif : rejoue le dépôt demandé, sans nouvelle analyse, sur décision motivée du responsable. */
 export async function releaseQuarantine(deps: DocumentsDeps, ctx: RequestContext, input: { caps?: ActorCaps; id: Uuid; note: string }): Promise<Result<DocumentDetailDto, AppError>> {
+  // Calculé AVANT toute transaction : la lecture des fonctionnalités du plan ouvre sa propre session (identité système) et serait refusée à l'intérieur d'une transaction de tenant (TX_IDENTITY_SWITCH, rapport QA C-04-02).
+  const plan = await deps.ports.planQuota(ctx);
   const actorR = await actorOf(deps, ctx, input.caps);
   if (!actorR.ok) return actorR;
   const actor = actorR.value;
@@ -105,7 +107,6 @@ export async function releaseQuarantine(deps: DocumentsDeps, ctx: RequestContext
         const settings = await ensureDefaults(deps, tx, ctx);
         const locked = await sharesRepo.getQuarantine(tx, ctx.tenantId, q.id, { forUpdate: true });
         if (!locked || locked.status !== "HELD") return err(conflict(DocumentsCode.QUARANTINE_NOT_FOUND, "Ce fichier a déjà fait l'objet d'une décision."));
-        const plan = await deps.ports.planQuota(ctx);
         const usage = await docs.usageCounts(tx, ctx.tenantId);
         if (usage.usedBytes + check.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file"));
         const persisted = await persistNewDocument(deps, ctx, tx, { id, category, fields, check, storageKey: pendingKey, scanStatus: "UNSCANNED", scanEngine: null, uploaderId: q.uploadedBy, actorId: actor.userId, via: "QUARANTINE_RELEASE" });
@@ -139,7 +140,6 @@ export async function releaseQuarantine(deps: DocumentsDeps, ctx: RequestContext
         if (!locked || locked.status !== "HELD") return err(conflict(DocumentsCode.QUARANTINE_NOT_FOUND, "Ce fichier a déjà fait l'objet d'une décision."));
         const row = await docs.getDocument(tx, ctx.tenantId, intent.documentId, actor.userId, deps.clock.now(), { forUpdate: true });
         if (!row || row.currentVersionNo + 1 !== versionNo || row.status !== "ACTIVE") return err(conflict(DocumentsCode.VERSION_CONFLICT, "Le document a changé depuis le dépôt : détruisez ce fichier ou redéposez-le."));
-        const plan = await deps.ports.planQuota(ctx);
         const usage = await docs.usageCounts(tx, ctx.tenantId);
         if (usage.usedBytes + check.size > effectiveQuota(plan, settings)) return err(validation(DocumentsCode.QUOTA_EXCEEDED, "Le quota de stockage de l'établissement est atteint.", "file"));
         const persisted = await persistNewVersion(deps, ctx, tx, {

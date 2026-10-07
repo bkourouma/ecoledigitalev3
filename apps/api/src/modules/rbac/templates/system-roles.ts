@@ -397,6 +397,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Secrétariat",
     description: "Inscriptions, dossiers élèves et tuteurs, bulletins et attestations, présences, consultation des finances.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Gestion documentaire (module documents) : voir specs/v2/024-documents.
       "documents.read",
       "documents.read.restricted",
@@ -523,6 +525,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Économe",
     description: "Gestion financière : frais, factures, encaissements, caisse ; préparation, calcul et versement de la paie.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Gestion documentaire (module documents) : voir specs/v2/024-documents.
       "documents.read",
       "documents.read.restricted",
@@ -757,6 +761,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Éducateur",
     description: "Vie scolaire : appel et suivi des présences, justificatifs, suivi des élèves.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Gestion documentaire (module documents) : voir specs/v2/024-documents.
       "documents.read",
       "documents.own.read",
@@ -813,6 +819,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Responsable pédagogique",
     description: "Coordination d'une filière ou d'un niveau : curriculum, évaluations, relecture et validation des notes.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Gestion documentaire (module documents) : voir specs/v2/024-documents.
       "documents.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
@@ -871,6 +879,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Responsable des examens",
     description: "Examens nationaux : sessions, candidats, éligibilité, notes d'épreuves, examens blancs, imports et exports officiels, convocations. Ne publie ni n'approuve.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Gestion documentaire (module documents) : pièces des candidats en lecture.
       "documents.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
@@ -927,6 +937,8 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Chargé d'admissions",
     description: "Admissions : traitement des candidatures, pièces, entretiens, offres, liste d'attente et prospects. Ne décide pas, ne dépasse pas les capacités.",
     permissions: [
+      // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
+      "tenancy.institution.read",
       // Messagerie interne et annonces (module messaging) : voir specs/v2/016-communications.
       "messaging.read",
       "messaging.send",
