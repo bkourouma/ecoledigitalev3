@@ -29,7 +29,7 @@ export async function summary(tx: Tx, f: { institutionId?: Uuid | undefined; aca
     [...p, [...FOLLOWED]],
   );
   const recon = await tx.many<{ s: string; n: string }>(
-    `SELECT reconciliation_status AS s, count(*)::text AS n FROM stateassign.assignments WHERE ${where} AND status IN ('ACTIVE','SUSPENDED') GROUP BY 1`,
+    `SELECT reconciliation_status AS s, count(*)::text AS n FROM stateassign.assignments WHERE ${where} AND status NOT IN ('REJECTED','SUPERSEDED') GROUP BY 1`,
     p,
   );
   const ctrl = await tx.queryOne<{ pending: string; overdue: string; anomalies: string }>(
@@ -54,7 +54,7 @@ export async function summary(tx: Tx, f: { institutionId?: Uuid | undefined; aca
 export async function reconciliationCounts(tx: Tx, f: { institutionId?: Uuid | undefined; academicYearId?: Uuid | undefined }): Promise<{ never: number; balanced: number; discrepancy: number }> {
   const rows = await tx.many<{ s: ReconciliationStatus; n: string }>(
     `SELECT reconciliation_status AS s, count(*)::text AS n FROM stateassign.assignments
-      WHERE ($1::uuid IS NULL OR institution_id = $1) AND ($2::uuid IS NULL OR academic_year_id = $2) AND status IN ('ACTIVE','SUSPENDED')
+      WHERE ($1::uuid IS NULL OR institution_id = $1) AND ($2::uuid IS NULL OR academic_year_id = $2) AND status NOT IN ('REJECTED','SUPERSEDED')
       GROUP BY 1`,
     [f.institutionId ?? null, f.academicYearId ?? null],
   );

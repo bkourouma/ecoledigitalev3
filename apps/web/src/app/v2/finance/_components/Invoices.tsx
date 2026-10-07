@@ -202,7 +202,8 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
       {flash.node}
       {issue.isError ? <ErrorBlock error={issue.error} /> : null}
       {cancelled ? <Notice kind="warning">{t("cancelledNotice", { reason: inv.cancelReason ?? "—" })}</Notice> : null}
-      {inv.relatedGroupId ? (
+      {/* Chaque facture porte un identifiant de groupe : le bandeau « facture liée » n'a de sens que pour une facture de financeur, ou pour la part famille d'un financement partagé (QA C-05-05). */}
+      {inv.relatedGroupId && (inv.payerKind === "FUNDER" || (inv.fundingType !== null && inv.fundingType !== "PRIVATE")) ? (
         <Notice kind="info">
           {inv.payerKind === "FUNDER" ? t("funderInvoice", { funder: inv.payerRef ?? "—" }) : t("familyInvoice")}
         </Notice>
