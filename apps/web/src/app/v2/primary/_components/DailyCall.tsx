@@ -22,11 +22,12 @@ export function DailyCall({ classroomId, date, onClose }: { classroomId: string;
   const t = useTranslations("v2PrimaryClass.daily");
   const today = useMemo(() => date ?? todayCivil(), [date]);
   const open = useOpenAttendanceSession();
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Lu dans l'état de la mutation : un rappel `onSuccess` passé à `mutate` est perdu au double montage de React en développement.
+  const sessionId: string | null = open.data?.session.id ?? null;
   const started = useRef(false);
   const openMutate = open.mutate;
   const start = useCallback(() => {
-    openMutate(sessionOpenBody({ kind: "daily", classroomId, date: today }), { onSuccess: (r) => setSessionId(r.session.id) });
+    openMutate(sessionOpenBody({ kind: "daily", classroomId, date: today }));
   }, [openMutate, classroomId, today]);
   useEffect(() => {
     if (started.current) return;
