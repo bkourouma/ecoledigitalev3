@@ -53,7 +53,8 @@ export async function getAssignmentsOverview(deps: ExaminationsDeps, ctx: Reques
       if (!s.ok) return s;
       const centerIds = await sess.listSessionCenterIds(tx, sessionId);
       const [centers, allRooms, usage, views, counts] = [await ref.listCenters(tx), await ref.listRooms(tx), await sess.roomUsage(tx, sessionId), await sess.listAssignmentViews(tx, sessionId), await sess.sessionCounts(tx, sessionId)];
-      const chosen = centers.filter((c) => centerIds.includes(c.id));
+      // Centres proposés : ceux déjà rattachés ET tous les centres actifs (sinon un centre ne peut jamais être rattaché : QA C-10-01).
+      const chosen = centers.filter((c) => centerIds.includes(c.id) || c.status === "ACTIVE");
       return ok({
         centerIds,
         centers: chosen.map((c) => toCenterDto(c, allRooms.filter((r) => r.centerId === c.id))),
