@@ -197,7 +197,7 @@ export function ProposalsPanel({ itemId, proposals }: { itemId: string; proposal
                 {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
               </p>
               {p.status === "PROPOSED" ? (
-                <Can permission="council.proposal.write">
+                <Can permission="council.decision.record">
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className={buttonClass.primary} disabled={accept.isPending} onClick={() => accept.mutate({ id: p.id }, { onSuccess: () => flash.show(t("done.accepted")) })}>
                       {t("accept")}
