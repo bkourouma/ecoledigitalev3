@@ -227,6 +227,7 @@ const EXPECTED: Record<string, { all: true; except: string[] } | { all?: false; 
 
   educateur: {
     can: [
+      "academic.year.read", "academic.period.read",
       "tenancy.institution.read",
       // messaging
       "messaging.read", "messaging.send", "messaging.announcement.publish_class",

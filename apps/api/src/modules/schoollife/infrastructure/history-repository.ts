@@ -2,12 +2,18 @@
 import type { Tx } from "@ecoledigitale/database";
 import type { ConfidentialReadRow, LifeEventRow } from "./rows";
 
-export const listLifeEventsOfStudent = (tx: Tx, studentId: string, limit: number): Promise<LifeEventRow[]> =>
+/**
+ * Événements d'un élève. Un incident n'a pas de colonne `student_id` (les élèves sont dans ses implications) : son événement est
+ * journalisé sans élève ; on le rattache ici par les identifiants d'incidents déjà visibles de l'appelant (QA C-08-06).
+ */
+export const listLifeEventsOfStudent = (tx: Tx, studentId: string, limit: number, incidentIds: readonly string[] = []): Promise<LifeEventRow[]> =>
   tx.many<LifeEventRow>(
     `SELECT id, entity_kind AS "entityKind", entity_id AS "entityId", student_id AS "studentId", action, from_status AS "fromStatus", to_status AS "toStatus",
             actor_id AS "actorId", actor_kind AS "actorKind", reason, occurred_at AS "occurredAt"
-       FROM schoollife.life_events WHERE student_id = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
-    [studentId, limit],
+       FROM schoollife.life_events
+      WHERE student_id = $1 OR (entity_kind = 'INCIDENT' AND entity_id = ANY($3::uuid[]))
+      ORDER BY occurred_at DESC, id LIMIT $2`,
+    [studentId, limit, [...incidentIds]],
   );
 
 export const listLifeEventsOfEntity = (tx: Tx, entityKind: string, entityId: string): Promise<LifeEventRow[]> =>

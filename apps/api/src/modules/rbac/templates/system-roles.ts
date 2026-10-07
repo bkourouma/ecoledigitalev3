@@ -761,6 +761,9 @@ export const SYSTEM_ROLE_TEMPLATES: readonly SystemRoleTemplate[] = Object.freez
     label: "Éducateur",
     description: "Vie scolaire : appel et suivi des présences, justificatifs, suivi des élèves.",
     permissions: [
+      // Lecture des années et périodes : filtres du tableau de bord d'assiduité et des absences (QA C-08-01).
+      "academic.year.read",
+      "academic.period.read",
       // Lecture des établissements du tenant : les formulaires de ce rôle choisissent l'établissement (QA C-03-01, C-04-03).
       "tenancy.institution.read",
       // Gestion documentaire (module documents) : voir specs/v2/024-documents.

@@ -72,7 +72,7 @@ export function getStudentLife(
       const vc = { types, names: allNames };
       const appeals = await measuresRepo.listAppealsOf(tx, measureRows.map((r) => r.id));
       const visibleIds = new Set([...incidentRows, ...measureRows, ...noteRows, ...convocationRows].map((r) => r.id));
-      const events = (await history.listLifeEventsOfStudent(tx, input.studentId, 300)).filter((e) => visibleIds.has(e.entityId) || e.entityKind === "SCALE" || e.entityKind === "APPEAL");
+      const events = (await history.listLifeEventsOfStudent(tx, input.studentId, 300, incidentRows.map((r) => r.id))).filter((e) => visibleIds.has(e.entityId) || e.entityKind === "SCALE" || e.entityKind === "APPEAL");
       const actorIds = [...new Set(events.map((e) => e.actorId).filter((a): a is string => a !== null))].slice(0, 30);
       const actorNames = new Map<string, string>();
       for (const id of actorIds) actorNames.set(id, await deps.ports.people.displayNameOfUser(ctx, id).catch(() => "Utilisateur"));
