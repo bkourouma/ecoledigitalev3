@@ -58,7 +58,7 @@ export function DossierGuardians({ application }: { application: AdmissionsAppli
         <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
           {application.consents.map((c) => (
             <li key={c.id}>
-              {tk(c.kind)} · v{c.textVersion} · {tv(c.givenVia)} · {fmt.instant(c.givenAt)}
+              {tk(c.kind)} · {c.textVersion.startsWith("v") ? c.textVersion : `v${c.textVersion}`} · {tv(c.givenVia)} · {fmt.instant(c.givenAt)}
               {c.withdrawnAt ? ` · ${t("withdrawn", { date: fmt.instant(c.withdrawnAt) })}` : ""}
             </li>
           ))}
