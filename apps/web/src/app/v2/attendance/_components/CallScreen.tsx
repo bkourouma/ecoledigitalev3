@@ -44,11 +44,13 @@ export function CallScreen({ kind, id, date, dayPart, backHref = "/v2/attendance
   const classrooms = useClassroomDirectory();
 
   const open = useOpenAttendanceSession();
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Identifiant lu dans l'état de la mutation (et non dans un rappel `onSuccess`) : en développement, React monte le composant deux fois
+  // et un rappel passé à `mutate` est perdu au démontage, ce qui laissait « Ouverture de l'appel… » figé (QA C-07-05).
+  const sessionId: string | null = open.data?.session.id ?? null;
   const started = useRef(false);
   const openMutate = open.mutate;
   const startOpen = useCallback(() => {
-    openMutate(sessionOpenBody(target), { onSuccess: (r) => setSessionId(r.session.id) });
+    openMutate(sessionOpenBody(target));
   }, [openMutate, target]);
   useEffect(() => {
     if (started.current) return;
