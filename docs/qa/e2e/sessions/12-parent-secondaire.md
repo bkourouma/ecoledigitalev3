@@ -74,7 +74,7 @@ Les références « C12.7 » renvoient au guide utilisateur de test (chapitre 12
 **Résultat à consigner :** P4 = ✅ / ⚠️ / ❌ (+ numéros de constats).
 
 ### P5. Documents, dossier, contacts, compte  (guide : C20.5, C04.7)
-1. Dépose un document (PDF fictif) ; mets à jour le contact d'urgence de ton enfant ; ouvre « Paramètres du compte » (préférences de notification, heures calmes : C15.10) sans changer ton mot de passe.
+1. Le parent ne dépose PAS de document (l'onglet « Documents » est en lecture seule : bulletins publiés, reçus) et n'ajoute pas de contact d'urgence (c'est le secrétariat qui l'ajoute) : vérifie seulement que ces boutons sont absents. Si un contact d'urgence existe, corrige son téléphone ; ouvre « Paramètres du compte » (préférences de notification, heures calmes : C15.10) sans changer ton mot de passe.
 
 **Attendu :** dépôt tracé ; contact mis à jour.
 
@@ -112,8 +112,7 @@ Utilise exactement ces exemples (ou des valeurs équivalentes, fictives). Note d
 | Justificatif d'absence | « Rendez-vous médical (test QA) » + PDF fictif de moins de 1 Mo |
 | Paiement SANDBOX | 25 000 XOF (réussite) ; 5 001 XOF (en attente) ; 5 013 XOF (échec) |
 | Message à l'enseignant | « Pouvez-vous me confirmer la date du prochain devoir ? (test QA) » |
-| Contact d'urgence | AKA Koffi Michel (oncle), +225 05 00 00 00 03, koffi.aka@exemple.test |
-| Document déposé | « autorisation-sortie-test.pdf » fictif |
+| Contact d'urgence | (ajouté par le secrétariat ; le parent ne fait que corriger les coordonnées d'un contact existant) |
 
 ## 7. Résultats attendus
 **Attendus généraux de ce rôle**

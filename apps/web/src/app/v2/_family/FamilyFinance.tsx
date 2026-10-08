@@ -29,7 +29,7 @@ import { PdfButton } from "@/platform/ui/PdfButton";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, type FieldErrors } from "@/platform/ui/validation";
 import { InstallmentStatusBadge, InvoiceStatusBadge, PaymentStatusBadge } from "../finance/_components/labels";
-import { ONLINE_PROVIDERS } from "../finance/_components/PaymentForm";
+import { ONLINE_PROVIDER_CHOICES, SANDBOX_ENABLED } from "../finance/_components/PaymentForm";
 import { MoneyField, useAmountErrors, useValidator } from "../finance/_components/shared";
 
 const OPEN_STATUSES = ["ISSUED", "PARTIALLY_PAID", "OVERDUE"];
@@ -212,7 +212,7 @@ function PayDialog({ learnerId, openInvoices, onClose, onStarted }: { learnerId:
   const validate = useValidator();
   const initiate = useInitiateFamilyPayment();
   const runner = useIdempotentRunner<string>((fp) => fp, "ol");
-  const [form, setForm] = useState({ invoiceId: openInvoices[0]?.id ?? "", amount: openInvoices[0] ? String(openInvoices[0].balance.amount) : "", provider: "orange_money", phone: "" });
+  const [form, setForm] = useState({ invoiceId: openInvoices[0]?.id ?? "", amount: openInvoices[0] ? String(openInvoices[0].balance.amount) : "", provider: ONLINE_PROVIDER_CHOICES[0]!, phone: "" });
   const [errors, setErrors] = useState<FieldErrors>({});
   const apiErrors = apiErrorToFieldErrors(initiate.error);
   const err = (k: string) => errors[k] ?? apiErrors[k];
@@ -253,8 +253,8 @@ function PayDialog({ learnerId, openInvoices, onClose, onStarted }: { learnerId:
         )}
       </FormField>
       <MoneyField label={t("amount")} value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} required error={err("amount")} hint={t("amountHint")} />
-      <FormField label={t("provider")} required error={err("provider")}>
-        {(c) => <NativeSelect {...c} value={form.provider} onChange={(v) => setForm((f) => ({ ...f, provider: v }))} options={ONLINE_PROVIDERS.map((p) => ({ value: p, label: tProvider(p) }))} />}
+      <FormField label={t("provider")} required error={err("provider")} hint={SANDBOX_ENABLED && form.provider === "sandbox" ? t("sandboxHint") : undefined}>
+        {(c) => <NativeSelect {...c} value={form.provider} onChange={(v) => setForm((f) => ({ ...f, provider: v }))} options={ONLINE_PROVIDER_CHOICES.map((p) => ({ value: p, label: tProvider(p) }))} />}
       </FormField>
       <FormField label={t("phone")} hint={t("phoneHint")} error={err("payer.phoneNumber")}>
         {(c) => <TextControl {...c} type="tel" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} autoComplete="tel" maxLength={30} />}

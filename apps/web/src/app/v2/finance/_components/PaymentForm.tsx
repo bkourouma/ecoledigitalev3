@@ -312,6 +312,10 @@ function PaymentDone({ view, onNew }: { view: PaymentView; onNew: () => void }) 
 /** Codes des fournisseurs connus du module (adaptateurs configurés par établissement) ; « autre » accepte un code libre. */
 export const ONLINE_PROVIDERS = ["orange_money", "mtn_momo", "wave", "cinetpay", "tresorpay"] as const;
 
+/** Environnement de démonstration (`NEXT_PUBLIC_FINANCE_SANDBOX=1`) : le fournisseur simulé « sandbox » est proposé en premier. */
+export const SANDBOX_ENABLED = process.env.NEXT_PUBLIC_FINANCE_SANDBOX === "1";
+export const ONLINE_PROVIDER_CHOICES: readonly string[] = SANDBOX_ENABLED ? ["sandbox", ...ONLINE_PROVIDERS] : ONLINE_PROVIDERS;
+
 export function OnlinePaymentScreen({ initialLearnerId }: { initialLearnerId?: string }) {
   const t = useTranslations("v2Finance.onlineForm");
   const tProvider = useTranslations("v2Finance.onlineForm.providers");
@@ -322,7 +326,7 @@ export function OnlinePaymentScreen({ initialLearnerId }: { initialLearnerId?: s
   const runner = useIdempotentRunner<string>((fp) => fp, "ol");
 
   const [learner, setLearner] = useState<SelectOption | null>(initialLearnerId ? { value: initialLearnerId, label: initialLearnerId.slice(0, 8) } : null);
-  const [form, setForm] = useState({ amount: "", provider: "orange_money", otherProvider: "", phone: "", name: "", email: "", invoiceId: "", description: "" });
+  const [form, setForm] = useState({ amount: "", provider: ONLINE_PROVIDER_CHOICES[0]!, otherProvider: "", phone: "", name: "", email: "", invoiceId: "", description: "" });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [started, setStarted] = useState<OnlineView | null>(null);
   const invoices = useInvoices({ learnerId: learner?.value, limit: 100 }, { enabled: learner !== null });
@@ -404,7 +408,7 @@ export function OnlinePaymentScreen({ initialLearnerId }: { initialLearnerId?: s
         <div className="grid gap-3 sm:grid-cols-2">
           <MoneyField label={t("amount")} value={form.amount} onChange={set("amount")} required error={err("amount")} />
           <FormField label={t("provider")} required error={err("provider")}>
-            {(c) => <NativeSelect {...c} value={form.provider} onChange={set("provider")} options={[...ONLINE_PROVIDERS.map((p) => ({ value: p, label: tProvider(p) })), { value: "other", label: tProvider("other") }]} />}
+            {(c) => <NativeSelect {...c} value={form.provider} onChange={set("provider")} options={[...ONLINE_PROVIDER_CHOICES.map((p) => ({ value: p, label: tProvider(p) })), { value: "other", label: tProvider("other") }]} />}
           </FormField>
           {form.provider === "other" ? (
             <FormField label={t("otherProvider")} hint={t("otherProviderHint")} required error={err("provider")}>

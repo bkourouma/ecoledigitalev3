@@ -140,6 +140,8 @@ async function setup() {
     NEXTAUTH_SECRET: all.nextAuthSecret,
     SHOW_TECHNICAL_ACCOUNTS: "true",
     DEV_CREDENTIALS_FILE: credentialsFile,
+    // Paiement en ligne : propose le fournisseur simulé « sandbox » (succès / en attente 001 / échec 013) aux écrans parent et caisse.
+    NEXT_PUBLIC_FINANCE_SANDBOX: "1",
   };
   const lines = ["# Généré par `pnpm dev:v2:setup` : local, ignoré par git. Ne jamais committer.", ...Object.entries(vars).map(([k, v]) => `${k}=${JSON.stringify(String(v))}`), ""];
   writeFileSync(envFile, lines.join("\n"), { mode: 0o600 });
@@ -157,6 +159,8 @@ function loadEnvLocal() {
       env[m[1]] = m[2];
     }
   }
+  // Environnements créés avant l'ajout du fournisseur simulé : actif par défaut en développement.
+  if (env.NEXT_PUBLIC_FINANCE_SANDBOX === undefined) env.NEXT_PUBLIC_FINANCE_SANDBOX = "1";
   return env;
 }
 

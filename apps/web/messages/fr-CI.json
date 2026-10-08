@@ -3262,6 +3262,7 @@
       "amount": "Montant",
       "provider": "Fournisseur",
       "providers": {
+        "sandbox": "Paiement simulé (démonstration)",
         "orange_money": "Orange Money",
         "mtn_momo": "MTN MoMo",
         "wave": "Wave",
@@ -10851,6 +10852,7 @@
           "amount": "Montant (F CFA)",
           "amountHint": "Montant entier, sans décimale.",
           "provider": "Moyen de paiement",
+          "sandboxHint": "Paiement simulé : aucun argent réel n'est débité. Un montant se terminant par 001 reste en attente, un montant se terminant par 013 échoue, tout autre montant réussit.",
           "phone": "Numéro de téléphone du payeur",
           "phoneHint": "Numéro qui recevra la demande de confirmation."
         },
