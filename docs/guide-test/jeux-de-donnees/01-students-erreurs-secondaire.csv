@@ -1,0 +1,16 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Nationalité (code pays);N° national;N° acte de naissance;E-mail;Téléphone;Téléphone secondaire;Adresse;Ville;Résidence;Classe (code);Financement (code);Référence d'affectation
+TG-ERR-01;SANGARE;Mariam test guide;F;10/10/2013;Bouaké;CI;;;;;;;Bouaké;;6E-A;PRIVATE;
+TG-ERR-02;DOUMBIA;Salif test guide;;04/04/2014;Korhogo;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-03;GNANKOU;Rita test guide;X;15/06/2014;Daloa;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-04;LATH;Gilbert test guide;M;31/02/2014;Abidjan;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-05;SIDIBE;Kady test guide;F;01/01/2099;Abidjan;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-06;;Josiane test guide;F;20/02/2014;Man;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-07;ASSAMOI;Paul test guide;M;08/08/2013;Abidjan;CI;;;;;;;;;6E-Z;PRIVATE;
+TG-ERR-08;MEL;Estelle test guide;F;13/03/2014;Abidjan;CI;;;;;;;;;6E-A;XYZ;
+TG-ERR-09;TIÉMOKO;Ange test guide;M;27/07/2013;Abidjan;CI;;;ange.tiemoko.exemple.test;;;;;;6E-A;PRIVATE;
+TG-ERR-10;KOUTOUAN;Délice test guide;F;09/05/2014;Abidjan;CI;;;;12;;;;;6E-A;PRIVATE;
+TG-ERR-11;BOGUI;Cédric test guide;M;16/10/2013;Abidjan;CIV;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-01;SANGARE;Mariam test guide (bis);F;10/10/2013;Bouaké;CI;;;;;;;Bouaké;;6E-A;PRIVATE;
+TG-ERR-12;DIABATE;Nadia;F;19/01/2014;Daloa;CI;;;;;;;;;6E-A;PRIVATE;
+TG-ERR-13;ZOKORA;Léonie test guide;F;03/03/2014;Gagnoa;CI;;;;;;;;;6E-A;PRIVATE;
+;LOROUGNON;Dominique test guide;M;19/09/2013;Abidjan;CI;;;;;;;;;6E-A;PRIVATE;

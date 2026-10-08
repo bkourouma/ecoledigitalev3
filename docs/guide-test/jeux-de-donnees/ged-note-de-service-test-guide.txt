@@ -1,0 +1,3 @@
+Note de service fictive (test guide)
+Objet : essai de dépôt d'un fichier texte.
+Aucune donnée réelle.

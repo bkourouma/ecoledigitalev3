@@ -1,0 +1,13 @@
+﻿Code de la classe;Nom de la classe;Programme (code);Niveau (code);Effectif maximal;Début;Fin
+TG-E5A;5e A erreurs test guide;COLLEGE;5E;40;;
+TG-E5B;5e B erreurs test guide;LYCEEX;5E;40;;
+TG-E5C;5e C erreurs test guide;COLLEGE;7E;40;;
+TG-E2A;2nde A erreurs test guide;COLLEGE;2NDE;40;;
+;Sans code test guide;COLLEGE;5E;40;;
+TG-E5D;5e D erreurs test guide;COLLEGE;5E;0;;
+TG-E5E;5e E erreurs test guide;COLLEGE;5E;quarante;;
+TG-E5F;5e F erreurs test guide;COLLEGE;5E;40,5;;
+TG-E5G;5e G erreurs test guide;COLLEGE;5E;40;30/06/2027;14/09/2026
+TG-E5A;5e A erreurs test guide (bis);COLLEGE;5E;40;;
+6E-A;6e A (déjà existante);COLLEGE;6E;45;;
+TG-E5H;;COLLEGE;5E;40;;

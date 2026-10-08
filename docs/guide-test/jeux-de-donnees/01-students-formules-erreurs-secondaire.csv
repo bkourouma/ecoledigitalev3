@@ -1,0 +1,4 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance
+TG-FOR-01;=2+2;Piège test guide;;10/10/2013;Abidjan
+TG-FOR-02;+CMD;Piège deux test guide;;11/10/2013;Abidjan
+TG-FOR-03;@SOMME(A1);Piège trois test guide;;12/10/2013;Abidjan

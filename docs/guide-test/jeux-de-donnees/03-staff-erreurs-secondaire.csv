@@ -1,0 +1,11 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Nationalité (code pays);E-mail;Téléphone;Adresse;Ville;Catégorie;Poste;Date d'embauche
+TG-STE-01;LOBA;Fabrice test guide;M;10/10/1985;Abidjan;CI;fabrice.loba.tg@exemple.test;07 00 03 01 01;;Abidjan;Enseignant;Professeur de SVT;01/09/2013
+TG-STE-02;MEL;Cuisinier test guide;M;11/11/1980;Abidjan;CI;;07 00 03 01 02;;Abidjan;CUISINIER;Cuisinier;01/09/2013
+TG-STE-03;NANAN;;F;12/12/1987;Abidjan;CI;;07 00 03 01 03;;Abidjan;Enseignant;;01/09/2013
+TG-STE-04;OBOU;Désiré test guide;M;1985-13-45;Abidjan;CI;;07 00 03 01 04;;Abidjan;Enseignant;;01/09/2013
+TG-STE-05;PAPI;Rebecca test guide;F;01/01/2000;Abidjan;CI;;07 00 03 01 05;;Abidjan;Enseignant;;01/09/1995
+TG-STE-06;QUENUM;Thierry test guide;M;05/05/1982;Abidjan;CI;;07 00 03 01 06;;Abidjan;ADMIN;Comptable;01/01/2099
+TG-STE-07;ROUAMBA;Sophie test guide;F;06/06/1984;Abidjan;CI;sophie.rouamba.exemple.test;07 00 03 01 07;;Abidjan;Enseignant;;01/09/2013
+TG-STE-01;LOBA;Fabrice test guide (bis);M;10/10/1985;Abidjan;CI;;07 00 03 01 01;;Abidjan;Enseignant;Professeur de SVT;01/09/2013
+TG-STE-08;SERY;Vieux test guide;M;01/01/1915;Abidjan;CI;;07 00 03 01 08;;Abidjan;Enseignant;;01/09/2013
+TG-STE-09;TRAORE;Kouadio;M;10/04/1978;Abidjan;CI;;07 00 03 01 09;;Abidjan;Enseignant;Professeur;01/09/2013

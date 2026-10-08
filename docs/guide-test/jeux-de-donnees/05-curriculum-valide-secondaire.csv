@@ -1,0 +1,7 @@
+﻿Code du noeud;Libellé;Type de noeud (code);Code du parent;Code de la matière;Niveau (code);Coefficient;Crédits;Type de période (code);N° de période;Ordre d'affichage;Obligatoire;Volume horaire total
+6E;6e;LEVEL;;;6E;;;;;1;;
+TG-ARTP;Arts plastiques test guide;SUBJECT;6E;TG-ARTP;;1;;;;11;oui;36
+TG-MUS;Éducation musicale test guide;SUBJECT;6E;TG-MUS;;1;;;;12;oui;36
+TG-INFO;Informatique test guide;SUBJECT;6E;TG-INFO;;2;;;;13;non;54
+TG-SVT;Sciences de la vie et de la terre test guide;SUBJECT;6E;TG-SVT;;2;;;;14;oui;72
+TG-EDHC;Éducation aux droits de l'homme et à la citoyenneté test guide;SUBJECT;6E;TG-EDHC;;1,5;;;;15;oui;36

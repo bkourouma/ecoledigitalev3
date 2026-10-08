@@ -1,0 +1,9 @@
+nom;prenoms;naissance;lieu;sexe;telephone;email;adresse;piece_type;piece_numero;tuteur;lien_tuteur;tel_tuteur;email_tuteur;classe_examen;tentatives
+SORO;Aya test guide;2014-05-02;Bouaké;F;+225 07 12 90 33 18;;Quartier Air France, Bouaké;;;;;;;oui;0
+;Awa test guide;2014-02-14;Daloa;F;+225 05 10 20 30 41;;;;;;;;;oui;0
+TOURE;Yacouba test guide;12/03/2014;Korhogo;M;+225 05 10 20 30 42;;;;;;;;;oui;0
+TOURE;Salif test guide;2014-06-18;Korhogo;X;+225 05 10 20 30 43;;;;;;;;;oui;0
+GOUDE;Emma test guide;2014-08-23;Gagnoa;F;+225 07 10 20 30 44;;;;;;;;;peut-être;0
+GOUDE;Mathieu test guide;2014-10-11;Gagnoa;M;+225 07 10 20 30 45;;;;;;;;;oui;abc
+EHUI;Rosine test guide;2014-04-27;Abidjan;F;;;;;;;;;;oui;0
+SORO;Aya test guide;2014-05-02;Bouaké;F;+225 07 12 90 33 18;;Quartier Air France, Bouaké;;;;;;;oui;0

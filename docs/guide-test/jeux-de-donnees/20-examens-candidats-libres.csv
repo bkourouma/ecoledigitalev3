@@ -1,0 +1,7 @@
+nom;prenoms;naissance;lieu;sexe;telephone;email;adresse;piece_type;piece_numero;tuteur;lien_tuteur;tel_tuteur;email_tuteur;classe_examen;tentatives
+KONE;Mariam test guide;2014-03-12;Bouaké;F;+225 07 55 20 41 01;;Quartier Commerce, Bouaké;EXTRAIT_NAISSANCE;EN-TG-0001;KONE Issouf;Père;+225 07 55 20 41 02;;oui;0
+TRAORE;Seydou test guide;2013-11-05;Korhogo;M;+225 05 44 18 02 11;seydou.traore.tg@exemple.test;Quartier Soba, Korhogo;;;;;;;oui;1
+YAO;Adjoua test guide;2014-07-21;Yamoussoukro;F;;;Habitat, Yamoussoukro;EXTRAIT_NAISSANCE;EN-TG-0003;YAO Kouadio;Oncle;+225 01 02 30 40 55;kouadio.yao.tg@exemple.test;oui;0
+DIABATE;Ibrahim test guide;2014-01-30;Yopougon (Abidjan);M;+225 07 66 31 90 12;;Yopougon Sicogi, Abidjan;;;;;;;oui;0
+BAMBA;Fanta test guide;2014-09-09;Daloa;F;+225 05 28 44 17 60;;Quartier Lobia, Daloa;;;;;;;non;2
+COULIBALY;Karim test guide;2013-12-15;Abobo (Abidjan);M;+225 01 70 52 08 33;karim.coulibaly.tg@exemple.test;Abobo Baoulé, Abidjan;;;;;;;oui;0

@@ -1,0 +1,9 @@
+﻿Référence;Matricule de l'élève;Type;Montant (FCFA);Libellé;Année scolaire;Échéance;Facture visée (avoir);Motif de l'avoir
+TG-REPRISE-001;TG-ELV-S01;FACTURE;45000;Solde scolarité 2025-2026 (test guide);2025-2026;31/12/2026;;
+TG-REPRISE-002;TG-ELV-S02;FACTURE;120000;Solde scolarité 2025-2026 (test guide);2025-2026;31/12/2026;;
+TG-REPRISE-003;TG-ELV-S03;FACTURE;75 000;Solde cantine 2025-2026 (test guide);2025-2026;31/12/2026;;
+TG-REPRISE-004;TG-ELV-S04;FACTURE;30000;Solde transport 2025-2026 (test guide);2025-2026;2026-12-31;;
+TG-REPRISE-005;TG-ELV-S05;;60000;Solde scolarité 2025-2026 (test guide);;;;
+TG-REPRISE-006;TG-ELV-S06;facture;100000;Solde scolarité 2025-2026 (test guide);2025-2026;31/12/2026;;
+TG-REPRISE-007;TG-ELV-S02;AVOIR;20000;Remise fratrie (test guide);2025-2026;;TG-REPRISE-002;Remise fratrie (test guide)
+TG-REPRISE-008;TG-ELV-S07;FACTURE;85000;Solde scolarité 2025-2026 (test guide);2025-2026;31/12/2026;;

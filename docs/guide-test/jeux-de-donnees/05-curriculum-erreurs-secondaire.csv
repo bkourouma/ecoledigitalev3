@@ -1,0 +1,14 @@
+﻿Code du noeud;Libellé;Type de noeud (code);Code du parent;Code de la matière;Niveau (code);Coefficient;Crédits;Type de période (code);N° de période;Ordre d'affichage;Obligatoire;Volume horaire total
+6E;6e;LEVEL;;;6E;;;;;1;;
+TG-CE1;Dessin technique test guide;SUBJECT;6E;TG-CE1;;1;;;;31;oui;36
+TG-CE2;Parent inconnu test guide;SUBJECT;XYZ;TG-CE2;;1;;;;32;oui;
+TG-CE3;Son propre parent test guide;SUBJECT;TG-CE3;TG-CE3;;1;;;;33;oui;
+TG-CE4;Type inconnu test guide;MATIERE;6E;TG-CE4;;1;;;;34;oui;
+TG-CE5;Période sans rang test guide;SUBJECT;6E;TG-CE5;;1;;TRIMESTER;;35;oui;
+TG-CE6;Coefficient négatif test guide;SUBJECT;6E;TG-CE6;;-2;;;;36;oui;
+TG-CE7;Coefficient texte test guide;SUBJECT;6E;TG-CE7;;abc;;;;37;oui;
+;Sans code test guide;SUBJECT;6E;TG-CE8;;1;;;;38;oui;
+TG-CE1;Dessin technique test guide (bis);SUBJECT;6E;TG-CE1;;1;;;;39;oui;
+TG-CE9;Niveau inconnu test guide;SUBJECT;6E;TG-CE9;9E;1;;;;40;oui;
+TG-CE10;Fils avant parent test guide;SUBJECT;TG-CE11;TG-CE10;;1;;;;41;oui;
+TG-CE11;Groupe déclaré trop tard test guide;GROUP;6E;;;;;;;42;;

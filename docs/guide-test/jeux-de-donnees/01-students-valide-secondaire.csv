@@ -1,0 +1,11 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Nationalité (code pays);N° national;N° acte de naissance;E-mail;Téléphone;Téléphone secondaire;Adresse;Ville;Résidence;Classe (code);Financement (code);Référence d'affectation
+TG-ELV-S01;KOUASSI;Aïcha test guide;F;12/03/2014;Abidjan;CI;;TG-ACTE-2014-0101;aicha.kouassi.tg@exemple.test;;;Cocody, Riviera 3;Abidjan;Riviera 3;6E-A;PRIVATE;
+TG-ELV-S02;KOUASSI;Yves test guide;M;05/08/2013;Abidjan;CI;;;;;;Cocody, Riviera 3;Abidjan;Riviera 3;6E-A;PRIVATE;
+TG-ELV-S03;KONÉ;Fanta test guide;Fille;21/11/2013;Bouaké;CI;;;;;;Bouaké, quartier Commerce;Bouaké;Commerce;6E-A;;
+TG-ELV-S04;TRAORE;Mamadou test guide;M;2014-02-14;Yamoussoukro;CI;;;;07 00 00 10 04;;Yamoussoukro, Habitat;Yamoussoukro;Habitat;6E-A;PRIVATE;
+TG-ELV-S05;YAO;Adjoua test guide;F;30/06/2014;Daloa;CI;;;;;;Daloa, Lobia;Daloa;Lobia;6E-A;PRIVATE;
+TG-ELV-S06;BAMBA;Ismaël test guide;Masculin;09/09/2013;Korhogo;CI;;;;;;;Korhogo;;6E-A;PRIVATE;
+TG-ELV-S07;COULIBALY;Awa test guide;F;17/01/2014;Abidjan;CI;;;;;;Yopougon, Niangon Nord;Abidjan;Niangon Nord;6E-A;PRIVATE;
+TG-ELV-S08;DIABATE;Seydou test guide;M;25/05/2013;Abidjan;CI;;;;;;Abobo, Samaké;Abidjan;Samaké;6E-A;PRIVATE;
+TG-ELV-S09;BROU;Esther test guide;F;02/12/2013;San-Pédro;CI;;;;;;;San-Pédro;;6E-A;PRIVATE;
+TG-ELV-S10;OUATTARA;Souleymane test guide;M;11/10/2014;Bouaké;CI;;;;;;;Bouaké;;6E-A;PRIVATE;

@@ -1,0 +1,11 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Nationalité (code pays);N° national;N° acte de naissance;E-mail;Téléphone;Téléphone secondaire;Adresse;Ville;Résidence;Classe (code);Financement (code);Référence d'affectation
+TG-ELV-U01;KOUADIO;Jean-Baptiste test guide;M;08/04/2005;Abidjan;CI;;;jean-baptiste.kouadio.tg@exemple.test;05 00 00 20 01;;;Abidjan;;L1-A;PRIVATE;
+TG-ELV-U02;SORO;Fatoumata test guide;F;16/09/2004;Korhogo;CI;;;fatoumata.soro.tg@exemple.test;05 00 00 20 02;;;Korhogo;;L1-A;PRIVATE;
+TG-ELV-U03;AKA;Christelle test guide;F;23/01/2005;Bouaké;CI;;;;05 00 00 20 03;;;Bouaké;;L1-A;PRIVATE;
+TG-ELV-U04;YEO;Lassina test guide;M;30/10/2004;Odienné;CI;;;;05 00 00 20 04;;;Odienné;;L1-A;PRIVATE;
+TG-ELV-U05;ZADI;Marie-Laure test guide;F;05/06/2003;Gagnoa;CI;;;;;;;Gagnoa;;L1-A;PRIVATE;
+TG-ELV-U06;BROU;Axel test guide;M;2004-12-12;Yamoussoukro;CI;;;;;;;Yamoussoukro;;L1-A;PRIVATE;
+TG-ELV-U07;TOURÉ;Mariame test guide;F;27/03/2005;Man;CI;;;;;;;Man;;L1-A;PRIVATE;
+TG-ELV-U08;GBAGBO;Landry test guide;M;01/07/2004;Daloa;CI;;;;;;;Daloa;;L1-A;PRIVATE;
+TG-ELV-U09;OUATTARA;Aïcha test guide;F;19/11/2003;Bouna;CI;;;;;;;Bouna;;L1-A;PRIVATE;
+TG-ELV-U10;KONAN;Franck test guide;M;14/02/2005;Abidjan;CI;;;;05 00 00 20 10;;;Abidjan;;L1-A;PRIVATE;

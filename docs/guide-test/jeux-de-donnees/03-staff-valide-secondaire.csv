@@ -1,0 +1,9 @@
+﻿Matricule d'origine;Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Nationalité (code pays);E-mail;Téléphone;Adresse;Ville;Catégorie;Poste;Date d'embauche
+TG-ENS-001;KOUADIO;Brice test guide;M;12/03/1984;Abidjan;CI;brice.kouadio.tg@exemple.test;07 00 03 00 01;Cocody, Angré;Abidjan;Enseignant;Professeur de mathématiques;01/09/2012
+TG-ENS-002;YAPI;Nathalie test guide;F;1988-07-21;Bouaké;CI;nathalie.yapi.tg@exemple.test;07 00 03 00 02;Yopougon, Niangon;Abidjan;TEACHER;Professeure de français;2015-09-01
+TG-ENS-003;ESSOH;Armand test guide;M;03/05/1979;Dabou;CI;;05 00 03 00 03;Abobo, Plateau Dokui;Abidjan;Éducateur;Surveillant général;15/09/2010
+TG-ENS-004;ADOU;Clarisse test guide;F;25/11/1991;Abidjan;CI;clarisse.adou.tg@exemple.test;01 00 03 00 04;Marcory, Zone 4;Abidjan;ADMIN;Secrétaire comptable;02/01/2019
+TG-ENS-005;GUEI;Parfait test guide;M;14/01/1986;Man;CI;parfait.guei.tg@exemple.test;07 00 03 00 05;Yamoussoukro, Millionnaire;Yamoussoukro;Enseignant;Professeur d'histoire-géographie;01/09/2014
+TG-ENS-006;DJE;Mireille test guide;F;09/09/1990;Daloa;CI;mireille.dje.tg@exemple.test;07 00 03 00 06;Daloa, Lobia;Daloa;TEACHER;Professeure d'anglais;01/09/2016
+TG-ENS-007;KRAGBE;Joël test guide;M;30/06/1975;Gagnoa;CI;;05 00 03 00 07;Gagnoa, Dioulabougou;Gagnoa;SUPPORT;Agent d'entretien;01/10/2008
+TG-ENS-008;BEUGRÉ;Estelle test guide;F;18/02/1993;Abidjan;CI;estelle.beugre.tg@exemple.test;01 00 03 00 08;Cocody, Riviera 2;Abidjan;Personnel administratif;Bibliothécaire;01/09/2021

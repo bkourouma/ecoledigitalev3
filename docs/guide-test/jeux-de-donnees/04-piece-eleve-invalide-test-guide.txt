@@ -1,0 +1,2 @@
+Ce fichier texte sert a verifier le refus d un format non accepte (seuls PDF, JPEG, PNG et WebP sont acceptes).
+Donnees fictives.

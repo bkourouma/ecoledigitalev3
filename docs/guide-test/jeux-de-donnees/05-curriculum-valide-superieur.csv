@@ -1,0 +1,9 @@
+﻿Code du noeud;Libellé;Type de noeud (code);Code du parent;Code de la matière;Niveau (code);Coefficient;Crédits;Type de période (code);N° de période;Ordre d'affichage;Obligatoire;Volume horaire total
+L1;Licence 1;LEVEL;;;L1;;;;;1;;
+S1;Semestre 1;PERIOD;L1;;;;;SEMESTER;1;1;;
+TG-IUE1;UE Réseaux test guide;UE;S1;;;;6;;;21;oui;
+TG-IE11;Introduction aux réseaux test guide;ECUE;TG-IUE1;TG-RESEAU;;2;3;;;1;oui;30
+TG-IE12;Protocoles Internet test guide;ECUE;TG-IUE1;TG-PROTO;;2;3;;;2;oui;30
+TG-IUE2;UE Bases de données test guide;UE;S1;;;;5;;;22;oui;
+TG-IE21;Modélisation de données test guide;ECUE;TG-IUE2;TG-MODEL;;1,5;2;;;1;oui;24
+TG-IE22;SQL test guide;ECUE;TG-IUE2;TG-SQL;;2;3;;;2;oui;36

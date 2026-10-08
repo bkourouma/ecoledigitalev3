@@ -1,0 +1,11 @@
+﻿Matricule de l'élève;Nom du tuteur;Prénoms du tuteur;Sexe du tuteur;Téléphone;Téléphone secondaire;E-mail;Adresse;Ville;Profession;Employeur;Lien de parenté;Contact principal;Contact d'urgence;Répondant financier;Autorité parentale;Autorisé à récupérer l'enfant;Accès au portail
+TG-ELV-S05;GNAGNE;Eugénie test guide;F;07 00 02 01 01;;;;Daloa;;;Oncle ou tante;non;oui;non;non;oui;non
+TG-ELV-X99;ABLE;Nestor test guide;M;07 00 02 02 02;;;;;;;PERE;oui;oui;oui;oui;oui;non
+TG-ELV-S06;BOKA;Rosalie test guide;F;07 00 02 03 03;;;;;;;Cousin;oui;oui;oui;oui;oui;non
+TG-ELV-S07;;Anicet test guide;M;07 00 02 04 04;;;;;;;PERE;oui;oui;oui;oui;oui;non
+TG-ELV-S08;CAMARA;Fanta test guide;F;07-AB;;;;;;;MERE;oui;oui;oui;oui;oui;non
+TG-ELV-S09;DOH;Simone test guide;F;07 00 02 06 06;;simone@@exemple;;;;;MERE;oui;oui;oui;oui;oui;non
+TG-ELV-S10;EBLIN;Prosper test guide;M;07 00 02 07 07;;;;;;;PERE;peut-être;oui;oui;oui;oui;non
+TG-ELV-S06;KRA;Odette test guide;F;;;;;;;;Grand-parent;oui;oui;oui;oui;oui;non
+TG-ELV-S05;GNAGNE;Eugénie test guide;F;07 00 02 01 01;;;;Daloa;;;Oncle ou tante;non;oui;non;non;oui;non
+TG-ELV-S04;LASME;Gisèle test guide;Z;07 00 02 09 09;;;;;;;MERE;oui;oui;oui;oui;oui;non
