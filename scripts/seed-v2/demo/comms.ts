@@ -14,7 +14,7 @@ export async function seedCommunications(kit: DemoKit): Promise<void> {
       title: "Rentrée : réunion d'information des parents (démonstration)",
       body: "Les parents sont invités à la réunion d'information de la rentrée. Annonce de démonstration : aucun envoi réel.",
       priority: "NORMAL",
-      audience: { targets: [{ kind: "TENANT" }], audiences: ["GUARDIANS", "STUDENTS", "STAFF"] },
+      audience: { targets: [{ kind: "TENANT" }], audiences: ["GUARDIANS", "STAFF"] },
       requireAck: true,
       pinned: true,
       publish: true,
