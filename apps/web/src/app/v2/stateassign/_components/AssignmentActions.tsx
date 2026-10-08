@@ -6,7 +6,7 @@ import type { AssignmentDto } from "@ecoledigitale/contracts/v2/stateassign";
 import { usePermission } from "@/platform/access";
 import { useAmendAssignment, useAssignmentAct, useReconcileAssignment, useUpdateAssignment, type AssignmentActName } from "@/platform/v2/stateassign";
 import { FormField, TextAreaControl, TextControl } from "@/platform/ui/FormField";
-import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
+import { ConfirmDialog, FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { parseAmountInput } from "@/platform/ui/money";
 import { buttonClass } from "@/platform/ui/PageHeader";
 import { ErrorBlock, Notice, useFlash } from "@/platform/ui/states";
@@ -186,12 +186,29 @@ function EditDialog({ a, open, onOpenChange, onDone }: { a: AssignmentDto; open:
 
 function SimpleAct({ a, act, label, onDone, className }: { a: AssignmentDto; act: Extract<AssignmentActName, "activate" | "resume">; label: string; onDone: (message: string) => void; className: string }) {
   const t = useTranslations("v2Stateassign.actions");
+  const tConfirm = useTranslations("v2Ui.confirm");
   const mutation = useAssignmentAct(act);
+  const [confirming, setConfirming] = useState(false);
+  const run = () => mutation.mutate({ id: a.id, rowVersion: a.rowVersion }, { onSuccess: () => onDone(t(`${act}.done`)) });
   return (
     <>
-      <button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate({ id: a.id, rowVersion: a.rowVersion }, { onSuccess: () => onDone(t(`${act}.done`)) })} className={className}>
+      <button type="button" disabled={mutation.isPending} onClick={() => (act === "activate" ? setConfirming(true) : run())} className={className}>
         {label}
       </button>
+      {confirming ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setConfirming(false)}
+          title={tConfirm("activateAssignment.title")}
+          description={tConfirm("activateAssignment.description")}
+          confirmLabel={tConfirm("activateAssignment.action")}
+          isPending={mutation.isPending}
+          onConfirm={() => {
+            setConfirming(false);
+            run();
+          }}
+        />
+      ) : null}
       {mutation.isError ? <ErrorBlock error={mutation.error} /> : null}
     </>
   );

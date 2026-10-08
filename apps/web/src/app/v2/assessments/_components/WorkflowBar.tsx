@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { AssessmentDto } from "@ecoledigitale/contracts/v2/assess";
 import { usePermission } from "@/platform/access";
 import { useCancelAssessment, useTransitionAssessment, type AssessTransitionTarget } from "@/platform/v2/assess";
-import { ReasonDialog } from "@/platform/ui/ModalDialog";
+import { ConfirmDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass } from "@/platform/ui/PageHeader";
 import { ErrorBlock } from "@/platform/ui/states";
 
@@ -29,6 +29,8 @@ export function WorkflowBar({ assessment, unsaved, onSaveRequest, onMessage }: {
   const transition = useTransitionAssessment();
   const cancel = useCancelAssessment();
   const [returning, setReturning] = useState(false);
+  const [confirming, setConfirming] = useState<"APPROVED" | "PUBLISHED" | null>(null);
+  const tConfirm = useTranslations("v2Ui.confirm");
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const forward = FORWARD[assessment.status];
@@ -72,7 +74,7 @@ export function WorkflowBar({ assessment, unsaved, onSaveRequest, onMessage }: {
       {assessment.status === "CANCELLED" ? <p className="text-sm text-muted-foreground">{tStatus("CANCELLED")}</p> : null}
       <div className="flex flex-wrap gap-2">
         {forward && canForward.allowed ? (
-          <button type="button" className={buttonClass.primary} onClick={() => void goForward()} disabled={transition.isPending}>
+          <button type="button" className={buttonClass.primary} onClick={() => (forward.to === "APPROVED" || forward.to === "PUBLISHED" ? setConfirming(forward.to) : void goForward())} disabled={transition.isPending}>
             {t(`action.${forward.to}`)}
           </button>
         ) : null}
@@ -89,6 +91,21 @@ export function WorkflowBar({ assessment, unsaved, onSaveRequest, onMessage }: {
       </div>
       {assessment.status === "PUBLISHED" ? <p className="text-xs text-muted-foreground">{t("publishedHint")}</p> : null}
       {error ? <ErrorBlock error={error} /> : null}
+
+      {confirming ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setConfirming(null)}
+          title={tConfirm(confirming === "APPROVED" ? "approveGrades.title" : "publishGrades.title")}
+          description={tConfirm(confirming === "APPROVED" ? "approveGrades.description" : "publishGrades.description")}
+          confirmLabel={tConfirm(confirming === "APPROVED" ? "approveGrades.action" : "publishGrades.action")}
+          isPending={transition.isPending}
+          onConfirm={() => {
+            setConfirming(null);
+            void goForward();
+          }}
+        />
+      ) : null}
 
       {returning ? (
         <ReasonDialog

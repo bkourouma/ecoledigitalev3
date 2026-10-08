@@ -63,6 +63,7 @@ describe("AssessmentDetail — circuit de validation", () => {
     );
     renderWithProviders(<AssessmentDetail id={uuid(800)} />);
     fireEvent.click(await screen.findByRole("button", { name: "Approuver" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Approuver la feuille" }));
     expect((await screen.findByRole("alert")).textContent).toContain("L'approbateur doit être différent du relecteur.");
   });
 

@@ -124,6 +124,7 @@ describe("PayslipDetailScreen", () => {
     });
     renderWithProviders(<PayslipDetailScreen id={pid(10)} />);
     fireEvent.click(await screen.findByRole("button", { name: "Arrêter le montant" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Arrêter le montant" }));
     expect(await screen.findByText("Séparation des tâches : celui qui a calculé le bulletin ne peut pas l'arrêter.")).toBeTruthy();
     expect(screen.getByText(/faites arrêter ce bulletin par une autre personne/)).toBeTruthy();
     expect(screen.queryByText("Le montant du bulletin est arrêté.")).toBeNull();
@@ -137,6 +138,7 @@ describe("PayslipDetailScreen", () => {
     });
     renderWithProviders(<PayslipDetailScreen id={pid(10)} />);
     fireEvent.click(await screen.findByRole("button", { name: "Arrêter le montant" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Arrêter le montant" }));
     expect(await screen.findByText("Ce montant dépasse le seuil : seul le propriétaire peut arrêter ce bulletin.")).toBeTruthy();
     expect(screen.getByText(/depuis « Masse salariale »/)).toBeTruthy();
   });
@@ -145,6 +147,7 @@ describe("PayslipDetailScreen", () => {
     const api = setTestApi({ ...accessRoutes(ALL), ...detailRoute(), "POST /api/v1/payroll/payslips/approve": () => json(batch({ done: [pid(10)] })) });
     renderWithProviders(<PayslipDetailScreen id={pid(10)} />);
     fireEvent.click(await screen.findByRole("button", { name: "Arrêter le montant" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Arrêter le montant" }));
     await screen.findByText("Le montant du bulletin est arrêté.");
     expect(posts(api, "/payslips/approve")[0]!.body).toEqual({ payslipIds: [pid(10)] });
   });

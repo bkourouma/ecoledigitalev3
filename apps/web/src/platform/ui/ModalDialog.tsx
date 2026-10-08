@@ -219,3 +219,34 @@ export function FormDialog({
     </ModalDialog>
   );
 }
+
+/**
+ * Confirmation d'un acte définitif ou sensible : rappelle l'effet avant l'envoi (QA C-11-01). La décision et le contrôle restent à
+ * l'API ; cette fenêtre évite seulement le clic involontaire.
+ */
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  isPending = false,
+  error,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  isPending?: boolean;
+  error?: unknown;
+}) {
+  const t = useTranslations("v2Ui.confirm");
+  return (
+    <FormDialog open={open} onOpenChange={onOpenChange} title={title} description={description} submitLabel={confirmLabel} onSubmit={onConfirm} isPending={isPending} error={error}>
+      <p className="text-sm text-muted-foreground">{t("irreversible")}</p>
+    </FormDialog>
+  );
+}

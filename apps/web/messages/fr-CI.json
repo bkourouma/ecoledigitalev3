@@ -873,6 +873,29 @@
     "form": {
       "required": "obligatoire"
     },
+    "confirm": {
+      "irreversible": "Cette action est définitive : elle ne pourra pas être annulée depuis cet écran.",
+      "approveGrades": {
+        "title": "Approuver cette feuille de notes ?",
+        "description": "L'approbation est un acte sensible. Après approbation, la feuille ne peut plus être modifiée par l'enseignant et peut être publiée.",
+        "action": "Approuver la feuille"
+      },
+      "publishGrades": {
+        "title": "Publier les notes ?",
+        "description": "Les notes publiées deviennent immuables et déclenchent le recalcul des résultats. Une correction ne sera possible que par une demande approuvée.",
+        "action": "Publier les notes"
+      },
+      "approvePayslip": {
+        "title": "Arrêter ce bulletin de paie ?",
+        "description": "Le montant arrêté devient le montant à payer ; il ne pourra plus être recalculé.",
+        "action": "Arrêter le montant"
+      },
+      "activateAssignment": {
+        "title": "Activer ce dossier d'affectation ?",
+        "description": "L'activation rattache la référence d'affectation à l'inscription de l'élève et ouvre le suivi de la créance sur l'État.",
+        "action": "Activer le dossier"
+      }
+    },
     "table": {
       "loading": "Chargement des données…",
       "empty": "Aucune donnée à afficher.",
@@ -15281,7 +15304,7 @@
       "title": "{kind}",
       "description": "Étape visée : {stage}. La décision est journalisée avec son motif et ne peut plus être modifiée.",
       "confirm": "Enregistrer : {kind}",
-      "done": "{kind} enregistrée : dossier à l'étape « {stage} ».",
+      "done": "Décision « {kind} » enregistrée : dossier à l'étape « {stage} ».",
       "reason": "Motif",
       "noReason": "Aucun motif",
       "reasonText": "Précisions",

@@ -21,7 +21,7 @@ import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
-import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
+import { ConfirmDialog, FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { parseAmountInput, useMoney } from "@/platform/ui/money";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
@@ -151,6 +151,8 @@ export function PayslipDetailScreen({ id }: { id: string }) {
   const flash = useFlash();
   const [dialog, setDialog] = useState<"pay" | "cancel" | "dispute" | null>(null);
   const [refusal, setRefusal] = useState<{ message: string; code: string } | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState(false);
+  const tConfirm = useTranslations("v2Ui.confirm");
 
   if (detail.isPending && detail.fetchStatus !== "idle") return <LoadingBlock />;
   if (detail.isError) return <ErrorBlock error={detail.error} onRetry={() => void detail.refetch()} />;
@@ -179,9 +181,24 @@ export function PayslipDetailScreen({ id }: { id: string }) {
             </Link>
             {p.status === "CALCULATED" ? (
               <Can permission="payroll.payslip.approve">
-                <button type="button" className={buttonClass.primary} disabled={approve.isPending} onClick={() => (setRefusal(null), approve.mutate({ payslipIds: [id] }, { onSuccess: (r) => afterBatch(r, t("approved")) }))}>
+                <button type="button" className={buttonClass.primary} disabled={approve.isPending} onClick={() => setConfirmApprove(true)}>
                   {t("approve")}
                 </button>
+                {confirmApprove ? (
+                  <ConfirmDialog
+                    open
+                    onOpenChange={(o) => !o && setConfirmApprove(false)}
+                    title={tConfirm("approvePayslip.title")}
+                    description={tConfirm("approvePayslip.description")}
+                    confirmLabel={tConfirm("approvePayslip.action")}
+                    isPending={approve.isPending}
+                    onConfirm={() => {
+                      setConfirmApprove(false);
+                      setRefusal(null);
+                      approve.mutate({ payslipIds: [id] }, { onSuccess: (r) => afterBatch(r, t("approved")) });
+                    }}
+                  />
+                ) : null}
               </Can>
             ) : null}
             {p.status === "APPROVED" ? (
