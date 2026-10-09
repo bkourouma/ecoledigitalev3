@@ -271,7 +271,7 @@ Comptes : économe du Collège puis économe de l'École Les Palmiers · Où : a
 1. Dans la session de l'économe du Collège, copier la fin des adresses : fiche de la facture n°1 (`/v2/finance/invoices/<id>`), fiche du paiement "VIR-TG-001" (`/v2/finance/payments/<id>`), reçu du même paiement (`/v2/finance/receipts/<id>`).
 2. Se connecter en économe de l'École Les Palmiers (`econome@primaire-test.test`) et ouvrir les trois adresses collées.
 3. Ouvrir `/v2/finance/invoices` : aucune facture "test guide" du Collège.
-Résultat attendu : "Facture introuvable (<id>).", "Paiement introuvable (<id>).", "Reçu introuvable (<id>)." avec le bouton « Réessayer » ; aucune donnée du Collège n'apparaît dans les listes de l'école. Le catalogue de frais "TG-DIVERS" n'existe pas à l'école tant qu'on ne l'y crée pas.
+Résultat attendu : "Facture introuvable (`<id>`).", "Paiement introuvable (`<id>`).", "Reçu introuvable (`<id>`)." avec le bouton « Réessayer » ; aucune donnée du Collège n'apparaît dans les listes de l'école. Le catalogue de frais "TG-DIVERS" n'existe pas à l'école tant qu'on ne l'y crée pas.
 - [ ] Cas nominal  - [ ] Cas invalide  - [ ] Droit refusé (un compte d'un autre établissement n'a aucun accès)
 
 #### 12.40 Mêmes écrans dans les deux autres établissements

@@ -192,7 +192,7 @@ Au-delà de 20 envois par heure depuis le même poste, le serveur répond « Tro
 #### 2.10 Mes sessions
 Compte : éducateur de l'École (compte d'essai), deux fenêtres · Où : « Mon compte » > « Mes sessions » (`/v2/account/sessions`) · Prérequis : 2.2
 1. Fenêtre B : se connecter en éducateur de l'École. Fenêtre C : se connecter avec le même compte.
-2. Fenêtre B : « Mon compte » > « Mes sessions ». Titre "Mes sessions actives" ("Appareils connectés à votre compte dans cet établissement. Révoquez ceux que vous ne reconnaissez pas."). Chaque ligne : appareil (par exemple "Chrome sur Windows"), adresse, "rôle <rôle>", "· 2 étapes" si la MFA a été passée, "Connecté le … · actif le …". La ligne de la fenêtre B porte « Cet appareil » et le bouton "Me déconnecter". D'autres lignes peuvent exister (sessions du seed ou d'autres testeurs).
+2. Fenêtre B : « Mon compte » > « Mes sessions ». Titre "Mes sessions actives" ("Appareils connectés à votre compte dans cet établissement. Révoquez ceux que vous ne reconnaissez pas."). Chaque ligne : appareil (par exemple "Chrome sur Windows"), adresse, "rôle `<rôle>`", "· 2 étapes" si la MFA a été passée, "Connecté le … · actif le …". La ligne de la fenêtre B porte « Cet appareil » et le bouton "Me déconnecter". D'autres lignes peuvent exister (sessions du seed ou d'autres testeurs).
 3. Révoquer la ligne de la fenêtre C : bouton « Révoquer ».
 4. Fenêtre C : cliquer un menu ou recharger.
 5. Fenêtre B : se reconnecter en C, puis "Déconnecter tous mes appareils".
@@ -282,7 +282,7 @@ Résultat attendu : conforme. « Mon compte » > « Changer d'établissement » 
 
 #### 2.16 Menu du compte et déconnexion
 Compte : tout rôle · Où : bouton « Mon compte » (en-tête) · Prérequis : 2.2
-1. Ouvrir « Mon compte » : nom ou e-mail, "Rôle actif : <rôle>", liens « Sécurité du compte », « Mes sessions », « Mes notifications » (chapitre 15), « Mes établissements » (si plusieurs accès).
+1. Ouvrir « Mon compte » : nom ou e-mail, "Rôle actif : `<rôle>`", liens « Sécurité du compte », « Mes sessions », « Mes notifications » (chapitre 15), « Mes établissements » (si plusieurs accès).
 2. Cliquer chaque lien et vérifier l'arrivée dans la coque du rôle (menu de l'application toujours présent).
 3. « Se déconnecter » : retour à `/login`, `/v2/home` redirige ensuite vers `/login`.
 Résultat attendu : conforme ; la déconnexion purge aussi les données hors ligne de l'appareil.

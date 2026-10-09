@@ -149,7 +149,7 @@ Cas invalides : choisir une année sans classe : état vide « Aucune classe à 
 #### 18.3 Ma classe : classes, périodes, titulaire (CP1 A et Grande Section A)
 Compte : instituteur CP1 (`enseignant@primaire-test.test`) puis instituteur de maternelle · Où : « Ma classe » (`/v2/primary/classe`).
 1. Instituteur CP1 : titre « Ma classe », phrase « Vos classes, leurs périodes et les gestes du quotidien : appel du jour, compétences, conseil. », bandeau « Règles de démonstration ». Une seule carte (liste « Mes classes ») : "CP1 A", code `CP1`, pastille d'effectif ("8 élèves" ou l'effectif lu) et pastille « Titulaire ».
-2. Lire « Périodes » : le semestre 1 avec le cadenas et « verrouillée » ; le semestre 2 avec « ouverte ». À côté de chaque période, le bouton « Marquer <période> prête » (visible car l'instituteur peut valider).
+2. Lire « Périodes » : le semestre 1 avec le cadenas et « verrouillée » ; le semestre 2 avec « ouverte ». À côté de chaque période, le bouton « Marquer `<période>` prête » (visible car l'instituteur peut valider).
 3. Boutons de la carte : « Appel du jour », « Compétences », « Conseil ».
 4. Instituteur de maternelle : une seule carte "Grande Section A", "5 élèves", « Titulaire » ; les deux semestres sont « verrouillée ». **Ne pas utiliser « Marquer ... prête » sur cette classe.**
 5. Directeur : la page liste les deux classes (accès à toutes les classes).
@@ -159,7 +159,7 @@ Cas invalides : un compte sans classe affectée (par exemple le secrétariat qui
 
 #### 18.4 Appel du jour (maternelle et CP1)
 Compte : instituteur de maternelle, puis instituteur CP1 · Où : « Ma classe » > « Appel du jour » · Prérequis : le module de présence autorise l'appel journalier pour la classe.
-1. Sur la carte "Grande Section A" cliquer « Appel du jour » (cela ouvre la séance d'appel du jour : action d'écriture). Le volet « Appel du <date du jour> » apparaît.
+1. Sur la carte "Grande Section A" cliquer « Appel du jour » (cela ouvre la séance d'appel du jour : action d'écriture). Le volet « Appel du `<date du jour>` » apparaît.
 2. Si l'appel du jour de la graine existe déjà (même jour) : texte « L'appel du jour est déjà transmis : vous pouvez encore corriger un élève. » ; sinon : « Tout le monde est présent par défaut : touchez un élève pour le marquer absent, puis transmettez l'appel. ».
 3. Lire le compteur « 5 présents · 0 absents » (ou celui de la graine : "3 présents · 1 absent" avec un retard).
 4. Toucher la ligne « Marquer EKRA Désiré absent » (le nom affiché est "NOM Prénom") : la ligne passe à « Absent », la mention « Non transmis » apparaît, le compteur devient « 4 présents · 1 absents ».
@@ -194,7 +194,7 @@ Compte : instituteur CP1 (`enseignant@primaire-test.test`) · Où : « Compéten
 1. Classe "CP1 A" présélectionnée (une seule classe) ; choisir la période du semestre 2. Référentiel affiché : « Compétences du primaire (démonstration) ». Compteur « 0 sur N compétences renseignées ».
 2. Vue « Fiche élève » : l'élève "DIABATE Nadia" est affiché ; pour `Compétence 1.1 (démonstration)` cliquer le bouton "N3 Acquis" (nom accessible : "N3 — Acquis, pour Compétence 1.1 (démonstration)"). La pastille passe à « À enregistrer » ; compteur « 1 saisie en attente ».
 3. Élève suivant ("DIABATE Salimata") : choisir "N2 En cours d'acquisition" ; puis "BAMBA Aya" : "N4 Acquis avec aisance". Laisser les autres élèves sans saisie.
-4. Cliquer « Enregistrer » (ou attendre 5 secondes avec la case « Enregistrement automatique » cochée) : le texte du bas devient « Enregistré le <date> » ; les pastilles passent à « Enregistrée » ; compteur « 3 sur N compétences renseignées ».
+4. Cliquer « Enregistrer » (ou attendre 5 secondes avec la case « Enregistrement automatique » cochée) : le texte du bas devient « Enregistré le `<date>` » ; les pastilles passent à « Enregistrée » ; compteur « 3 sur N compétences renseignées ».
 5. Retoucher le niveau déjà choisi d'un élève en attente : la saisie en attente est annulée ; une valeur enregistrée ne se "décoche" pas.
 6. Cliquer « Tableau » : changer une cellule avec la liste déroulante de l'élève ; puis « Annuler mes 1 saisies non enregistrées » (libellé "Annuler ma saisie non enregistrée") : la saisie disparaît.
 7. Bloc « Tous au niveau… sauf » : « Niveau à appliquer » = "N3 — Acquis", « Portée » = « Toute la classe », « Appliquer aux compétences non saisies » : toutes les cases vides passent à N3 en attente ; cliquer « Annuler mes ... saisies non enregistrées » pour ne pas les enregistrer (laisser des élèves "non évalués" pour 18.8).
@@ -215,10 +215,10 @@ Les notes chiffrées du CP1 (devoirs, compositions) se saisissent dans les modul
 #### 18.7 État "prête" de la classe pour une période (Q-P18)
 Compte : instituteur CP1, puis parent · Où : « Ma classe » > période du semestre 2, puis `/v2/primary/mon-enfant` · Prérequis : 18.6 (trois niveaux enregistrés en brouillon).
 1. Avant tout marquage, noter l'état : pas de badge « Prête pour les familles » sur le semestre 2.
-2. Cliquer « Marquer <période> prête » : fenêtre « Marquer <période> prête ? » (« Les parents et les élèves verront les compétences saisies et le rang provisoire de cette période. La saisie sera gelée tant que le marquage n'est pas retiré. Vous pourrez le retirer tant que le bulletin n'est pas publié. »). Cliquer « Marquer prête ». Message « <période> : marquée prête, les familles voient désormais les compétences et le rang provisoire. » ; badge « Prête pour les familles ».
+2. Cliquer « Marquer `<période>` prête » : fenêtre « Marquer `<période>` prête ? » (« Les parents et les élèves verront les compétences saisies et le rang provisoire de cette période. La saisie sera gelée tant que le marquage n'est pas retiré. Vous pourrez le retirer tant que le bulletin n'est pas publié. »). Cliquer « Marquer prête ». Message « `<période>` : marquée prête, les familles voient désormais les compétences et le rang provisoire. » ; badge « Prête pour les familles ».
 3. Parent (`parent@primaire-test.test`) : `/v2/primary/mon-enfant`, enfant "DIABATE Nadia" : le bloc « Compétences des périodes prêtes ou validées » montre un compteur par domaine et par niveau (Acquis : 1). Le rang provisoire éventuel se lit dans le module Résultats (chapitre correspondant), pas ici.
 4. Instituteur : retourner dans « Compétences » (semestre 2), modifier un niveau en brouillon et « Enregistrer » : refus "La classe et la période sont marquées prêtes : retirer le marquage avant de modifier la saisie." avec l'indication "Cette période est marquée prête pour les familles : la saisie est gelée. Retirez le marquage dans ' Ma classe" pour la modifier. » (la saisie reste affichée).
-5. Retirer le marquage : « Retirer le marquage de <période> » ; fenêtre « Retirer le marquage de <période> ? » avec « Motif du retrait » (« 10 caractères au moins ; conservé dans le journal d'audit. »). Saisir `court` : « Au moins 10 caractères. » ; saisir `Erreur de marquage constatée (test guide)` ; cliquer « Retirer le marquage » : message « <période> : marquage retiré, les familles ne voient plus que les périodes validées ou publiées. » ; le badge disparaît. Côté parent, le bloc de compétences est vide (aucune période prête ni validée).
+5. Retirer le marquage : « Retirer le marquage de `<période>` » ; fenêtre « Retirer le marquage de `<période>` ? » avec « Motif du retrait » (« 10 caractères au moins ; conservé dans le journal d'audit. »). Saisir `court` : « Au moins 10 caractères. » ; saisir `Erreur de marquage constatée (test guide)` ; cliquer « Retirer le marquage » : message « `<période>` : marquage retiré, les familles ne voient plus que les périodes validées ou publiées. » ; le badge disparaît. Côté parent, le bloc de compétences est vide (aucune période prête ni validée).
 Résultat attendu : le marquage est réversible tant qu'aucun bulletin de la période n'est publié, tracé, et gèle la saisie.
 Cas invalides :
 | Saisie | Message attendu |
@@ -235,7 +235,7 @@ Compte : instituteur CP1 (validation), puis directeur (MFA, révision) · Où : 
 3. Message « Grille validée : 3 compétences validées, N-3 restées non évaluées. » ; les trois cases passent à « Validée » ; les élèves non saisis restent « Non évaluée » (jamais convertis en zéro).
 4. L'instituteur n'a aucun bouton « Réviser ».
 5. Directeur : ouvrir la même grille (classe "CP1 A", semestre 2) : sur la case validée de DIABATE Nadia cliquer « Réviser » : fenêtre « Réviser une compétence validée » (« DIABATE Nadia — Compétence 1.1 (démonstration) (niveau actuel : N3 — Acquis). La correction est tracée avec son motif. »).
-6. « Nouveau niveau » = "N4 — Acquis avec aisance", « Motif de la révision » `Correction après relecture du cahier de classe (test guide)` ; cliquer « Réviser ». La case affiche N4 ; rouvrir « Réviser » : « Historique des révisions » liste "N3 vers N4 le <date> : Correction après relecture du cahier de classe (test guide)".
+6. « Nouveau niveau » = "N4 — Acquis avec aisance", « Motif de la révision » `Correction après relecture du cahier de classe (test guide)` ; cliquer « Réviser ». La case affiche N4 ; rouvrir « Réviser » : « Historique des révisions » liste "N3 vers N4 le `<date>` : Correction après relecture du cahier de classe (test guide)".
 7. Essayer sur la Grande Section A (périodes closes) : le bouton « Réviser » n'est pas proposé (écart n°1).
 Résultat attendu : validation irréversible sans révision ; révision tracée avec motif ; réservée à la direction ; impossible sur période verrouillée.
 Cas invalides :
@@ -277,9 +277,9 @@ Cas invalides :
 
 #### 18.10 Conseil des maîtres tenu (Grande Section A) : lecture
 Compte : directeur, puis instituteur de maternelle en lecture · Où : « Conseil des maîtres » (`/v2/primary/conseil`).
-1. Titre « Conseil des maîtres », phrase « Préparation, présence, dossiers élève par élève, décisions et procès-verbal. La règle propose, le conseil confirme. ». Section « Préparer un conseil » (directeur et instituteur). Section « Mes conseils » : une ligne "Grande Section A · <dernière période>" avec « 5 dossiers · 0 à examiner · 5 décidés » et le bouton « Ouvrir ».
+1. Titre « Conseil des maîtres », phrase « Préparation, présence, dossiers élève par élève, décisions et procès-verbal. La règle propose, le conseil confirme. ». Section « Préparer un conseil » (directeur et instituteur). Section « Mes conseils » : une ligne "Grande Section A · `<dernière période>`" avec « 5 dossiers · 0 à examiner · 5 décidés » et le bouton « Ouvrir ».
 2. Cliquer « Ouvrir » : bouton « Retour à la liste des conseils », titre de séance, « 5 dossiers : 0 à examiner, 5 décidés, 0 reportés. », bandeau « Règles de démonstration ».
-3. « Feuille de présence » : trois participants (ZOKORA Sylvie « Titulaire de la classe », présente, « Signée le <date> » ; `DIRECTEUR Conseil` « Président », présent, non signé ; `SECRETAIRE Conseil` « Secrétaire », présente, non signée). Ligne de quorum : « Aucun quorum bloquant : 3 convoqués, 3 présents. » (ou "Quorum atteint selon la règle : ..." si une règle est liée).
+3. « Feuille de présence » : trois participants (ZOKORA Sylvie « Titulaire de la classe », présente, « Signée le `<date>` » ; `DIRECTEUR Conseil` « Président », présent, non signé ; `SECRETAIRE Conseil` « Secrétaire », présente, non signée). Ligne de quorum : « Aucun quorum bloquant : 3 convoqués, 3 présents. » (ou "Quorum atteint selon la règle : ..." si une règle est liée).
 4. « Dossiers, un par un » : « Dossier 1 sur 5 » avec la liste « Dossier » (chaque élève et son statut « Décidé »). Pour chaque dossier lire « Motifs d'examen » (« Aucun motif signalé. » ou un motif), « Proposition de la règle » (valeur ou « Aucune proposition »), « Décision du conseil ».
 5. Contrôler : ADOU Aïcha « Passage en classe supérieure » ; FOFANA Estelle « Redoublement » avec "Justification : Une compétence jamais évaluée de l'année : maintien décidé par le conseil (démonstration)." ; les 5 dossiers sont « Décidé ».
 6. Section « Procès-verbal » (directeur seulement) : « Un procès-verbal a déjà été demandé pour ce conseil. ».
@@ -291,7 +291,7 @@ Cas invalides : aucun (lecture). Conseil inexistant (liste vide) : « Aucun cons
 #### 18.11 Conseil : feuille de présence et signatures
 Compte : directeur (MFA) · Où : « Conseil des maîtres » > conseil de la Grande Section A (ou celui préparé en 18.12).
 1. Dans la feuille de présence de la Grande Section A, les lignes de `DIRECTEUR Conseil` et `SECRETAIRE Conseil` sont modifiables (non signées) ; celle de ZOKORA Sylvie ne l'est pas (signée, figée).
-2. Sur `SECRETAIRE Conseil`, régler « Présence de SECRETAIRE Conseil » sur « Absent » : la case « Signature de SECRETAIRE Conseil » devient inactive. Régler « Présent », cocher la signature, cliquer « Enregistrer la feuille de présence » : « Feuille de présence enregistrée. » et « Signée le <date> » sur la ligne.
+2. Sur `SECRETAIRE Conseil`, régler « Présence de SECRETAIRE Conseil » sur « Absent » : la case « Signature de SECRETAIRE Conseil » devient inactive. Régler « Présent », cocher la signature, cliquer « Enregistrer la feuille de présence » : « Feuille de présence enregistrée. » et « Signée le `<date>` » sur la ligne.
 3. Régler « Rôle de DIRECTEUR Conseil » sur « Président » (déjà) et essayer de donner le rôle « Président » à une autre personne ajoutée via « Ajouter un participant » (« Choisir un membre du personnel », « Rôle », « Ajouter ») : refus "Un seul président.".
 4. Essayer de modifier une ligne signée : la ligne est verrouillée ; texte « Une présence signée est figée : elle ne peut plus être modifiée. ».
 Résultat attendu : une seule présidence, un seul secrétariat ; on ne signe pas absent ; la signature fige la ligne. Ces signatures figent la feuille du conseil de démonstration : à faire en connaissance de cause.
@@ -326,7 +326,7 @@ Cas invalides :
 #### 18.13 Bilans annuels : lecture et préparation des brouillons
 Compte : directeur (MFA), puis instituteur CP1 en lecture · Où : « Bilans annuels » (`/v2/primary/bilans`).
 1. Titre « Bilans annuels », phrase « Préparez, scellez et réémettez les bilans annuels d'une classe. Un bilan scellé est immuable. ». Section « Année et classe » : « Année » (2026-2027), « Classe » = "Grande Section A". Message initial : « Choisissez une année et une classe pour afficher les bilans. ».
-2. Tableau « Bilans annuels de la classe » (colonnes « Élève », « Version », « Statut », « Décision », « Empreinte », « Règles », « Actions ») : 5 lignes, « Version 1 », statut « Scellé » pour 3 d'entre elles (avec « Scellé le <date> » et une empreinte tronquée de 12 caractères suivie de `…`) et « Prêt à sceller » pour 2. Colonne « Décision » : « Passage en classe supérieure » sauf Estelle FOFANA « Redoublement ». Colonne « Règles » : « Règles de démonstration ». Les lignes scellées n'ont aucun bouton ; les lignes prêtes ont « Sceller ».
+2. Tableau « Bilans annuels de la classe » (colonnes « Élève », « Version », « Statut », « Décision », « Empreinte », « Règles », « Actions ») : 5 lignes, « Version 1 », statut « Scellé » pour 3 d'entre elles (avec « Scellé le `<date>` » et une empreinte tronquée de 12 caractères suivie de `…`) et « Prêt à sceller » pour 2. Colonne « Décision » : « Passage en classe supérieure » sauf Estelle FOFANA « Redoublement ». Colonne « Règles » : « Règles de démonstration ». Les lignes scellées n'ont aucun bouton ; les lignes prêtes ont « Sceller ».
 3. Cliquer « Préparer les brouillons » : message du type « Brouillons préparés : 0 créés, 2 actualisés, 3 scellés laissés intacts. » (les valeurs exactes sont à relever). Texte d'aide « Crée un brouillon par élève à partir du résultat d'année, des compétences et de la décision du conseil. Un bilan scellé n'est jamais touché. ».
 4. Sélectionner "CP1 A" : « Aucun bilan pour cette classe et cette année. » / « Préparez les brouillons pour commencer. ». Cliquer « Préparer les brouillons » : refus attendu (pas de résultat d'année final ni de conseil) ; relever le message (par exemple `Cette année n'est pas celle de la classe.` ou un manque de résultat).
 5. Instituteur CP1 : même écran en lecture : aucun bouton « Préparer les brouillons », « Sceller », « Réémettre ».
@@ -336,10 +336,10 @@ Cas invalides : année ou classe non choisie : boutons inactifs ; classe d'un au
 
 #### 18.14 Sceller un bilan (irréversible) et réémettre
 Compte : directeur (MFA) · Où : « Bilans annuels » > "Grande Section A" · **À faire en dernier, une seule fois.**
-1. Choisir un bilan « Prêt à sceller » et cliquer « Sceller » (nom accessible « Sceller le bilan de <nom> »).
+1. Choisir un bilan « Prêt à sceller » et cliquer « Sceller » (nom accessible « Sceller le bilan de `<nom>` »).
 2. Fenêtre « Sceller ce bilan » (« Le bilan devient immuable : contenu, décision et empreinte ne pourront plus changer. Une correction créera une nouvelle version. ») avec le nom de l'élève ; confirmer « Sceller le bilan ».
-3. Message « Bilan de <nom> scellé. » ; le statut passe à « Scellé », une empreinte et « Scellé le <date> » s'affichent, le bouton « Sceller » disparaît. Le PDF est produit en arrière-plan (quelques secondes).
-4. Sur un bilan « Scellé » cliquer « Réémettre » (« Réémettre le bilan de <nom> ») : fenêtre « Réémettre le bilan » (« Une version n+1 est créée en brouillon et l'ancienne version est remplacée. La famille ne voit pas le bilan tant que la nouvelle version n'est pas scellée. »), « Motif de la réémission » `Correction de la décision de passage (test guide)` ; « Réémettre ». Message « Nouvelle version du bilan de <nom> créée : elle doit être scellée à son tour. » ; la version 2 est en brouillon, la version 1 « Remplacé par une version plus récente ».
+3. Message « Bilan de `<nom>` scellé. » ; le statut passe à « Scellé », une empreinte et « Scellé le `<date>` » s'affichent, le bouton « Sceller » disparaît. Le PDF est produit en arrière-plan (quelques secondes).
+4. Sur un bilan « Scellé » cliquer « Réémettre » (« Réémettre le bilan de `<nom>` ») : fenêtre « Réémettre le bilan » (« Une version n+1 est créée en brouillon et l'ancienne version est remplacée. La famille ne voit pas le bilan tant que la nouvelle version n'est pas scellée. »), « Motif de la réémission » `Correction de la décision de passage (test guide)` ; « Réémettre ». Message « Nouvelle version du bilan de `<nom>` créée : elle doit être scellée à son tour. » ; la version 2 est en brouillon, la version 1 « Remplacé par une version plus récente ».
 5. Sceller de nouveau la version 2 si l'on veut rétablir la visibilité familiale (nouvelle empreinte).
 Résultat attendu : un bilan scellé ne se modifie jamais sur place ; un seul bilan vivant par élève.
 Cas invalides :
@@ -356,7 +356,7 @@ Cas invalides :
 #### 18.15 Archives d'année
 Compte : directeur (MFA) · Où : « Archives » (`/v2/primary/archives`).
 1. Titre « Archives d'année » (« Préparez l'archive d'une année, vérifiez son manifeste puis gelez-la. Rien n'est déplacé ni supprimé : c'est un gel logique. »). Choisir l'année (« Choisir une année »).
-2. Cliquer « Préparer l'archive » : message « Archive préparée. ». Une carte « Archive : En préparation » apparaît avec le compte « <n> bilans scellés sur 5 » (3 sur 5 si aucun scellement n'a été fait, plus selon 18.14), « Empreinte du manifeste » (— tant que l'archive n'est pas prête), "Préparée le <date>", "Gelée le —".
+2. Cliquer « Préparer l'archive » : message « Archive préparée. ». Une carte « Archive : En préparation » apparaît avec le compte « `<n>` bilans scellés sur 5 » (3 sur 5 si aucun scellement n'a été fait, plus selon 18.14), « Empreinte du manifeste » (— tant que l'archive n'est pas prête), "Préparée le `<date>`", "Gelée le —".
 3. Lire « Ce qui empêche le gel : » : trois empêchements attendus, d'après le code : `L'année académique n'est pas clôturée.`, `<n> bilan(s) non scellé(s).`, `<n> inscription(s) sans bilan annuel.` (les inscriptions du CP1 A). Aucun bouton « Geler l'archive ».
 4. Après avoir scellé les deux bilans restants de la Grande Section A (18.14), relancer « Préparer l'archive » : le nombre de bilans non scellés tombe à zéro ; les deux autres empêchements demeurent.
 5. **Ne pas chercher à geler** : le gel est irréversible pour toute l'école (fenêtre « Geler l'archive de l'année » avec la case « Je comprends que le gel est irréversible » puis « Geler définitivement »), et il est inatteignable dans cet état (écart n°2).
@@ -378,7 +378,7 @@ Compte : directeur ou secrétariat (MFA) · Où : « États » (`/v2/primary/eta
    | Couverture des compétences | « Classe » = "Grande Section A", « Période » | colonnes `Élève`, `Attendues`, `Saisies`, `Validées`, `Non évaluées` ; FOFANA Estelle : 3, 2, 2, 1 ; les autres 3, 3, 3, 0 |
    | Dossier du conseil des maîtres | « Conseil » = le conseil de la Grande Section A | colonnes `Élève`, `Motifs d'examen`, `Proposition de la règle`, `Proposition de l'instituteur`, `Statut`, `Décision` ; 5 lignes décidées |
    | Avancement des classes | « Année » (facultative) | 8 colonnes (`Classe`, `Période verrouillée`, ... `Bilans`) ; mêmes chiffres qu'en 18.2 |
-   Pour chacun, cliquer « Afficher l'aperçu » : le titre du rapport, « Produit le <date> », la liste des paramètres rappelés (« Paramètres du rapport » : Classe, Période, Année, Mois, Conseil) et le tableau.
+   Pour chacun, cliquer « Afficher l'aperçu » : le titre du rapport, « Produit le `<date>` », la liste des paramètres rappelés (« Paramètres du rapport » : Classe, Période, Année, Mois, Conseil) et le tableau.
 3. Cliquer « Exporter en CSV » : un fichier `<clé du rapport>.csv` (par exemple `class-list.csv`) est téléchargé (demander l'accord avant tout téléchargement) ; séparateur point-virgule, BOM pour Excel.
 4. Les rapports vides (par exemple « Redoublants ») affichent « Ce rapport ne contient aucune ligne. ».
 Résultat attendu : aperçu et export reproduisent les mêmes lignes.

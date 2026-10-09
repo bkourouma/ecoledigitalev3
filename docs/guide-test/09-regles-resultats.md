@@ -85,7 +85,7 @@ Pour chaque élève, par période : (1) **moyenne de la matière** = moyenne des
 | TOURE Jean-Marc | 12 / 7 / 11,75 / 12,25 | 10,5 | 8 | Assez bien | Periode validee |
 | ADOU Aïcha, ASSI Brice (sans note) | — | — | — | En attente | Notes incompletes |
 
-Rang présenté « <rang> sur 8 » (8 élèves classés). Les zéros finaux peuvent être affichés ou non ("13,2" ou "13,20").
+Rang présenté « `<rang>` sur 8 » (8 élèves classés). Les zéros finaux peuvent être affichés ou non ("13,2" ou "13,20").
 
 ### Résultats attendus du Trimestre 2 (lecture, provisoires)
 
@@ -115,7 +115,7 @@ Compte : Directeur (`directeur@secondaire-test.test`) · Où : menu RÈGLES DE C
 2. Dans « Rechercher un jeu de règles », taper `PLACEHOLDER` : les jeux « Primaire », « Secondaire » et "Examens nationaux" restent. Vider le champ.
 3. Choisir « Origine » = « National », puis « Établissement » (vide), puis « Toutes les origines ».
 4. Dans la carte "Secondaire — jeu de démonstration (fictif)" lire le code `CI-SECONDARY-PLACEHOLDER`, les badges « National » et « Lecture seule », et le tableau « Versions de Secondaire — jeu de démonstration (fictif) » : colonnes « Version », « État », « Période d'effet », « Contrat ».
-Résultat attendu : 6 jeux nationaux ; versions « Version 1 » (contrat `coef-semester@1`) et « Version 2 » (contrat `secondary-annual@1`) du secondaire, toutes « Publiée », « Période d'effet » « Du <date> au sans fin » ; avec le filtre « Établissement » : « Aucun jeu de règles. » et « Modifiez la recherche ou le filtre. ». Les noms des jeux de démonstration contiennent "(fictif)". **Aucun bandeau « Règles de démonstration » n'est affiché sur cet écran** (voir Écarts).
+Résultat attendu : 6 jeux nationaux ; versions « Version 1 » (contrat `coef-semester@1`) et « Version 2 » (contrat `secondary-annual@1`) du secondaire, toutes « Publiée », « Période d'effet » « Du `<date>` au sans fin » ; avec le filtre « Établissement » : « Aucun jeu de règles. » et « Modifiez la recherche ou le filtre. ». Les noms des jeux de démonstration contiennent "(fictif)". **Aucun bandeau « Règles de démonstration » n'est affiché sur cet écran** (voir Écarts).
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|
@@ -147,7 +147,7 @@ Cas invalides :
 #### 9.3 Liaisons : quel jeu de règles s'applique à quel périmètre
 Comptes : Directeur (secondaire), Directeur (primaire, supérieur) · Où : `/v2/rules/bindings` (onglet « Liaisons aux programmes ») · Prérequis : seed seul.
 1. Compte secondaire : ouvrir « Liaisons aux programmes » : titre « Liaisons des règles ». Repérer la section du contrat `secondary-annual@1`.
-2. Lire dans le tableau « Jeu de règles », « Périmètre », « Dates d'effet » : `CI-SECONDARY-PLACEHOLDER`, « Niveau : LOWER_SECONDARY » puis « Niveau : UPPER_SECONDARY », « Depuis le <date>, sans fin », badge « En vigueur ».
+2. Lire dans le tableau « Jeu de règles », « Périmètre », « Dates d'effet » : `CI-SECONDARY-PLACEHOLDER`, « Niveau : LOWER_SECONDARY » puis « Niveau : UPPER_SECONDARY », « Depuis le `<date>`, sans fin », badge « En vigueur ».
 3. Repérer les autres contrats : « Aucune liaison pour ce contrat. » et « Sans liaison, aucun jeu de règles n'est appliqué à ce contrat. ».
 4. Répéter avec `directeur@primaire-test.test` (contrats `coef-period@1` et `competency-period@1`, lié à `CI-PRIMARY-PLACEHOLDER`) et `directeur@superieur-test.test` (`credit-semester@1` lié à `CI-HIGHER-LMD`, « Tout l'établissement (par défaut) », depuis 2024-09-01).
 Résultat attendu : chaque pack a son jeu ; aucun jeu officiel ivoirien n'est lié au primaire ni au secondaire. Un encadré "programme sans règle active" n'apparaît que si un programme n'est couvert par aucune liaison. Le nom de l'établissement peut s'afficher « établissement inconnu » (voir Écarts).
@@ -227,7 +227,7 @@ Compte : Directeur des études (`etudes@secondaire-test.test`) · Où : menu RÉ
 2. Lire « État de la période » : badge « Clôturée », étapes "Ouverte › Notes verrouillées › Délibérée › Clôturée", « Règle appliquée » `CI-SECONDARY-PLACEHOLDER · v2`, « Empreinte de la règle », « Version des résultats », dates « Notes verrouillées le » et « Clôturée le » (« Délibérée le » vide : clôture sans délibération).
 3. Lire « Résultats de la classe » : « Inscriptions », « Provisoires », « Définitifs », « En erreur ».
 4. Lire la section « Clôtures » et la liste « Aller à » (« Résultats de la classe », « Décisions et délibérations », « Surcharges », « Émettre les bulletins »).
-Résultat attendu : « Définitifs » = nombre de résultats figés (9 ou 10 selon les inscrits), « Provisoires » 0, « En erreur » 0 ; une ligne « Version 1 — N résultats figés le <date> » avec « Empreinte de clôture ». **Aucun** bouton « Verrouiller les notes », « Clôturer la période » ni « Relancer le calcul » ; le bouton « Rouvrir la période » n'apparaît pas non plus pour ce compte (réservé au directeur). Note : dans « Années et périodes » (chapitre structure), T1 peut apparaître « Ouverte » : état calendaire distinct de l'état de clôture des résultats (voir Écarts).
+Résultat attendu : « Définitifs » = nombre de résultats figés (9 ou 10 selon les inscrits), « Provisoires » 0, « En erreur » 0 ; une ligne « Version 1 — N résultats figés le `<date>` » avec « Empreinte de clôture ». **Aucun** bouton « Verrouiller les notes », « Clôturer la période » ni « Relancer le calcul » ; le bouton « Rouvrir la période » n'apparaît pas non plus pour ce compte (réservé au directeur). Note : dans « Années et périodes » (chapitre structure), T1 peut apparaître « Ouverte » : état calendaire distinct de l'état de clôture des résultats (voir Écarts).
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|
@@ -303,7 +303,7 @@ Principe : seule voie manuelle sur un résultat calculé ; justifiée (20 caract
 6. Attendre 30 secondes, ouvrir la matrice du Trimestre 3, puis « Pourquoi ? » sur COULIBALY Moussa.
 7. Revenir à « Surcharges », cliquer « Révoquer » : « Motif de la révocation » = `Retour à la valeur calculée (test guide)`, bouton « Révoquer ». Attendre 30 secondes et relire la matrice.
 8. Deuxième essai : demander (comme en étapes 1 à 3) une surcharge pour DIABATE Salimata, niveau « Période », règle `moyenne_ponderee`, valeur `5`, puis, avec le directeur, la **rejeter** avec « Motif du rejet » = `Pas de justification suffisante (test guide)`.
-Résultat attendu : étape 3 : « La demande de surcharge est enregistrée ; elle doit être approuvée par une autre personne. » ; carte « Surcharge pour COULIBALY Moussa » avec `moyenne_ponderee`, « Période », « Demandée », `12,17 → 14,5`, la justification, « Demandée par <nom> le <date> ». Étape 5 : « La surcharge est approuvée. », état « Approuvée ». Étape 6 : moyenne 14,5, rang 3 (devant ADOU Aïcha 14, devenue 4), mention « Très bien » ; la page « Pourquoi ce résultat ? » indique « Surchargée » et « Valeur imposée par une surcharge approuvée (valeur calculée : 12.16666… ). ». Étape 7 : « La surcharge est révoquée. » ; la moyenne revient à 12,17 (Bien, rang 4). Étape 8 : « La surcharge est rejetée. ».
+Résultat attendu : étape 3 : « La demande de surcharge est enregistrée ; elle doit être approuvée par une autre personne. » ; carte « Surcharge pour COULIBALY Moussa » avec `moyenne_ponderee`, « Période », « Demandée », `12,17 → 14,5`, la justification, « Demandée par `<nom>` le `<date>` ». Étape 5 : « La surcharge est approuvée. », état « Approuvée ». Étape 6 : moyenne 14,5, rang 3 (devant ADOU Aïcha 14, devenue 4), mention « Très bien » ; la page « Pourquoi ce résultat ? » indique « Surchargée » et « Valeur imposée par une surcharge approuvée (valeur calculée : 12.16666… ). ». Étape 7 : « La surcharge est révoquée. » ; la moyenne revient à 12,17 (Bien, rang 4). Étape 8 : « La surcharge est rejetée. ».
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|
@@ -357,7 +357,7 @@ Compte : Directeur des études · Où : `/v2/results` · Prérequis : 9.13 (séa
 1. Cliquer « Enregistrer la délibération » : cocher « Confirmer d'un coup les décisions proposées par les règles » (aide : « Vous pourrez encore modifier une décision avec un motif écrit avant la clôture. »), puis « Enregistrer la délibération ».
 2. Cliquer « Clôturer la période » : lire « Les résultats deviennent définitifs. Pour les corriger plus tard, il faudra rouvrir la période avec un motif (nouvelle version des résultats). », cliquer « Clôturer ».
 3. Tenter une surcharge sur ce trimestre (cas invalide de 9.12) et chercher « Relancer le calcul ».
-Résultat attendu : étape 1 : « La délibération est enregistrée. », état « Délibérée » (sans séance tenue préalable : refus "Une séance de délibération tenue (conseil ou jury) est requise."). Étape 2 : « Période clôturée : N résultats figés (version 1), aucune exclusion. » ; état « Clôturée » ; section « Clôtures » : « Version 1 — N résultats figés le <date> » ; résultats « Définitif » dans la matrice, valeurs identiques au tableau de référence du Trimestre 3. Étape 3 : refus "La période est clôturée : rouvrez-la pour surcharger un résultat." ; plus de bouton « Relancer le calcul ». « Résultat annuel » (9.10) : « Périodes manquantes : Trimestre 2. ».
+Résultat attendu : étape 1 : « La délibération est enregistrée. », état « Délibérée » (sans séance tenue préalable : refus "Une séance de délibération tenue (conseil ou jury) est requise."). Étape 2 : « Période clôturée : N résultats figés (version 1), aucune exclusion. » ; état « Clôturée » ; section « Clôtures » : « Version 1 — N résultats figés le `<date>` » ; résultats « Définitif » dans la matrice, valeurs identiques au tableau de référence du Trimestre 3. Étape 3 : refus "La période est clôturée : rouvrez-la pour surcharger un résultat." ; plus de bouton « Relancer le calcul ». « Résultat annuel » (9.10) : « Périodes manquantes : Trimestre 2. ».
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|
@@ -411,7 +411,7 @@ Comptes : Directeur des études (supérieur), Enseignant, Responsable pédagogiq
 5. Faire relire et approuver (responsable pédagogique), puis publier (directeur des études) comme au chapitre 8.
 6. Directeur des études : sur « Rattrapage », « Clôturer la fenêtre », puis `/v2/results` : « Verrouiller les notes » et « Clôturer la période » (séquence exacte à vérifier en test).
 7. Relire la matrice du Semestre 1 et « Pourquoi ? » pour TOURE Jean-Marc, ECUE Programmation.
-Résultat attendu : étape 2 : 5 lignes (calcul à la main, à vérifier) : COULIBALY Moussa (Algorithmique 9,5), COULIBALY Salimata (Programmation 9 et Statistiques 9), DIABATE Salimata (Mathématiques 8), TOURE Jean-Marc (Programmation 6,8). Étape 3 : « Fenêtre ouverte : 5 inscriptions créées, 0 déjà inscrits. » ; la fenêtre s'affiche « Du <date> au <date> », « Ouverte ». Étape 4 : la création en Semestre 1 n'est possible **qu'avec** la fenêtre ouverte. Après reclôture : ECUE Programmation de TOURE Jean-Marc = 8×0,4 + 14×0,6 = **11,6** (au lieu de 6,8) ; UE 1 = 11,8, validée ; le semestre devient « Admis » ; pour COULIBALY Salimata la Programmation passe de 9 à 3,6 + 2,4 = **6,0** (la session 2, plus faible, **remplace** quand même la session 1) ; son UE 1 = (14,2 + 6,0) ÷ 2 = 10,1 reste validée. La trace de l'ECUE montre `note_examen_retenue` avec la session 2 retenue.
+Résultat attendu : étape 2 : 5 lignes (calcul à la main, à vérifier) : COULIBALY Moussa (Algorithmique 9,5), COULIBALY Salimata (Programmation 9 et Statistiques 9), DIABATE Salimata (Mathématiques 8), TOURE Jean-Marc (Programmation 6,8). Étape 3 : « Fenêtre ouverte : 5 inscriptions créées, 0 déjà inscrits. » ; la fenêtre s'affiche « Du `<date>` au `<date>` », « Ouverte ». Étape 4 : la création en Semestre 1 n'est possible **qu'avec** la fenêtre ouverte. Après reclôture : ECUE Programmation de TOURE Jean-Marc = 8×0,4 + 14×0,6 = **11,6** (au lieu de 6,8) ; UE 1 = 11,8, validée ; le semestre devient « Admis » ; pour COULIBALY Salimata la Programmation passe de 9 à 3,6 + 2,4 = **6,0** (la session 2, plus faible, **remplace** quand même la session 1) ; son UE 1 = (14,2 + 6,0) ÷ 2 = 10,1 reste validée. La trace de l'ECUE montre `note_examen_retenue` avec la session 2 retenue.
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|

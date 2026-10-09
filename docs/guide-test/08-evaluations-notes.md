@@ -123,7 +123,7 @@ Compte : Directeur des études (`etudes@secondaire-test.test`, MFA) · Où : men
 5. Revenir à « Tous les états » puis choisir « Soumise » : le tableau est vide (état vide « Aucune évaluation. », aide « Créez une évaluation ou modifiez les filtres. »).
 6. Ouvrir l'évaluation "Composition" (Français) par son titre.
 7. Lire la fiche : titre, description "6e A · Français", badge « Publiée », bouton « Voir les notes » (ce compte ne saisit pas), barre « Circuit de validation » ("Brouillon › Soumise › Relue › Approuvée › Publiée"), puis les champs « Type », « Date », « Période », « Barème », « Coefficient », « Session ».
-8. Lire la section « Historique du circuit de validation » : une ligne par étape (Brouillon, puis "Brouillon → Soumise", "Soumise → Relue", "Relue → Approuvée", "Approuvée → Publiée"), chacune avec « Par <nom> le <date> ».
+8. Lire la section « Historique du circuit de validation » : une ligne par étape (Brouillon, puis "Brouillon → Soumise", "Soumise → Relue", "Relue → Approuvée", "Approuvée → Publiée"), chacune avec « Par `<nom>` le `<date>` ».
 9. Cliquer « Voir les notes » : la feuille s'ouvre en lecture seule.
 Résultat attendu : 12 évaluations de la graine, toutes « Publiée » (4 "Composition", 4 "Devoir de la période 2", 2 "Premier contrôle", 2 "Premier contrôle (suite)"). La feuille de "Composition" montre **8 notes sur 20** (1 note par élève du seed), les 2 élèves plus récents sans note, et le message "Notes publiées : elles ne se modifient plus. Utilisez « Corriger » pour demander une correction motivée." ; aucune cellule n'est modifiable. Le titre de la page peut afficher « Sur 20 » ou « Sur 20,000 » (voir Écarts).
 Cas invalides :
@@ -237,14 +237,14 @@ Cas invalides :
 
 #### 8.7 Saisir les notes : codes, zéro, vide, virgule et point, enregistrement
 Compte : Enseignant · Où : « Mes évaluations » > "Devoir n°1 Mathématiques test guide" > « Saisir les notes » (`/v2/teacher/assessments/<identifiant>/grades`) · Prérequis : 8.5.
-1. Lire l'en-tête : titre de l'évaluation, description "6e A · Mathématiques · Devoir", badge « Brouillon », badge « Sur 20 » (ou « Sur 20,000 »), ligne « Évaluation du <date> ». La barre « Circuit de validation » propose « Soumettre la feuille » et « Annuler l'évaluation ».
+1. Lire l'en-tête : titre de l'évaluation, description "6e A · Mathématiques · Devoir", badge « Brouillon », badge « Sur 20 » (ou « Sur 20,000 »), ligne « Évaluation du `<date>` ». La barre « Circuit de validation » propose « Soumettre la feuille » et « Annuler l'évaluation ».
 2. Ouvrir le panneau « Aide à la saisie » (ligne « Entrée ou flèche bas : élève suivant. Maj + Entrée ou flèche haut : élève précédent. Ctrl + S : enregistrer. » ; codes ABS, ABJ, DISP, NN ; « Une absence ou une dispense n'est pas un zéro : saisissez 0 seulement pour une note de zéro. »).
 3. Lire la ligne de progression : « 0 sur 10 élèves notés » (le total est le nombre de lignes) et l'indicateur « Aucune modification en attente. ».
 4. Saisir dans la colonne « Note (sur 20) » (dans l'ordre alphabétique, **Entrée** passe à l'élève suivant) : voir le tableau "Données de test" ci-dessus : `14`, `9,5`, `ABS`, `ABJ`, `12,5`, `16`, `18`, `0`, `DISP`, et laisser **TOURE Yao** vide. Pour tester le point, saisir pour COULIBALY Moussa `12.5` au lieu de `12,5` : la cellule le reconnaît.
 5. Observer, ligne par ligne, la marque « Modifiée », la liste déroulante de la colonne « État » (« Noté », « Absent non justifié », « Absent justifié », « Dispensé », « Non évalué ») qui se met à jour toute seule, et la ligne de progression.
 6. Attendre environ 6 secondes sans rien taper : l'enregistrement automatique (case « Enregistrement automatique » cochée) se déclenche. Sinon, cliquer « Enregistrer » ou presser **Ctrl + S**.
 7. Recharger la page avec F5.
-Résultat attendu : progression « 6 sur 10 élèves notés · 2 absents · 1 dispensé » (6 notes : 14, 9,5, 12,5, 16, 18, 0). Message « Enregistré à <heure> — 9 créée(s), 0 modifiée(s), 0 inchangée(s). » (9 lignes écrites : TOURE Yao, resté vide, n'est pas écrit). Chaque ligne enregistrée affiche « Enregistrée ». Après rechargement, les valeurs sont identiques ; "ABS" devient l'état « Absent non justifié » ; **la note `0` de DIABATE Salimata reste un zéro, distinct d'une absence** (état « Noté », valeur 0). Le commentaire facultatif (colonne « Commentaire », 500 caractères) peut recevoir `Copie rendue en retard` pour un élève : il est conservé.
+Résultat attendu : progression « 6 sur 10 élèves notés · 2 absents · 1 dispensé » (6 notes : 14, 9,5, 12,5, 16, 18, 0). Message « Enregistré à `<heure>` — 9 créée(s), 0 modifiée(s), 0 inchangée(s). » (9 lignes écrites : TOURE Yao, resté vide, n'est pas écrit). Chaque ligne enregistrée affiche « Enregistrée ». Après rechargement, les valeurs sont identiques ; "ABS" devient l'état « Absent non justifié » ; **la note `0` de DIABATE Salimata reste un zéro, distinct d'une absence** (état « Noté », valeur 0). Le commentaire facultatif (colonne « Commentaire », 500 caractères) peut recevoir `Copie rendue en retard` pour un élève : il est conservé.
 Cas invalides :
 | Saisie | Message attendu (sous la cellule, en rouge) |
 |---|---|
@@ -263,7 +263,7 @@ Compte : Enseignant · Où : "Interrogation Mathématiques test guide" > « Sais
 2. Saisir `11` pour DIABATE Nadia : le message « La note dépasse le barème (10,000). » apparaît ; corriger en `8`.
 3. Saisir `7,5` pour COULIBALY Salimata, `3` pour DIABATE Salimata, `6` pour COULIBALY Moussa. Laisser les autres vides.
 4. Cliquer « Enregistrer ».
-Résultat attendu : progression « 4 sur 10 élèves notés » ; message « Enregistré à <heure> — 4 créée(s), 0 modifiée(s), 0 inchangée(s). ». Une note égale au barème (`10`) est acceptée ; `10,5` est refusée. Reprendre la même grille en modifiant une note puis « Enregistrer » donne "… 1 modifiée(s) …".
+Résultat attendu : progression « 4 sur 10 élèves notés » ; message « Enregistré à `<heure>` — 4 créée(s), 0 modifiée(s), 0 inchangée(s). ». Une note égale au barème (`10`) est acceptée ; `10,5` est refusée. Reprendre la même grille en modifiant une note puis « Enregistrer » donne "… 1 modifiée(s) …".
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|
@@ -372,7 +372,7 @@ Partie B : la direction des études décide.
 5. Compte `etudes@secondaire-test.test` : « Corrections de notes ». Pour ASSI Brice ("9,5 → 10,5"), cliquer « Approuver » : fenêtre « Approuver la correction de ASSI Brice » (« La note publiée sera modifiée et la modification sera tracée. »), « Commentaire (facultatif) » = `Copie vérifiée (test guide)`, bouton « Approuver ».
 6. Pour DIABATE Salimata, cliquer « Rejeter » : fenêtre « Rejeter la correction de DIABATE Salimata », « Motif du rejet » = `Copie non retrouvée, correction injustifiée (test guide)`, bouton « Rejeter ».
 7. Revenir à la feuille du devoir n°1 (compte directeur des études) : « Historique » en face de ASSI Brice, puis de DIABATE Salimata.
-Résultat attendu : étape 5 : « Correction approuvée et appliquée. » (la période n'est pas verrouillée) ; pour retrouver la carte, choisir « Tous les états » : elle passe à « Approuvée » puis « Appliquée » avec « Décidée par <nom> le <date> — Copie vérifiée (test guide) » et « Appliquée le <date> ». Étape 6 : « La demande de correction est rejetée. », carte « Rejetée ». La feuille montre `10,5` pour ASSI Brice et toujours `0` pour DIABATE Salimata. Fenêtre « Historique de la note de ASSI Brice » : « Valeur actuelle : 10,5 », liste « Corrections » avec "9,5 → 10,5", badge, « Demandée par <nom> le <date> », le motif, « Décidée par … ». Le recalcul des résultats suit (chapitre 9 : ASSI Brice passe à 10,5).
+Résultat attendu : étape 5 : « Correction approuvée et appliquée. » (la période n'est pas verrouillée) ; pour retrouver la carte, choisir « Tous les états » : elle passe à « Approuvée » puis « Appliquée » avec « Décidée par `<nom>` le `<date>` — Copie vérifiée (test guide) » et « Appliquée le `<date>` ». Étape 6 : « La demande de correction est rejetée. », carte « Rejetée ». La feuille montre `10,5` pour ASSI Brice et toujours `0` pour DIABATE Salimata. Fenêtre « Historique de la note de ASSI Brice » : « Valeur actuelle : 10,5 », liste « Corrections » avec "9,5 → 10,5", badge, « Demandée par `<nom>` le `<date>` », le motif, « Décidée par … ». Le recalcul des résultats suit (chapitre 9 : ASSI Brice passe à 10,5).
 Cas invalides :
 | Saisie | Message attendu |
 |---|---|

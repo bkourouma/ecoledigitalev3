@@ -44,7 +44,7 @@ Mots de passe et codes de double authentification : jamais dans ce guide (clic s
 
 ## Droits
 
-Source : `apps/api/src/modules/rbac/templates/system-roles.ts`, `apps/api/src/modules/documents/domain/policy.ts` et gardes des pages. Une permission refusée envoie vers la page « Accès refusé » (`/unauthorized`) ; un document non visible répond **la même chose qu'un document inexistant** : "Document introuvable (<identifiant>).".
+Source : `apps/api/src/modules/rbac/templates/system-roles.ts`, `apps/api/src/modules/documents/domain/policy.ts` et gardes des pages. Une permission refusée envoie vers la page « Accès refusé » (`/unauthorized`) ; un document non visible répond **la même chose qu'un document inexistant** : "Document introuvable (`<identifiant>`).".
 
 | Écran | Adresse | Permission | Rôles |
 |---|---|---|---|
@@ -130,7 +130,7 @@ Compte : secrétariat · Où : « Déposer un document », puis `/v2/documents/e
 3. Ouvrir « Échéances » (`/v2/documents/expirations`, titre « Échéances des documents »). Relever l'« Horizon » (30 jours au départ), les trois compteurs, les onglets « À échoir », « Échus », « Sans échéance ».
 4. Passer l'« Horizon » à "15 jours".
 5. Dans l'explorateur, essayer le filtre « Échéance » (« À échoir bientôt », « Échues », « Avec une échéance », « Échéance manquante »).
-Résultat attendu : étape 1 : badge "Expire dans 20 jours" ; étape 2 : badge « Échu le <date d'hier> » (une date passée est acceptée au dépôt). Étape 3 : « À échoir sous 30 jours » = 1, « Échus » = 1, « Sans échéance (exigée) » = 0 ; l'onglet « À échoir » liste l'attestation, « Échus » l'assurance échue. Étape 4 : le compteur devient « À échoir sous 15 jours » = 0 et l'onglet affiche « Aucun document n'arrive à échéance dans cet horizon. ». Onglet « Sans échéance » vide : « Aucun document sans échéance exigée. » (le remplir : 14.15). Les alertes à 30, 7 et 1 jours sont émises par un job quotidien : non visibles ici.
+Résultat attendu : étape 1 : badge "Expire dans 20 jours" ; étape 2 : badge « Échu le `<date d'hier>` » (une date passée est acceptée au dépôt). Étape 3 : « À échoir sous 30 jours » = 1, « Échus » = 1, « Sans échéance (exigée) » = 0 ; l'onglet « À échoir » liste l'attestation, « Échus » l'assurance échue. Étape 4 : le compteur devient « À échoir sous 15 jours » = 0 et l'onglet affiche « Aucun document n'arrive à échéance dans cet horizon. ». Onglet « Sans échéance » vide : « Aucun document sans échéance exigée. » (le remplir : 14.15). Les alertes à 30, 7 et 1 jours sont émises par un job quotidien : non visibles ici.
 Cas invalides : voir 14.3 (date obligatoire).
 - [ ] Cas nominal  - [ ] Cas invalide  - [ ] Droit refusé pour le chargé d'admissions (14.18)
 
@@ -191,7 +191,7 @@ Comptes : secrétariat, enseignant · Où : fiche de `Attestation d'assurance te
 2. Enseignant : `/v2/documents`, « Portée » « Partagés avec moi », ouvrir le document, « Télécharger ». Chercher « Nouvelle version » et « Modifier ».
 3. Secrétariat : cliquer « Retirer le partage de TRAORE Kouadio » (bouton « Retirer »). Enseignant : recharger l'explorateur, puis rouvrir l'adresse de la fiche.
 4. Secrétariat : repartager avec « Droit accordé » « Lecture et dépôt de versions » ; l'enseignant doit alors voir « Nouvelle version » et « Modifier » ; retirer de nouveau.
-Résultat attendu : étape 1 : message « Document partagé avec TRAORE Kouadio. » et la ligne "Lecture · sans date de fin · Pour information test guide". Étape 2 : le document « Restreint » est visible de l'enseignant malgré son niveau « Interne », téléchargeable, sans « Nouvelle version » ni « Modifier ». Étape 3 : le document disparaît des listes de l'enseignant et son adresse répond "Document introuvable (<identifiant>).". Historique : « Partagé » puis « Partage retiré ».
+Résultat attendu : étape 1 : message « Document partagé avec TRAORE Kouadio. » et la ligne "Lecture · sans date de fin · Pour information test guide". Étape 2 : le document « Restreint » est visible de l'enseignant malgré son niveau « Interne », téléchargeable, sans « Nouvelle version » ni « Modifier ». Étape 3 : le document disparaît des listes de l'enseignant et son adresse répond "Document introuvable (`<identifiant>`).". Historique : « Partagé » puis « Partage retiré ».
 Cas invalides :
 
 | Saisie | Message attendu |
@@ -260,7 +260,7 @@ Comptes : secrétariat, parent, élève, économe, enseignant · Où : fiche de 
 1. Secrétariat : « Modifier » > « Visibilité » « Personnel seulement » > « Enregistrer ». Parent : recharger « Mes enfants ». Économe : ouvrir l'adresse de la fiche.
 2. Secrétariat : « Visibilité » « Privé ». Économe : rouvrir la fiche. Propriétaire : rouvrir la fiche.
 3. Secrétariat : revenir à « Selon la catégorie ».
-Résultat attendu : étape 1 : le parent ne voit plus la pièce (le texte « Modifier la visibilité change aussitôt qui peut voir ce document. » est affiché dans la fenêtre) ; l'économe la voit toujours (niveau « Restreint »). Étape 2 : « Privé » la réserve au déposant, aux gestionnaires (propriétaire) et aux personnes avec qui elle est partagée : l'économe obtient "Document introuvable (<identifiant>)." ; le propriétaire la voit. Étape 3 : le parent la revoit.
+Résultat attendu : étape 1 : le parent ne voit plus la pièce (le texte « Modifier la visibilité change aussitôt qui peut voir ce document. » est affiché dans la fenêtre) ; l'économe la voit toujours (niveau « Restreint »). Étape 2 : « Privé » la réserve au déposant, aux gestionnaires (propriétaire) et aux personnes avec qui elle est partagée : l'économe obtient "Document introuvable (`<identifiant>`)." ; le propriétaire la voit. Étape 3 : le parent la revoit.
 - [ ] Cas nominal  - [ ] Droit refusé : parent (visibilité modifiée) et économe (« Privé »)
 
 #### 14.14 Archiver et restaurer
@@ -269,7 +269,7 @@ Comptes : directeur des études, secrétariat, propriétaire · Où : fiche de `
 2. Directeur des études : ouvrir la fiche, cliquer « Archiver » (fenêtre « Archiver ce document » : « Le document disparaît des listes ; la gestion peut le restaurer jusqu'à l'échéance de conservation, après quoi il est purgé. »). Saisir « Motif de l'archivage » `ab`, puis `Doublon de test test guide`, cliquer « Archiver ».
 3. Recharger l'explorateur (secrétariat et directeur des études).
 4. Propriétaire : filtre « État » « Archivés » ; ouvrir le document ; cliquer « Restaurer ».
-Résultat attendu : motif de 2 caractères : « Le motif doit comporter au moins 3 caractères. » ; message « Document archivé : il n'apparaît plus dans les listes. » ; le document disparaît de la liste « Actifs » et son adresse répond "Document introuvable (<identifiant>)." pour tous sauf la gestion (la conservation par défaut est "jamais purgé" : 0 jour). Propriétaire : avis « Ce document est archivé. Motif : Doublon de test test guide » ; après « Restaurer » : « Document restauré. » ; l'historique garde « Archivé » et « Restauré ». Un document archivé n'accepte ni nouvelle version, ni partage.
+Résultat attendu : motif de 2 caractères : « Le motif doit comporter au moins 3 caractères. » ; message « Document archivé : il n'apparaît plus dans les listes. » ; le document disparaît de la liste « Actifs » et son adresse répond "Document introuvable (`<identifiant>`)." pour tous sauf la gestion (la conservation par défaut est "jamais purgé" : 0 jour). Propriétaire : avis « Ce document est archivé. Motif : Doublon de test test guide » ; après « Restaurer » : « Document restauré. » ; l'historique garde « Archivé » et « Restauré ». Un document archivé n'accepte ni nouvelle version, ni partage.
 - [ ] Cas nominal  - [ ] Cas invalide  - [ ] Droit refusé : secrétariat et économe sans « Archiver », restauration réservée au propriétaire
 
 #### 14.15 Catégories : créer, modifier, droit par personne, échéance exigée, archiver
@@ -309,7 +309,7 @@ Cas invalides (ouvrir « Nouvelle catégorie », cliquer « Enregistrer ») :
 
 #### 14.16 Paramètres de l'établissement et quota
 Compte : propriétaire · Où : `/v2/documents/settings` · Prérequis : 14.5.
-1. Lire « Stockage utilisé » (jauge, « <utilisé> utilisés sur <quota> (<n> %). », compteurs « Documents », « Versions », « Archivés », « En quarantaine », et "Quota de votre abonnement : …").
+1. Lire « Stockage utilisé » (jauge, « `<utilisé>` utilisés sur `<quota>` (`<n>` %). », compteurs « Documents », « Versions », « Archivés », « En quarantaine », et "Quota de votre abonnement : …").
 2. Lire « Réglages » : « Taille maximale d'un fichier (Mo) » `15`, « Quota de stockage de l'établissement (Mo) » vide, « Seuils d'alerte d'expiration (jours) » `30, 7, 1`, « Conservation après archivage (jours) » `0`, « Conservation de la quarantaine (jours) » `30`, « Versions maximales par document » `50`. Cliquer « Enregistrer » sans rien changer.
 3. Mettre « Versions maximales par document » à `2`, « Enregistrer ». Sur "Règlement intérieur test guide" (2 versions), « Nouvelle version » avec `ged-comptable-test-guide.pdf`.
 4. Remettre `50`, « Enregistrer ».
@@ -341,7 +341,7 @@ Comptes : voir tableau "Droits", parent, enseignant, directeur des Palmiers · P
 2. Secrétariat : déposer `Pièce élève Aya BAMBA test guide` ("Dossier d'inscription", élève `BAMBA Aya`, fichier `ged-image-test-guide.png`). Copier l'adresse de la fiche.
 3. Parent (enfants Nadia et Salimata) puis enseignant : coller cette adresse. Taper aussi `/v2/documents/00000000-0000-0000-0000-000000000000` et `/v2/documents/abc`.
 4. Directeur des Palmiers (`directeur@primaire-test.test`) : coller l'adresse d'un document du Collège (par exemple celle de `Règlement intérieur test guide`).
-Résultat attendu : étape 1 : « Accès refusé » ("Vous n'avez pas les droits nécessaires pour afficher cette page."). Étape 3 : parent, enseignant et identifiant inventé donnent **la même réponse** : "Document introuvable (<identifiant>)." (rien ne révèle l'existence de la pièce) ; l'identifiant `abc` n'est pas un UUID : message de validation de l'API, à relever en test. Étape 4 : "Document introuvable (<identifiant>).", aucune donnée du Collège.
+Résultat attendu : étape 1 : « Accès refusé » ("Vous n'avez pas les droits nécessaires pour afficher cette page."). Étape 3 : parent, enseignant et identifiant inventé donnent **la même réponse** : "Document introuvable (`<identifiant>`)." (rien ne révèle l'existence de la pièce) ; l'identifiant `abc` n'est pas un UUID : message de validation de l'API, à relever en test. Étape 4 : "Document introuvable (`<identifiant>`).", aucune donnée du Collège.
 - [ ] Cas nominal  - [ ] Cas invalide  - [ ] Droit refusé
 
 ---

@@ -867,7 +867,7 @@ Comptes : Directeur des études, Économe, Enseignant, Directeur · Où : `/v2/a
 Compte : Directeur · Où : `/v2/audit`, bouton « Exporter en CSV ».
 1. Sans période : « L'export exige une période : renseignez les deux dates. »
 2. Période de plus de 31 jours : « La période d'export est limitée à 31 jours. »
-3. Période valide : « Export terminé : N lignes dans <fichier>. » (10 000 lignes au plus ; au-delà : "Le plafond de 10 000 lignes est atteint…"). Cet export est **lui-même journalisé** (`audit_log.exported`) : le retrouver au journal.
+3. Période valide : « Export terminé : N lignes dans `<fichier>`. » (10 000 lignes au plus ; au-delà : "Le plafond de 10 000 lignes est atteint…"). Cet export est **lui-même journalisé** (`audit_log.exported`) : le retrouver au journal.
 4. Compte sans `audit.export` : bouton absent ; "L'export est réservé aux profils disposant de la permission "Exporter le journal d'audit" (action sensible : MFA exigée). ".
 - [ ] Cas nominal  - [ ] Cas invalide  - [ ] Droit refusé
 

@@ -1439,7 +1439,7 @@ Le sexe est exigé plus tard pour créer l'élève : le renseigner maintenant.
 
 4. Cliquer **« Enregistrer le consentement »**, puis de nouveau **"Candidature reçue"**.
 
-✅ La section affiche « Consentement valide » et une ligne "Traitement des données · vtg1 · Document papier · <date>". Message `Dossier passé à l'étape "Candidature reçue".` ; statut « Déposée ». L'historique ajoute "Brouillon → Candidature reçue".
+✅ La section affiche « Consentement valide » et une ligne "Traitement des données · vtg1 · Document papier · `<date>`". Message `Dossier passé à l'étape "Candidature reçue".` ; statut « Déposée ». L'historique ajoute "Brouillon → Candidature reçue".
 
 ⚠️ *Test d'erreur* : « Référence de la pièce justificative » = `ab` → « Au moins 3 caractères. »
 
@@ -1538,7 +1538,7 @@ Attendu au départ : "Acte de naissance test guide (obligatoire)" avec la pastil
 
 4. Cliquer **« Enregistrer : Acceptation »**.
 
-✅ Message `Décision "Acceptation" enregistrée : dossier à l'étape "Admis".` ; statut « Acceptée » ; places restantes de la campagne : 1. Dans « Historique » > « Décisions formelles » : le motif et « Par <nom du directeur> ».
+✅ Message `Décision "Acceptation" enregistrée : dossier à l'étape "Admis".` ; statut « Acceptée » ; places restantes de la campagne : 1. Dans « Historique » > « Décisions formelles » : le motif et « Par `<nom du directeur>` ».
 
 ⚠️ *Test d'erreur* (variante, sur un dossier sans pièce acceptée) : l'admission est refusée par `pièces non acceptées : …` ; capacité atteinte en politique stricte : `2 places occupées pour 2 (niveau 6E)`.
 
@@ -1565,7 +1565,7 @@ Attendu au départ : « Aucune offre émise. » et le bouton **« Émettre une o
 3. Cliquer **« Émettre une offre »**.
 4. Dans la fenêtre « Offre émise », cliquer **« Copier »** sur **« Lien de réponse de la famille »** (`http://localhost:3000/v2/apply/<lien>/offer#t=<jeton>`) et **le conserver (LIEN-AWA)** ; cliquer **« Fermer »**.
 
-✅ Le lien "n'est affiché qu'une seule fois" (seule son empreinte est conservée). La section montre l'offre « En attente de réponse », « Échéance : <date à 14 jours> » et les boutons « Désigner la classe », « Accepter au nom de la famille », « Retirer l'offre » (ne pas les utiliser). Le dossier reste à l'étape "Admis".
+✅ Le lien "n'est affiché qu'une seule fois" (seule son empreinte est conservée). La section montre l'offre « En attente de réponse », « Échéance : `<date à 14 jours>` » et les boutons « Désigner la classe », « Accepter au nom de la famille », « Retirer l'offre » (ne pas les utiliser). Le dossier reste à l'étape "Admis".
 
 ⚠️ *Test d'erreur* : « Validité en jours » = `0` → "La valeur doit être supérieure ou égale à 1." (message de borne) ; le bouton « Émettre une offre » disparaît une fois l'offre en attente.
 
@@ -1634,7 +1634,7 @@ Attendu au départ : « Aucune offre émise. » et le bouton **« Émettre une o
 1. Se déconnecter de l'économe, se connecter en chargé, recharger le dossier d'Awa.
 2. Chercher un bouton qui poserait « Inscrit » à la main.
 
-✅ Étape "Inscrit", statut « Inscrit », « Inscription confirmée le <date>. ». Aucun bouton ne permet de poser « Inscrit » manuellement : l'inscription est confirmée par le paiement seul. Dans le pipeline, Awa est dans la colonne "Inscrit" ; dans « Candidatures », le filtre « Statut » = « Inscrit » la montre avec Aïcha ADOU.
+✅ Étape "Inscrit", statut « Inscrit », « Inscription confirmée le `<date>`. ». Aucun bouton ne permet de poser « Inscrit » manuellement : l'inscription est confirmée par le paiement seul. Dans le pipeline, Awa est dans la colonne "Inscrit" ; dans « Candidatures », le filtre « Statut » = « Inscrit » la montre avec Aïcha ADOU.
 
 ⚠️ *Écart connu* : si le dossier reste "Inscription en attente de paiement" au bout d'une minute, le service de tâches de fond (worker) n'est probablement pas démarré : le consigner. Un règlement partiel (par exemple 10 000 F CFA) ne confirme pas l'inscription (*à vérifier*).
 
@@ -2968,7 +2968,7 @@ Attendu au départ : badge « Brouillon », badge « Sur 20 », progression « 0
 2. Pour DIABATE Nadia, saisir le commentaire `Copie rendue en retard` (colonne « Commentaire »).
 3. Attendre environ 6 secondes (enregistrement automatique) ou cliquer **« Enregistrer »** (Ctrl + S). Recharger avec F5.
 
-✅ Progression « 6 sur 10 élèves notés · 2 absents · 1 dispensé » ; message « Enregistré à <heure> — 9 créée(s), 0 modifiée(s), 0 inchangée(s). » (TOURE Yao, vide, n'est pas écrit) ; chaque ligne « Enregistrée » ; après F5 tout est identique et le `0` de DIABATE Salimata reste un zéro, distinct d'une absence.
+✅ Progression « 6 sur 10 élèves notés · 2 absents · 1 dispensé » ; message « Enregistré à `<heure>` — 9 créée(s), 0 modifiée(s), 0 inchangée(s). » (TOURE Yao, vide, n'est pas écrit) ; chaque ligne « Enregistrée » ; après F5 tout est identique et le `0` de DIABATE Salimata reste un zéro, distinct d'une absence.
 
 ⚠️ *Test d'erreur* : `21` → « La note dépasse le barème (20,000). » (ou "(20)") ; `abc` → « Saisissez un nombre (par exemple 12,5) ou un code : ABS, ABJ, DISP, NN. » ; `12,255` → « Au plus 2 décimale(s). ». Tant qu'une ligne est invalide : "1 ligne invalide à corriger" et **rien n'est enregistré**. Effacer la saisie invalide.
 
@@ -2984,7 +2984,7 @@ Attendu au départ : badge « Brouillon », badge « Sur 20 », progression « 0
 3. Saisir `7,5` pour COULIBALY Salimata, `3` pour DIABATE Salimata, `6` pour COULIBALY Moussa ; les autres restent vides.
 4. Cliquer **« Enregistrer »**.
 
-✅ « 4 sur 10 élèves notés » ; « Enregistré à <heure> — 4 créée(s), 0 modifiée(s), 0 inchangée(s). ».
+✅ « 4 sur 10 élèves notés » ; « Enregistré à `<heure>` — 4 créée(s), 0 modifiée(s), 0 inchangée(s). ».
 
 ⚠️ *Test d'erreur* : `10,01` → « La note dépasse le barème (10,000). » ; `10` (note maximale) est accepté. Remettre `8` avant d'enregistrer.
 
@@ -3147,7 +3147,7 @@ Attendu au départ : badge « Brouillon », badge « Sur 20 », progression « 0
 2. Pour DIABATE Salimata, cliquer **« Rejeter »** ; « Motif du rejet » = `Copie non retrouvée, correction injustifiée (test guide)`, **« Rejeter »**.
 3. Choisir « État » = « Tous les états », puis revenir sur la feuille du devoir n°1 et ouvrir **« Historique »** de ASSI Brice.
 
-✅ « Correction approuvée et appliquée. » (carte « Appliquée », « Décidée par <nom> le <date> — Copie vérifiée (test guide) ») ; « La demande de correction est rejetée. » (carte « Rejetée »). La feuille montre `10,5` pour ASSI Brice et toujours `0` pour DIABATE Salimata. L'historique de ASSI Brice : « Valeur actuelle : 10,5 », "9,5 → 10,5".
+✅ « Correction approuvée et appliquée. » (carte « Appliquée », « Décidée par `<nom>` le `<date>` — Copie vérifiée (test guide) ») ; « La demande de correction est rejetée. » (carte « Rejetée »). La feuille montre `10,5` pour ASSI Brice et toujours `0` pour DIABATE Salimata. L'historique de ASSI Brice : « Valeur actuelle : 10,5 », "9,5 → 10,5".
 
 ⚠️ *Test d'erreur* : rejet avec un motif de 2 caractères → « Le motif doit comporter au moins 5 caractères. ».
 
@@ -3266,7 +3266,7 @@ Précondition : la phase précédente est faite, **sans** avoir touché au Trime
 1. Dans « Classe et période » : « Classe » = `6e A`, « Période » = `Trimestre 1`.
 2. Lire « État de la période » : badge « Clôturée », « Règle appliquée » `CI-SECONDARY-PLACEHOLDER · v2`, dates « Notes verrouillées le » et « Clôturée le » (« Délibérée le » vide), puis « Résultats de la classe » et la section « Clôtures ».
 
-✅ « Définitifs » = nombre de résultats figés (9 ou 10), « Provisoires » 0, « En erreur » 0 ; ligne « Version 1 — N résultats figés le <date> ». **Aucun** bouton « Verrouiller les notes », « Clôturer la période », « Relancer le calcul » ni « Rouvrir la période ».
+✅ « Définitifs » = nombre de résultats figés (9 ou 10), « Provisoires » 0, « En erreur » 0 ; ligne « Version 1 — N résultats figés le `<date>` ». **Aucun** bouton « Verrouiller les notes », « Clôturer la période », « Relancer le calcul » ni « Rouvrir la période ».
 
 ⚠️ *Test d'erreur* : sans classe ni période → « Choisissez une classe et une période pour voir son état. ».
 
@@ -3298,7 +3298,7 @@ Précondition : la phase précédente est faite, **sans** avoir touché au Trime
 4. Cocher **« Afficher le détail par cours »** : pour BAMBA Aya, Français 11,25, Mathématiques 11,75, Anglais 12,75, Histoire-Géographie 13,25.
 5. Choisir `Trimestre 2` : badge « Notes verrouillées », résultats « Provisoire » avec « Des résultats sont provisoires : ils deviennent officiels à la clôture de la période. ». Moyennes : TOURE Yao 13,9 (rang 1), BAMBA Aya 13,4, COULIBALY Salimata 13,3, TOURE Jean-Marc 12,9, DIABATE Salimata 12,8, BAMBA Fatou 12,4, COULIBALY Moussa 10,4, DIABATE Nadia 9,9. Ne rien modifier sur le Trimestre 2.
 
-✅ Toutes les valeurs correspondent (au zéro final près : `13,2` ou `13,20`) ; badge d'état « Définitif » au Trimestre 1 ; **les moyennes ne sont pas modifiables**. Rang présenté « <rang> sur 8 ».
+✅ Toutes les valeurs correspondent (au zéro final près : `13,2` ou `13,20`) ; badge d'état « Définitif » au Trimestre 1 ; **les moyennes ne sont pas modifiables**. Rang présenté « `<rang>` sur 8 ».
 
 ⚠️ *Test d'erreur* : sans sélection → « Choisissez une classe et une période. ».
 
@@ -3453,7 +3453,7 @@ Les résultats deviennent définitifs ; seule la réouverture motivée (étape s
 2. Cliquer **« Clôturer la période »** : lire « Les résultats deviennent définitifs. Pour les corriger plus tard, il faudra rouvrir la période avec un motif (nouvelle version des résultats). », cliquer **« Clôturer »**.
 3. Ouvrir la matrice du Trimestre 3.
 
-✅ « La délibération est enregistrée. », état « Délibérée » ; « Période clôturée : N résultats figés (version 1), aucune exclusion. » ; état « Clôturée », section « Clôtures » « Version 1 — N résultats figés le <date> » ; matrice « Définitif », mêmes valeurs que le tableau du Trimestre 3. Plus de bouton « Relancer le calcul ». « Année » de BAMBA Aya : « Périodes manquantes : Trimestre 2. ».
+✅ « La délibération est enregistrée. », état « Délibérée » ; « Période clôturée : N résultats figés (version 1), aucune exclusion. » ; état « Clôturée », section « Clôtures » « Version 1 — N résultats figés le `<date>` » ; matrice « Définitif », mêmes valeurs que le tableau du Trimestre 3. Plus de bouton « Relancer le calcul ». « Année » de BAMBA Aya : « Périodes manquantes : Trimestre 2. ».
 
 ⚠️ *Test d'erreur* : toute nouvelle surcharge sur ce trimestre → "La période est clôturée : rouvrez-la pour surcharger un résultat."
 
@@ -4360,7 +4360,7 @@ Compte : `etudes@secondaire-test.test` (MFA : le code du moment est proposé sur
 1. Choisir l'enfant **DIABATE Nadia**, puis **DIABATE Salimata**.
 2. « Se déconnecter », se connecter en **élève** (`eleve@secondaire-test.test`, DIABATE Nadia, sans MFA) et ouvrir **« Décisions du conseil »** (`/v2/councils/moi`).
 
-✅ Nadia : une carte "Avis requis du conseil" avec le badge « Avis requis » et "Conseil de classe de période · Trimestre 2 · <date>". **Jamais** la suggestion de la règle, le vote, la justification interne ni la décision d'un autre élève. Salimata : « Aucune décision à afficher ». Élève : titre « Mes décisions du conseil de classe » et même contenu que le parent pour Nadia. (Avant la notification des tuteurs, les deux pages affichaient « Aucune décision à afficher » et « Aucune décision n'est visible pour le moment. ».)
+✅ Nadia : une carte "Avis requis du conseil" avec le badge « Avis requis » et "Conseil de classe de période · Trimestre 2 · `<date>`". **Jamais** la suggestion de la règle, le vote, la justification interne ni la décision d'un autre élève. Salimata : « Aucune décision à afficher ». Élève : titre « Mes décisions du conseil de classe » et même contenu que le parent pour Nadia. (Avant la notification des tuteurs, les deux pages affichaient « Aucune décision à afficher » et « Aucune décision n'est visible pour le moment. ».)
 
 🔒 *Test de droit* : en tant que **parent**, taper `/v2/councils/moi` → « Accès refusé » ; en tant qu'**élève**, taper `/v2/councils/famille` → « Accès refusé ».
 
@@ -5073,7 +5073,7 @@ Fichiers : `docs/guide-test/jeux-de-donnees/` (séparateur `;`).
 👤 **responsable des examens** (secondaire-test) · fenêtre **A** · 📂 détail de session, puis **« Notes et résultats »** (`/v2/examinations/results`) > onglet **« Notes par épreuve »**
 
 1. Sur le détail de session, cliquer **« Passer à : Épreuves en cours »** : la répartition est figée (message « La répartition est figée à ce stade de la session. » dans « Répartition »).
-2. Dans « Notes par épreuve », saisir (champs « Note de <nom> en <épreuve> » ; liste « État de la note de <nom> en <épreuve> » pour Absent/Excusé) :
+2. Dans « Notes par épreuve », saisir (champs « Note de `<nom>` en `<épreuve>` » ; liste « État de la note de `<nom>` en `<épreuve>` » pour Absent/Excusé) :
 
 | Candidat | `TG_EP1` | `TG_EP2` |
 | :--- | :--- | :--- |
@@ -5817,7 +5817,7 @@ Précondition : au moins 2 minutes se sont écoulées depuis le dépôt de "Piè
 3. Enseignant : `/v2/documents`, « Portée » « Partagés avec moi » ; ouvrir le document, cliquer **« Télécharger »**, chercher **« Nouvelle version »** et **« Modifier »**.
 4. Secrétariat : cliquer **« Retirer le partage de TRAORE Kouadio »**. Enseignant : recharger l'explorateur puis rouvrir l'adresse de la fiche.
 
-✅ « Document partagé avec TRAORE Kouadio. » et la ligne "Lecture · sans date de fin · Pour information test guide". L'enseignant voit le document « Restreint » malgré son niveau « Interne » et peut le télécharger, mais n'a ni « Nouvelle version » ni « Modifier ». Après le retrait, le document disparaît de ses listes et son adresse répond "Document introuvable (<identifiant>).". L'historique montre « Partagé » puis « Partage retiré ».
+✅ « Document partagé avec TRAORE Kouadio. » et la ligne "Lecture · sans date de fin · Pour information test guide". L'enseignant voit le document « Restreint » malgré son niveau « Interne » et peut le télécharger, mais n'a ni « Nouvelle version » ni « Modifier ». Après le retrait, le document disparaît de ses listes et son adresse répond "Document introuvable (`<identifiant>`).". L'historique montre « Partagé » puis « Partage retiré ».
 
 ⚠️ *Test d'erreur* : le secrétariat se cherche lui-même → "Vous ne pouvez pas partager un document avec vous-même." ; « Fin du partage » = hier → "La date de fin du partage doit être dans le futur.".
 
@@ -5859,7 +5859,7 @@ Précondition : au moins 2 minutes se sont écoulées depuis le dépôt de "Piè
 2. Secrétariat : « Visibilité » « Privé ». Économe : rouvrir la fiche. Propriétaire : rouvrir la fiche.
 3. Secrétariat : revenir à « Selon la catégorie ».
 
-✅ « Personnel seulement » : le parent ne voit plus la pièce, l'économe la voit encore (niveau « Restreint »). « Privé » : l'économe obtient "Document introuvable (<identifiant>)." ; le propriétaire la voit. Retour à « Selon la catégorie » : le parent la revoit.
+✅ « Personnel seulement » : le parent ne voit plus la pièce, l'économe la voit encore (niveau « Restreint »). « Privé » : l'économe obtient "Document introuvable (`<identifiant>`)." ; le propriétaire la voit. Retour à « Selon la catégorie » : le parent la revoit.
 
 ☐ OK ☐ KO
 
@@ -5915,7 +5915,7 @@ Précondition : au moins 2 minutes se sont écoulées depuis le dépôt de "Piè
 3. Secrétariat (A) : déposer `Pièce élève Aya BAMBA test guide` (`Dossier d'inscription`, élève `BAMBA Aya`, `ged-image-test-guide.png`) et copier l'adresse de la fiche.
 4. Parent : coller cette adresse, puis `/v2/documents/00000000-0000-0000-0000-000000000000`.
 
-✅ Étapes 1 et 2 : « Accès refusé » ("Vous n'avez pas les droits nécessaires pour afficher cette page."). Étape 4 : les deux adresses donnent **la même réponse** "Document introuvable (<identifiant>).", sans révéler l'existence de la pièce de BAMBA Aya.
+✅ Étapes 1 et 2 : « Accès refusé » ("Vous n'avez pas les droits nécessaires pour afficher cette page."). Étape 4 : les deux adresses donnent **la même réponse** "Document introuvable (`<identifiant>`).", sans révéler l'existence de la pièce de BAMBA Aya.
 
 ☐ OK ☐ KO
 
@@ -7308,7 +7308,7 @@ const r = await fetch('http://localhost:4000/api/v1/people/students/<id-A>', { h
 console.log(r.status);
 ```
 
-✅ Étape 2 : statut **404**, corps JSON du type `people.student_not_found` avec le message "Élève introuvable (<id-A>)." (l'identifiant reflété est celui que vous avez saisi), jamais 403 ni 200. Étape 3 : statut **401** (un en-tête `X-Tenant` ne remplace jamais une session).
+✅ Étape 2 : statut **404**, corps JSON du type `people.student_not_found` avec le message "Élève introuvable (`<id-A>`)." (l'identifiant reflété est celui que vous avez saisi), jamais 403 ni 200. Étape 3 : statut **401** (un en-tête `X-Tenant` ne remplace jamais une session).
 
 ⚠️ *Test d'erreur* : `.../students/xyz` (non valide) : 400 ou 404, jamais 500 ni trace technique.
 

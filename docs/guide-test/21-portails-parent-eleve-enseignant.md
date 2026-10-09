@@ -130,7 +130,7 @@ Compte : Parent · Où : onglet « Résultats » (`/v2/parent/children/<id Nadia
 4. Si la liste « Période » est proposée, choisir une période, puis « Toutes les périodes ».
 5. Si le bouton « Afficher plus » est proposé, le cliquer.
 6. Comparer avec le compte Élève (21.17) : mêmes valeurs.
-Résultat attendu : les notes affichées sont de la forme "16 / 20" ; seules des évaluations **publiées** apparaissent (aucun brouillon, aucune feuille en cours de validation) ; pas de bandeau « Règles de démonstration » (absence signalée par le QA, constat C-13-02, voir Écarts). Le rang est « N sur M » sans nom de camarade. Une ligne peut afficher "Décision : <code>" avec un code brut (voir Écarts).
+Résultat attendu : les notes affichées sont de la forme "16 / 20" ; seules des évaluations **publiées** apparaissent (aucun brouillon, aucune feuille en cours de validation) ; pas de bandeau « Règles de démonstration » (absence signalée par le QA, constat C-13-02, voir Écarts). Le rang est « N sur M » sans nom de camarade. Une ligne peut afficher "Décision : `<code>`" avec un code brut (voir Écarts).
 Cas invalides : sans objet (lecture seule) ; période sans note : « Aucune note publiée. » avec l'aide « Les notes apparaissent ici une fois publiées par l'établissement. ».
 - [ ] Cas nominal  - [ ] Aucun brouillon visible  - [ ] Droit refusé : enfant d'une autre famille (21.14)
 
@@ -591,7 +591,7 @@ Cas invalides : sans objet.
 | mêmes écrans, motif non choisi | Message du contrat formulé techniquement : "Code attendu : majuscules, chiffres et _ (40 max)." (aussi pour le type de congé de `/v2/teacher/leaves`). | Mineur |
 | `/v2/teacher/leaves` | Colonne « Type » : code brut du type de congé affiché tel quel. | Mineur |
 | `/v2/parent/children/<id>/emergency` | Liste des responsables : le code de la relation (`relationshipCode`) est affiché brut. | Mineur |
-| `/v2/parent/children/<id>/results`, `/v2/student/results` | "Décision : <code>" et état de ligne affichés en code quand le libellé n'est pas connu des familles (point à arbitrer dans `apps/web/docs/v2-portals.md`) ; aucun bandeau « Règles de démonstration » (QA C-13-02). | Mineur |
+| `/v2/parent/children/<id>/results`, `/v2/student/results` | "Décision : `<code>`" et état de ligne affichés en code quand le libellé n'est pas connu des familles (point à arbitrer dans `apps/web/docs/v2-portals.md`) ; aucun bandeau « Règles de démonstration » (QA C-13-02). | Mineur |
 | `/v2/parent/children/<id>/finance/receipts/<id>` | Le reçu ne porte pas la mention de paiement simulé (QA C-12-02, "reçu : à faire"). | Suggestion |
 | `/v2/parent/children/abc`, `/v2/student/finance/receipts/abc`, `/v2/teacher/classes/abc` | Un identifiant mal formé produit la page 404 par défaut de Next, sans habillage ni message en français (aucun `not-found.tsx` dans `apps/web/src/app`). | Mineur |
 | `/v2/parent/children/<id>/documents` | Le rôle Parent détient `documents.child.upload` mais l'onglet est en lecture seule : le dépôt de document par le parent n'a aucun écran dans le portail (QA C-12-06 ; texte d'aide de l'état vide à adapter). | Suggestion |

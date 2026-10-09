@@ -4,7 +4,8 @@
  *  (a) chaque route `/v2/...` citée existe dans l'App Router (apps/web/src/app/v2, groupes `(x)` retirés, dossiers `_x` privés ignorés) ;
  *  (b) chaque libellé cité entre guillemets français « ... » existe dans apps/web/messages/fr-CI.json
  *      (égalité exacte après normalisation des espaces et apostrophes, ou correspondance d'un gabarit ICU `{x}`) ;
- *  (c) chaque route de l'App Router figure dans 00-inventaire-ecrans.md.
+ *  (c) chaque route de l'App Router figure dans 00-inventaire-ecrans.md ;
+ *  (d) aucun texte du type <date> hors code (il disparaîtrait de l'aperçu Markdown).
  *
  * Usage : node scripts/check-guide-test.mjs [--verbose] [--no-inventory]
  * Code de sortie : 1 s'il reste un écart bloquant (route inexistante, libellé absent de fr-CI.json, route non inventoriée), sinon 0.
@@ -116,7 +117,7 @@ const routes = loadRoutes();
 const matchers = routeRegexes(routes);
 const { exact, patterns } = loadMessages();
 
-const problems = { route: [], label: [], inventory: [] };
+const problems = { route: [], label: [], inventory: [], markup: [] };
 const warnings = { source: [] };
 let routeRefs = 0;
 let labelRefs = 0;
@@ -162,6 +163,19 @@ for (const file of guideFiles) {
   });
 }
 
+// (d) rendu Markdown : un texte du type <date> hors code est pris pour une balise HTML et disparaît de l'aperçu
+for (const file of guideFiles) {
+  const rel = relative(ROOT, file).split(sep).join("/");
+  let inFence = false;
+  readFileSync(file, "utf8").split(/\r?\n/).forEach((line, i) => {
+    if (/^\s*```/.test(line)) { inFence = !inFence; return; }
+    if (inFence) return;
+    for (const part of line.split(/(`[^`]*`)/).filter((_, k) => k % 2 === 0)) {
+      for (const m of part.matchAll(/<(?!https?:\/\/)(\/?[A-Za-zÀ-ÿ][^<>\n]*)>/g)) problems.markup.push(`${rel}:${i + 1}  ${m[0]} (à mettre entre accents graves)`);
+    }
+  });
+}
+
 // (c) inventaire
 if (CHECK_INVENTORY) {
   const inv = join(GUIDE_DIR, "00-inventaire-ecrans.md");
@@ -190,8 +204,9 @@ console.log(`Références lues : ${routeRefs} routes /v2/..., ${labelRefs} libel
 section("Routes citées introuvables dans l'App Router", problems.route);
 section("Libellés « ... » absents de fr-CI.json (et du code source)", problems.label);
 section("Libellés absents de fr-CI.json mais présents dans le code source web (avertissement)", warnings.source);
+section("Pseudo-balises HTML hors code (invisibles dans l'aperçu Markdown)", problems.markup);
 if (CHECK_INVENTORY) section("Routes de l'App Router absentes de 00-inventaire-ecrans.md", problems.inventory);
 
-const failures = problems.route.length + problems.label.length + problems.inventory.length;
+const failures = problems.route.length + problems.label.length + problems.inventory.length + problems.markup.length;
 console.log(failures === 0 ? "\nOK : aucun écart bloquant." : `\nÉCHEC : ${failures} écart(s) bloquant(s).`);
 process.exit(failures === 0 ? 0 : 1);
