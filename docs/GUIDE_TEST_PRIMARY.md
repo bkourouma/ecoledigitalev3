@@ -71,7 +71,7 @@ Objectif : se connecter au seul compte de l'école (le propriétaire, avec MFA),
 4. Recliquer le compte « Propriétaire », cliquer **« Afficher le code MFA »**, puis **« Se connecter »**.
 5. Écran « Vérification en deux étapes » : cliquer **« Valider »** (code prérempli).
 
-✅ Arrivée sur `/v2/direction`, « Tableau de bord de la direction », nom "École Primaire Les Flamboyants" en haut à gauche. Le panneau ne liste qu'**un seul compte** (propriétaire, badge MFA).
+✅ Arrivée sur `/v2/direction`, « Tableau de bord » (onglet actif), nom "École Primaire Les Flamboyants" en haut à gauche. Le panneau ne liste qu'**un seul compte** (propriétaire, badge MFA).
 
 ⚠️ *Test d'erreur* (action 3, au plus 2 essais : 5 échecs = blocage d'une minute) : « Identifiants invalides. Vérifiez votre e-mail et votre mot de passe. » et le champ « Mot de passe » est vidé.
 
