@@ -40,7 +40,7 @@ export default defineModule({
     { key: "analytics.payroll-insights", label: "Masse salariale dans les tableaux de bord", packs: ["PRIMARY", "SECONDARY", "HIGHER", "VIRTUAL"] },
   ],
   menus: [
-    { key: "analytics.dashboard", label: "Tableau de bord de la direction", href: "/v2/direction", permission: "analytics.read", feature: "analytics.direction", portal: "owner", icon: "layout-dashboard", order: 10 },
+    { key: "analytics.dashboard", label: "Tableau de bord", href: "/v2/direction", permission: "analytics.read", feature: "analytics.direction", portal: "owner", icon: "layout-dashboard", order: 10 },
     { key: "analytics.enrollment", label: "Effectifs et présences", href: "/v2/direction/effectifs", permission: "analytics.read", feature: "analytics.direction", portal: "owner", icon: "users", order: 20 },
     { key: "analytics.pedagogy", label: "Pédagogie", href: "/v2/owner/pedagogie", permission: "analytics.pedagogy.read", feature: "analytics.direction", portal: "owner", icon: "graduation-cap", order: 30 },
     { key: "analytics.tuition", label: "Scolarité", href: "/v2/owner/scolarite", permission: "analytics.finance.read", feature: "analytics.direction", portal: "owner", icon: "receipt", order: 40 },
