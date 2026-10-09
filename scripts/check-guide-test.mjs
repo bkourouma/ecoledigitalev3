@@ -102,7 +102,13 @@ function loadMessages() {
 let sourceBlobCache;
 const sourceBlob = () => {
   if (sourceBlobCache === undefined) {
-    const files = walk(WEB_SRC, (n) => /\.(tsx?|jsx?)$/.test(n) && !/\.test\./.test(n));
+    // Texte présent dans le web, mais aussi dans l'API (libellés de menu des manifestes, messages d'erreur) et les contrats.
+    const keep = (n) => /\.(tsx?|jsx?)$/.test(n) && !/\.test\./.test(n);
+    const files = [
+      ...walk(WEB_SRC, keep),
+      ...walk(join(ROOT, "apps", "api", "src"), keep),
+      ...walk(join(ROOT, "packages", "contracts", "src"), keep),
+    ];
     sourceBlobCache = normalize(files.map((f) => readFileSync(f, "utf8")).join("\n"));
   }
   return sourceBlobCache;
@@ -114,8 +120,9 @@ const guideFiles = walk(GUIDE_DIR, (n, p) => n.endsWith(".md") && !relative(GUID
 // Guide linéaire principal (hors dossier guide-test).
 const MAIN_GUIDE = join(ROOT, "docs", "GUIDE_TEST_UTILISATEUR_COMPLET.md");
 if (existsSync(MAIN_GUIDE)) guideFiles.push(MAIN_GUIDE);
-// Une phase du parcours linéaire = un fichier (l'aperçu Markdown refuse les très gros fichiers).
-guideFiles.push(...walk(join(ROOT, "docs", "guide-test-parcours"), (n) => n.endsWith(".md")));
+// Guide du pack Primaire (école neuve, un seul compte).
+const PRIMARY_GUIDE = join(ROOT, "docs", "GUIDE_TEST_PRIMARY.md");
+if (existsSync(PRIMARY_GUIDE)) guideFiles.push(PRIMARY_GUIDE);
 const routes = loadRoutes();
 const matchers = routeRegexes(routes);
 const { exact, patterns } = loadMessages();

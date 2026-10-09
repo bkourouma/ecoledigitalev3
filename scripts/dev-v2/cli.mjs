@@ -164,13 +164,13 @@ function loadEnvLocal() {
   return env;
 }
 
-async function seed() {
+async function seed(script = "scripts/dev-v2/seed.ts") {
   if (!(await dbReady())) await setup();
   const env = { ...process.env, ...loadEnvLocal(), ALLOW_SEED: "1", NODE_ENV: "development" };
   const redis = fromDotEnv("REDIS_URL");
   if (!redis) die("REDIS_URL est absent de `.env` (Redis local requis pour le worker du seed).");
   env.REDIS_URL = redis;
-  const r = spawnSync(process.execPath, [resolve(root, "node_modules", "tsx", "dist", "cli.mjs"), "scripts/dev-v2/seed.ts"], { cwd: root, stdio: "inherit", env: { ...env, TSX_TSCONFIG_PATH: resolve(root, "apps", "api", "tsconfig.json") }, windowsHide: true });
+  const r = spawnSync(process.execPath, [resolve(root, "node_modules", "tsx", "dist", "cli.mjs"), script], { cwd: root, stdio: "inherit", env: { ...env, TSX_TSCONFIG_PATH: resolve(root, "apps", "api", "tsconfig.json") }, windowsHide: true });
   if (r.status !== 0) die("seed en échec.");
   console.log(`[dev-v2] comptes de test écrits dans .dev-v2/credentials.json (local). Relancez l'application : le panneau de /login les affiche.`);
 }
@@ -202,5 +202,6 @@ const cmd = process.argv[2] ?? "up";
 if (cmd === "setup") await setup();
 else if (cmd === "up") await up();
 else if (cmd === "seed") await seed();
+else if (cmd === "new-school") await seed("scripts/dev-v2/new-school.ts");
 else if (cmd === "status") console.log(`base ${DB} + rôle ${ROLE} : ${(await dbReady()) ? "prêts" : "à configurer (pnpm dev:v2:setup)"}`);
 else die(`commande inconnue : ${cmd} (setup | up | status)`);
