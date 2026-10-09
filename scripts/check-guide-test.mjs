@@ -5,6 +5,7 @@
  *  (b) chaque libellé cité entre guillemets français « ... » existe dans apps/web/messages/fr-CI.json
  *      (égalité exacte après normalisation des espaces et apostrophes, ou correspondance d'un gabarit ICU `{x}`) ;
  *  (c) chaque route de l'App Router figure dans 00-inventaire-ecrans.md ;
+ *  (e) chaque lien relatif [..](x.md) pointe vers un fichier existant ;
  *  (d) aucun texte du type <date> hors code (il disparaîtrait de l'aperçu Markdown).
  *
  * Usage : node scripts/check-guide-test.mjs [--verbose] [--no-inventory]
@@ -113,6 +114,8 @@ const guideFiles = walk(GUIDE_DIR, (n, p) => n.endsWith(".md") && !relative(GUID
 // Guide linéaire principal (hors dossier guide-test).
 const MAIN_GUIDE = join(ROOT, "docs", "GUIDE_TEST_UTILISATEUR_COMPLET.md");
 if (existsSync(MAIN_GUIDE)) guideFiles.push(MAIN_GUIDE);
+// Une phase du parcours linéaire = un fichier (l'aperçu Markdown refuse les très gros fichiers).
+guideFiles.push(...walk(join(ROOT, "docs", "guide-test-parcours"), (n) => n.endsWith(".md")));
 const routes = loadRoutes();
 const matchers = routeRegexes(routes);
 const { exact, patterns } = loadMessages();
@@ -176,6 +179,18 @@ for (const file of guideFiles) {
   });
 }
 
+// (e) liens relatifs entre fichiers du guide : la cible doit exister
+problems.link = [];
+for (const file of guideFiles) {
+  const rel = relative(ROOT, file).split(sep).join("/");
+  readFileSync(file, "utf8").split(/\r?\n/).forEach((line, i) => {
+    for (const m of line.matchAll(/\]\(([^)#\s]+\.md)(#[^)]*)?\)/g)) {
+      if (/^https?:/.test(m[1])) continue;
+      if (!existsSync(resolve(dirname(file), m[1]))) problems.link.push(`${rel}:${i + 1}  ${m[1]} (liens relatifs : fichier introuvable)`);
+    }
+  });
+}
+
 // (c) inventaire
 if (CHECK_INVENTORY) {
   const inv = join(GUIDE_DIR, "00-inventaire-ecrans.md");
@@ -204,9 +219,10 @@ console.log(`Références lues : ${routeRefs} routes /v2/..., ${labelRefs} libel
 section("Routes citées introuvables dans l'App Router", problems.route);
 section("Libellés « ... » absents de fr-CI.json (et du code source)", problems.label);
 section("Libellés absents de fr-CI.json mais présents dans le code source web (avertissement)", warnings.source);
+section("Liens relatifs vers un fichier introuvable", problems.link);
 section("Pseudo-balises HTML hors code (invisibles dans l'aperçu Markdown)", problems.markup);
 if (CHECK_INVENTORY) section("Routes de l'App Router absentes de 00-inventaire-ecrans.md", problems.inventory);
 
-const failures = problems.route.length + problems.label.length + problems.inventory.length + problems.markup.length;
+const failures = problems.route.length + problems.label.length + problems.inventory.length + problems.markup.length + problems.link.length;
 console.log(failures === 0 ? "\nOK : aucun écart bloquant." : `\nÉCHEC : ${failures} écart(s) bloquant(s).`);
 process.exit(failures === 0 ? 0 : 1);
