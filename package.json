@@ -18,6 +18,7 @@
     "dev:v2": "node scripts/dev-v2/cli.mjs up",
     "dev:v2:seed": "node scripts/dev-v2/cli.mjs seed",
     "dev:v2:new-school": "node scripts/dev-v2/cli.mjs new-school",
+    "dev:v2:add-account": "node scripts/dev-v2/cli.mjs add-account",
     "demo:up": "node scripts/demo/cli.mjs up",
     "demo:down": "node scripts/demo/cli.mjs down",
     "demo:reset": "node scripts/demo/cli.mjs reset",

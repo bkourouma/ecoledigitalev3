@@ -5,7 +5,7 @@ Parcours complet, étape par étape, sur une **école neuve et vide**. Chaque é
 - Application : <http://localhost:3000> (connexion : <http://localhost:3000/v2/login>)
 - Date de référence : **J = vendredi 9 octobre 2026**. Année scolaire créée : **2026-2027**.
 - Suivez les étapes **dans l'ordre** : chaque étape utilise les données de la précédente.
-- **Un seul compte existe pour l'instant** : le propriétaire. Les gestes qui demandent un autre rôle sont à la fin (phase "À jouer quand les autres comptes existeront").
+- **Deux comptes existent pour l'instant** : le propriétaire (qui fait tout le parcours) et le directeur. Les gestes qui demandent un autre rôle sont à la fin (phase "À jouer quand les autres comptes existeront").
 - Rédigé en lisant le code, sans rejouer chaque scénario : si ce que vous voyez diffère d'un ✅, notez-le.
 
 ---
@@ -36,6 +36,7 @@ pnpm dev:v2:new-school
 | Rôle | E-mail | MFA |
 | :--- | :--- | :---: |
 | Propriétaire | `direction.generale@ecole-flamboyants.test` | oui |
+| Directeur | `directeur@ecole-flamboyants.test` | oui |
 
 Connexion : `/v2/login` → panneau **« Comptes par tenant »** (attendre quelques secondes) → établissement `ecole-flamboyants` → cliquer le compte (e-mail et mot de passe se remplissent) → **« Se connecter »** → **« Afficher le code MFA »** sous le compte → saisir le code à 6 chiffres → **« Valider »**. Le panneau n'existe pas sur `/login`.
 

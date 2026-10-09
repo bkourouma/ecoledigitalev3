@@ -203,5 +203,6 @@ if (cmd === "setup") await setup();
 else if (cmd === "up") await up();
 else if (cmd === "seed") await seed();
 else if (cmd === "new-school") await seed("scripts/dev-v2/new-school.ts");
+else if (cmd === "add-account") await seed("scripts/dev-v2/add-account.ts");
 else if (cmd === "status") console.log(`base ${DB} + rôle ${ROLE} : ${(await dbReady()) ? "prêts" : "à configurer (pnpm dev:v2:setup)"}`);
 else die(`commande inconnue : ${cmd} (setup | up | status)`);
