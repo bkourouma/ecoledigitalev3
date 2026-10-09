@@ -1,5 +1,7 @@
 # Guide de test utilisateur d'EcoleDigitale (version complète)
 
+> **Pour tester pas à pas, commencez par [`docs/GUIDE_TEST_UTILISATEUR_COMPLET.md`](../GUIDE_TEST_UTILISATEUR_COMPLET.md)** : un parcours unique, étape par étape (qui se connecte, quel menu, quoi saisir, ce qu'on doit voir), en 24 phases par module. Les chapitres de ce dossier sont la **référence détaillée** par module (tous les écrans, cas invalides, droits, écarts constatés) ; chaque phase du parcours y renvoie en fin de phase.
+
 Ce dossier est un guide de test **de bout en bout**, écran par écran, de la plateforme EcoleDigitale (v2) lancée **en local**. Il s'adresse à une personne non développeuse ou à un agent "Claude web" qui pilote Chrome. Il remplace, pour la v2, les parties à jour de l'ancien `docs/GUIDE_UTILISATEUR_TEST.md` (démonstration Docker) et reprend les leçons des rapports de testeurs `docs/qa/e2e/rapports/`.
 
 Tout est rédigé en français. Les attendus ont été **lus dans le code** (écrans `apps/web/src/app/v2`, libellés `apps/web/messages/fr-CI.json`, contrats Zod `packages/contracts/src/v2`, droits `apps/api/src/modules/rbac/templates/system-roles.ts`, seed `scripts/seed-v2`). **Aucun scénario n'a été exécuté dans le navigateur par les rédacteurs** : un attendu qu'ils n'ont pas pu prouver est marqué "à vérifier en test" (section dédiée à la fin de chaque chapitre). Voir [Limites de ce guide](#limites-de-ce-guide).

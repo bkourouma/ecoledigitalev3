@@ -109,6 +109,9 @@ const sourceBlob = () => {
 // ---------- Lecture du guide ----------
 // Dossiers et fichiers de travail préfixés `_` (brouillons, fragments fusionnés ailleurs) : ignorés.
 const guideFiles = walk(GUIDE_DIR, (n, p) => n.endsWith(".md") && !relative(GUIDE_DIR, p).split(sep).some((seg) => seg.startsWith("_")));
+// Guide linéaire principal (hors dossier guide-test).
+const MAIN_GUIDE = join(ROOT, "docs", "GUIDE_TEST_UTILISATEUR_COMPLET.md");
+if (existsSync(MAIN_GUIDE)) guideFiles.push(MAIN_GUIDE);
 const routes = loadRoutes();
 const matchers = routeRegexes(routes);
 const { exact, patterns } = loadMessages();
