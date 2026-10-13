@@ -14,7 +14,7 @@
  */
 import { isAppError, type AppError, type RequestContext } from "@ecoledigitale/kernel";
 import { getAcademicPeriod, getClassroomFacts, getEnrollment, listEnrollmentsByStudent, type AcademicDeps } from "../../modules/academic";
-import { confirmDecision, createDeliberation, getFinalResult, getPeriodView, getYearResult, listDecisions, type ResultsDeps } from "../../modules/results";
+import { confirmDecision, createDeliberation, getFinalResult, getPeriodView, getYearResult, listDecisions, publishYearDecision, type ResultsDeps } from "../../modules/results";
 import type { RulesApi } from "../../modules/rules";
 import type { AttendancePort, ConfirmedDecision, ProposalInfo, PrimaryResultsPort as ResultsPort, PrimaryRulesPort as RulesPort } from "../../modules/primary_school";
 
@@ -97,6 +97,12 @@ export function createPrimaryResultsPort(input: { results: ResultsDeps; academic
         await confirmDecision(results, ctx, { decisionId, deliberationId, ...(finalCode ? { finalCode } : {}), ...(justification ? { justification } : {}), caps: { decisionRecord: true, decisionApprove: true } }),
       );
       return { decisionId: rec.id, enrollmentId: rec.enrollmentId, finalCode: rec.finalCode as string, ruleProposalCode: rec.proposedCode, changedFromProposal: rec.finalCode !== rec.proposedCode };
+    },
+
+    async publishManualDecision(ctx, { classroomId, periodId, deliberationId, enrollmentId, finalCode, justification, councilRef }): Promise<ConfirmedDecision> {
+      const v = await view(ctx, classroomId, periodId);
+      const rec = must(await publishYearDecision(results, ctx, { stateId: v.state.id, enrollmentId, finalCode, deliberationId, justification, actor: { source: "primary_school", councilRef } }));
+      return { decisionId: rec.id, enrollmentId: rec.enrollmentId, finalCode: rec.finalCode as string, ruleProposalCode: rec.proposedCode, changedFromProposal: false };
     },
 
     async getYearResult(ctx, { enrollmentId, academicYearId, lastPeriodId }) {

@@ -239,7 +239,7 @@ function OpenSemesterWizard({ classroomId, onCancel, onDone }: { classroomId: st
           title: t("wizard.stepReview"),
           content: (
             <div className="space-y-3">
-              <dl className="grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-2">
+              <dl className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-muted-foreground">{t("wizard.period")}</dt>
                   <dd>{chosen ? `${chosen.label} (${chosen.code})` : "—"}</dd>

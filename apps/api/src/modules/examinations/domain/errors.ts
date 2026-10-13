@@ -125,6 +125,14 @@ export const ExamCode = {
   ASSESSMENT_CLASSROOM_MISMATCH: "examinations.assessment_classroom_mismatch",
   MOCK_ONLY: "examinations.mock_only",
   NO_LINKS: "examinations.no_links",
+  // Jury d'un examen blanc
+  JURY_NOT_FOUND: "examinations.jury_not_found",
+  JURY_CLOSED: "examinations.jury_closed",
+  JURY_INCOMPLETE: "examinations.jury_incomplete",
+  JURY_NO_RESULTS: "examinations.jury_no_results",
+  JURY_JUSTIFICATION_REQUIRED: "examinations.jury_justification_required",
+  JURY_MOCK_ONLY: "examinations.jury_mock_only",
+  JURY_IMMUTABLE: "examinations.jury_immutable",
   // Formats, exports
   FORMAT_INVALID: "examinations.format_invalid",
   FORMAT_PUBLISHED_IMMUTABLE: "examinations.format_published_immutable",

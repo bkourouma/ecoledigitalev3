@@ -209,6 +209,8 @@ export interface ResultsPort {
   /** Propositions de la règle (décisions `PROPOSED`) et décisions confirmées de la classe × période. */
   listProposals(ctx: RequestContext, input: { classroomId: Uuid; periodId: Uuid }): Promise<readonly ProposalInfo[]>;
   confirmDecision(ctx: RequestContext, input: { decisionId: Uuid; deliberationId: Uuid; finalCode?: string | undefined; justification?: string | undefined }): Promise<ConfirmedDecision>;
+  /** Décision de FIN D'ANNÉE créée par le conseil quand la règle n'a rien proposé (résultats non calculés) ; la justification est conservée. */
+  publishManualDecision(ctx: RequestContext, input: { classroomId: Uuid; periodId: Uuid; deliberationId: Uuid; enrollmentId: Uuid; finalCode: string; justification: string; councilRef: string }): Promise<ConfirmedDecision>;
   /** Résultat d'année d'une inscription ; `lastPeriodId` : dernière période de l'année (porte le résultat d'année FINAL et la décision). */
   getYearResult(ctx: RequestContext, input: { enrollmentId: Uuid; academicYearId: Uuid; lastPeriodId: Uuid | null }): Promise<YearResultInfo>;
   /** Origine du jeu de règles épinglé sur la période (pour le bandeau « règles de démonstration »). */

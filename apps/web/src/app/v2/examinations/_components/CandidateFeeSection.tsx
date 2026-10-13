@@ -82,7 +82,7 @@ export function CandidateFeeSection({ candidateId }: { candidateId: string }) {
   const t = useTranslations("v2ExaminationsFees.candidate");
   const query = useCandidateFee(candidateId, true);
   return (
-    <section aria-labelledby="exam-fee" className="space-y-3 rounded-md border p-4">
+    <section aria-labelledby="exam-fee" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id="exam-fee" className="text-lg font-semibold">{t("title")}</h2>
       {query.isPending ? <LoadingBlock /> : query.isError ? (
         (query.error as { code?: string }).code === "examinations.fee_not_found" ? <p className="text-sm text-muted-foreground">{t("none")}</p> : <ErrorBlock error={query.error} onRetry={() => void query.refetch()} />

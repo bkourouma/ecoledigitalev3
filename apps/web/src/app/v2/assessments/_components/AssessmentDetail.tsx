@@ -77,7 +77,7 @@ export function AssessmentDetail({ id }: { id: string }) {
             ) : (
               <ol className="space-y-2">
                 {(transitions.data ?? []).map((tr) => (
-                  <li key={tr.id} className="rounded-md border p-3 text-sm">
+                  <li key={tr.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                     <p className="font-medium">
                       {tr.from ? `${tStatus(tr.from)} → ` : ""}
                       {tStatus(tr.to)}

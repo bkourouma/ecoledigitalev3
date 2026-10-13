@@ -331,7 +331,7 @@ export function EnrollmentWizard({ initialStudentId, initialClassroomId }: { ini
             title: t("review.title"),
             content: (
               <div className="space-y-3">
-                <dl className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-2">
+                <dl className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-muted-foreground">{t("review.student")}</dt>
                     <dd>{studentMode === "existing" ? (student?.label ?? "—") : `${identity.firstName} ${identity.lastName}`.trim() || "—"}</dd>

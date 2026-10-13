@@ -29,7 +29,7 @@ import { DemoBanner, eligibilityTone, outcomeTone, registrationTone, StatusPill,
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className="space-y-3 rounded-md border p-4">
+    <section aria-labelledby={id} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id={id} className="text-lg font-semibold">{title}</h2>
       {children}
     </section>
@@ -238,7 +238,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
         {latest === null ? <p className="text-sm text-muted-foreground">{t("eligibility.none")}</p> : (
           <ul className="space-y-2" aria-label={t("eligibility.history")}>
             {data.eligibilityChecks.map((chk) => (
-              <li key={chk.id} className="rounded-md border p-3 text-sm">
+              <li key={chk.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusPill label={labels.eligibility(chk.result)} tone={eligibilityTone(chk.result)} />
                   {chk.overridden ? <StatusPill label={t("eligibility.overridden")} tone="warning" /> : null}
@@ -257,7 +257,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
         {data.pieces.length === 0 ? <p className="text-sm text-muted-foreground">{t("pieces.none")}</p> : (
           <ul className="space-y-2">
             {data.pieces.map((p) => (
-              <li key={p.requirementId} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <li key={p.requirementId} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{p.label}{p.required ? <span className="ml-2 text-xs text-muted-foreground">({t("pieces.required")})</span> : null}</p>
                   <p className="text-sm text-muted-foreground">{labels.piece(p.status)}{p.presentationKind === "SIGHTED" ? ` (${tExt("sighted")})` : ""}{p.rejectionReason ? ` — ${p.rejectionReason}` : ""}</p>
@@ -308,7 +308,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
         {data.scores.length === 0 ? <p className="text-sm text-muted-foreground">{t("scores.none")}</p> : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {data.scores.map((s) => (
-              <li key={s.id} className="rounded-md border p-3 text-sm">
+              <li key={s.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <p className="font-medium">{papers.get(s.paperId)?.label ?? s.paperId}</p>
                 <p>{s.status === "ENTERED" ? t("scores.value", { score: showDecimal(s.score), max: showDecimal(papers.get(s.paperId)?.scaleMax) }) : labels.scoreStatus(s.status)}</p>
                 <p className="text-xs text-muted-foreground">{labels.source(`score_${s.source}`)}</p>
@@ -317,7 +317,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
           </ul>
         )}
         {data.result ? (
-          <div className="rounded-md border bg-muted/30 p-3 text-sm" data-testid="candidate-result">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm" data-testid="candidate-result">
             <p className="font-medium">{t("result.title")}</p>
             <p><StatusPill label={labels.resultCode(data.result.resultCode)} tone={outcomeTone(data.result.resultCode)} /> {data.result.average !== null ? t("result.average", { average: showDecimal(data.result.average) }) : null}</p>
             <p className="text-xs text-muted-foreground">{labels.source(`result_${data.result.source}`)} — {data.result.status === "PUBLISHED" ? t("result.published") : t("result.draft")}</p>
@@ -336,7 +336,7 @@ function Detail({ data }: { data: ExamCandidateDetailDto }) {
           {data.documents.length === 0 ? <p className="text-sm text-muted-foreground">{t("documents.none")}</p> : (
             <ul className="space-y-2">
               {data.documents.map((d) => (
-                <li key={d.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <li key={d.id} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
                   <span>{labels.docKind(d.kind)} v{d.version} — {labels.docStatus(d.status)}</span>
                   {d.status === "ISSUED" ? <PdfButton path={issuedDocumentFilePath(d.id)} fileName={`${d.kind}-${c.candidateNumber ?? c.id}.pdf`} label={t("documents.download")} ariaLabel={t("documents.downloadAria", { kind: labels.docKind(d.kind), version: d.version })} /> : null}
                 </li>

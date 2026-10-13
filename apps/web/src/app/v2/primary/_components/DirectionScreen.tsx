@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock, Lock, MinusCircle, XCircle } from "lucide-react";
+import { Archive, ArrowRight, BarChart3, CheckCircle2, Clock, FileBadge, Gavel, Lock, MinusCircle, Settings, XCircle, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ResponsiveTable, type Column } from "@ecoledigitale/ui";
 import type { PrimaryProgressDto } from "@ecoledigitale/contracts/v2/primary_school";
@@ -15,10 +15,10 @@ import { lightOf, type Light } from "./direction-model";
 import { FeatureGate, RuleBanner, useYearOptions } from "./shared";
 
 const LIGHT_STYLE: Record<Light, string> = {
-  green: "border-emerald-400 bg-emerald-50 text-emerald-900",
-  orange: "border-amber-400 bg-amber-50 text-amber-900",
-  red: "border-red-400 bg-red-50 text-red-900",
-  none: "border-border bg-muted text-muted-foreground",
+  green: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+  orange: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  red: "border-red-400/40 bg-red-400/10 text-red-300",
+  none: "border-white/10 bg-white/5 text-muted-foreground",
 };
 
 function LightIcon({ light }: { light: Light }) {
@@ -90,32 +90,12 @@ function DirectionBody() {
     <div className="space-y-4">
       <PageHeader title={t("title")} description={t("description")} />
       <RuleBanner />
-      <nav aria-label={t("links.label")} className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {council ? (
-          <Link href="/v2/primary/conseil" className={buttonClass.secondary}>
-            {t("links.council")}
-          </Link>
-        ) : null}
-        {bilans ? (
-          <Link href="/v2/primary/bilans" className={buttonClass.secondary}>
-            {t("links.reviews")}
-          </Link>
-        ) : null}
-        {archives ? (
-          <Link href="/v2/primary/archives" className={buttonClass.secondary}>
-            {t("links.archives")}
-          </Link>
-        ) : null}
-        {reports ? (
-          <Link href="/v2/primary/etats" className={buttonClass.secondary}>
-            {t("links.reports")}
-          </Link>
-        ) : null}
-        {settings ? (
-          <Link href="/v2/primary/parametres" className={buttonClass.secondary}>
-            {t("links.settings")}
-          </Link>
-        ) : null}
+      <nav aria-label={t("links.label")} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {council ? <Shortcut href="/v2/primary/conseil" icon={Gavel} label={t("links.council")} /> : null}
+        {bilans ? <Shortcut href="/v2/primary/bilans" icon={FileBadge} label={t("links.reviews")} /> : null}
+        {archives ? <Shortcut href="/v2/primary/archives" icon={Archive} label={t("links.archives")} /> : null}
+        {reports ? <Shortcut href="/v2/primary/etats" icon={BarChart3} label={t("links.reports")} /> : null}
+        {settings ? <Shortcut href="/v2/primary/parametres" icon={Settings} label={t("links.settings")} /> : null}
       </nav>
       <div className="max-w-sm">
         <FormField label={t("year")}>{(c) => <NativeSelect {...c} value={yearId} onChange={setYearId} placeholder={t("yearDefault")} options={years} />}</FormField>
@@ -125,5 +105,21 @@ function DirectionBody() {
         <ResponsiveTable columns={columns} rows={progress.data ?? []} rowKey={(r) => `${r.classroomId}-${r.periodId}`} caption={t("caption")} />
       </QueryBoundary>
     </div>
+  );
+}
+
+/** Raccourci vers un autre écran du pack : carte avec icône et flèche. */
+function Shortcut({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-14 items-center gap-3 rounded-2xl border border-white/10 bg-card/40 px-4 py-3 text-sm font-medium transition-colors hover:border-violet-400/40 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">{label}</span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true" />
+    </Link>
   );
 }

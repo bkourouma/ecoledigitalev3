@@ -52,7 +52,7 @@ export function UploadStep({ onUploaded }: { onUploaded: (result: ImportUploadRe
             {visibleImporters(importers.data?.items ?? []).map((i) => (
               <label
                 key={i.key}
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm focus-within:ring-2 focus-within:ring-ring ${importer === i.key ? "border-primary bg-primary/5" : "border-input"} ${i.canUse ? "" : "cursor-not-allowed opacity-60"}`}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm focus-within:ring-2 focus-within:ring-ring ${importer === i.key ? "border-violet-400/60 bg-violet-500/15" : "border-white/10 hover:bg-white/[0.04]"} ${i.canUse ? "" : "cursor-not-allowed opacity-60"}`}
               >
                 <input type="radio" name="importer" value={i.key} checked={importer === i.key} disabled={!i.canUse} onChange={() => setImporter(i.key)} className="mt-1 h-4 w-4" />
                 <span className="min-w-0">
@@ -74,7 +74,7 @@ export function UploadStep({ onUploaded }: { onUploaded: (result: ImportUploadRe
         </fieldset>
 
         {selected ? (
-          <section aria-labelledby="upload-columns" className="space-y-3 rounded-md border p-4">
+          <section aria-labelledby="upload-columns" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <h2 id="upload-columns" className="text-base font-semibold">
               {t("columnsTitle", { importer: selected.label })}
             </h2>

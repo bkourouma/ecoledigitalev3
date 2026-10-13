@@ -35,11 +35,12 @@ export function DossierOffers({ application }: { application: AdmissionsApplicat
   const [withdrawing, setWithdrawing] = useState<AdmissionsOfferDto | null>(null);
   const [choosing, setChoosing] = useState<AdmissionsOfferDto | null>(null);
   const [accepting, setAccepting] = useState<AdmissionsOfferDto | null>(null);
+  const [acceptOutcome, setAcceptOutcome] = useState<"invoiced" | "free" | null>(null);
   const withdraw = useWithdrawOffer();
   const canIssue = manage && application.status === "ACCEPTED" && !hasPendingOffer(application);
 
   return (
-    <section aria-labelledby="dossier-offers" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="dossier-offers" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 id="dossier-offers" className="text-base font-semibold">
           {t("title")}
@@ -50,6 +51,7 @@ export function DossierOffers({ application }: { application: AdmissionsApplicat
           </button>
         ) : null}
       </div>
+      {acceptOutcome ? <Notice kind={acceptOutcome === "invoiced" ? "success" : "warning"}>{t(acceptOutcome === "invoiced" ? "acceptedInvoiced" : "acceptedNoInvoice")}</Notice> : null}
       {application.offers.length === 0 ? <p className="text-sm text-muted-foreground">{t("none")}</p> : null}
       <ul className="divide-y">
         {application.offers.map((o) => (
@@ -57,7 +59,7 @@ export function DossierOffers({ application }: { application: AdmissionsApplicat
             <p className="flex flex-wrap items-center gap-2">
               <StatusBadge label={to(o.status)} tone={TONE[o.status]} />
               <span>{t("expires", { date: fmt.instant(o.expiresAt) })}</span>
-              {!o.classroomId ? <span className="text-xs text-amber-700">{t("noClassroom")}</span> : null}
+              {!o.classroomId ? <span className="text-xs text-amber-300">{t("noClassroom")}</span> : null}
             </p>
             {o.conditions ? <p className="text-xs text-muted-foreground">{t("conditions", { text: o.conditions })}</p> : null}
             {o.status === "PENDING" && manage ? (
@@ -80,7 +82,7 @@ export function DossierOffers({ application }: { application: AdmissionsApplicat
       </ul>
       {issuing ? <IssueDialog application={application} onClose={() => setIssuing(false)} /> : null}
       {choosing ? <ClassroomDialog application={application} offer={choosing} onClose={() => setChoosing(null)} /> : null}
-      {accepting ? <AcceptDialog application={application} offer={accepting} onClose={() => setAccepting(null)} /> : null}
+      {accepting ? <AcceptDialog application={application} offer={accepting} onClose={() => setAccepting(null)} onAccepted={(invoiced) => setAcceptOutcome(invoiced ? "invoiced" : "free")} /> : null}
       {withdrawing ? (
         <ReasonDialog
           open
@@ -181,7 +183,7 @@ function ClassroomDialog({ application, offer, onClose }: { application: Admissi
   );
 }
 
-function AcceptDialog({ application, offer, onClose }: { application: AdmissionsApplicationDetailDto; offer: AdmissionsOfferDto; onClose: () => void }) {
+function AcceptDialog({ application, offer, onClose, onAccepted }: { application: AdmissionsApplicationDetailDto; offer: AdmissionsOfferDto; onClose: () => void; onAccepted: (invoiced: boolean) => void }) {
   const t = useTranslations("v2Admissions.offers");
   const accept = useAcceptOnBehalf();
   const rooms = useClassroomChoices(application);
@@ -197,7 +199,7 @@ function AcceptDialog({ application, offer, onClose }: { application: Admissions
     if (evidence.trim().length < 3) next["evidenceRef"] = t("evidenceRequired");
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-    accept.mutate({ offerId: offer.id, guardianId, evidenceRef: evidence.trim(), ...(!offer.classroomId && classroom ? { classroomId: classroom } : {}) }, { onSuccess: onClose });
+    accept.mutate({ offerId: offer.id, guardianId, evidenceRef: evidence.trim(), ...(!offer.classroomId && classroom ? { classroomId: classroom } : {}) }, { onSuccess: (r) => { onAccepted(r.invoiceId !== null); onClose(); } });
   }
 
   return (

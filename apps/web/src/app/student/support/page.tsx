@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { AntSelect } from "@/platform/ui/FormField";
 import {
   Card,
   CardContent,
@@ -220,7 +221,7 @@ export default function StudentSupportPage() {
                     </div>
                   </div>
                   <div className="md:w-48">
-                    <select
+                    <AntSelect
                       value={selectedCategory}
                       onChange={(e) => setSelectedCategory(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -230,7 +231,7 @@ export default function StudentSupportPage() {
                       <option value="technical">Technique</option>
                       <option value="academic">Académique</option>
                       <option value="account">Compte</option>
-                    </select>
+                    </AntSelect>
                   </div>
                 </div>
               </CardContent>
@@ -387,7 +388,7 @@ export default function StudentSupportPage() {
                   <form onSubmit={handleContactSubmit} className="space-y-4">
                     <div>
                       <Label htmlFor="category">Catégorie</Label>
-                      <select
+                      <AntSelect
                         id="category"
                         value={contactForm.category}
                         onChange={(e) => setContactForm({ ...contactForm, category: e.target.value })}
@@ -398,7 +399,7 @@ export default function StudentSupportPage() {
                         <option value="technical">Problème technique</option>
                         <option value="academic">Question académique</option>
                         <option value="account">Problème de compte</option>
-                      </select>
+                      </AntSelect>
                     </div>
                     <div>
                       <Label htmlFor="subject">Sujet</Label>

@@ -317,6 +317,8 @@ describe("ApplicationDetailScreen : dossier", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Enregistrer l'acceptation" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST")).toBe(true));
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ guardianId: IDS.guardian, evidenceRef: "REG-2026-14" });
+    // L-75 : le résultat dit clairement si une facture d'inscription a été créée (ici oui : invoiceId renseigné)
+    expect(await screen.findByText(/la facture des frais d'inscription a été créée dans Finance/)).toBeTruthy();
   });
 
   it("anonymisation : motif d'au moins 10 caractères, permission sensible requise", async () => {
@@ -424,6 +426,23 @@ describe("WaitlistScreen : rang décidé par la direction (Q-A03)", () => {
     expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ campaignId: IDS.campaign, grade: "CP1", orderedApplicationIds: [IDS.app2, IDS.app1], reason: "Fratrie prioritaire" });
     expect(await screen.findByText("L'ordre de la liste d'attente est enregistré.")).toBeTruthy();
   });
+
+  it("un seul dossier en attente (L-72) : il peut être classé en rang 1, la liste envoyée n'a qu'un élément", async () => {
+    const single = { ...listFixture, entries: [entry(1, IDS.app2, "Binta", null)], changes: [] };
+    const api = setTestApi(
+      base(["admission.read", "admission.waitlist.manage", "admission.waitlist.reorder"], {
+        [`GET ${A}/waitlist`]: single,
+        [`PUT ${A}/waitlist/order`]: { count: 1, changed: 1 },
+      }),
+    );
+    renderWithProviders(<WaitlistScreen />);
+    await screen.findByText("Choisissez un niveau pour afficher sa liste d'attente.");
+    fireEvent.change(await screen.findByLabelText("Niveau"), { target: { value: "CP1" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Classer ce dossier en rang 1" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Enregistrer l'ordre" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ campaignId: IDS.campaign, grade: "CP1", orderedApplicationIds: [IDS.app2] });
+  }, 120_000);
 });
 
 describe("CampaignsScreen", () => {
@@ -472,9 +491,13 @@ describe("SettingsScreen", () => {
     expect((await screen.findAllByRole("alert")).length).toBeGreaterThan(0);
     expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
     fireEvent.change(validity, { target: { value: "21" } });
+    // L'ouverture du formulaire public est réglable depuis l'écran (elle ne l'était que par l'API) : décocher l'envoie à l'API.
+    const open = screen.getByRole("checkbox", { name: /Formulaire de candidature public ouvert/ }) as HTMLInputElement;
+    expect(open.checked).toBe(true);
+    fireEvent.click(open);
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ institutionId: IDS.institution, offerValidityDays: 21, capacityPolicy: "HARD", duplicatePolicy: "WARN", paymentDeadlineDays: null });
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ institutionId: IDS.institution, offerValidityDays: 21, capacityPolicy: "HARD", duplicatePolicy: "WARN", paymentDeadlineDays: null, publicFormEnabled: false });
 
     expect(((await screen.findByLabelText("Lien du formulaire")) as HTMLInputElement).value).toBe(`${window.location.origin}/v2/apply/${SLUG}`);
     fireEvent.click(screen.getByRole("button", { name: "Régénérer le lien" }));

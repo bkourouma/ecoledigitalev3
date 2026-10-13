@@ -61,7 +61,7 @@ export function ExamFeeItemsPanel({ typeId }: { typeId: string }) {
           {draft.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="fee-items-empty">{t("empty")}</p> : (
             <ul className="space-y-2">
               {draft.map((d) => (
-                <li key={d.feeId} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-end sm:justify-between">
+                <li key={d.feeId} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-end sm:justify-between">
                   <p className="font-medium">{d.label}</p>
                   <Can permission="exam.fee.manage" fallback={<p className="text-sm text-muted-foreground">{t(`appliesTo.${d.appliesTo}` as never)}{d.active ? "" : ` — ${t("inactive")}`}</p>}>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">

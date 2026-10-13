@@ -62,10 +62,10 @@ export function DocumentsScreen() {
       {query.isError ? <ErrorBlock error={query.error} onRetry={() => void query.refetch()} /> : null}
       {!query.isPending && !query.isError && items.length === 0 ? <EmptyBlock title={t("empty")} description={t("emptyHint")} /> : null}
       {items.length > 0 ? (
-        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("tableCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.document")}</th>
                 <th scope="col" className="hidden px-3 py-2 sm:table-cell">{t("columns.student")}</th>
@@ -76,7 +76,7 @@ export function DocumentsScreen() {
             </thead>
             <tbody>
               {items.map((d) => (
-                <tr key={d.id} className="border-t align-top">
+                <tr key={d.id} className="border-t border-white/5 align-top transition-colors hover:bg-white/[0.04]">
                   <th scope="row" className="px-3 py-2 text-left font-medium">
                     {tKind(d.documentKind)}
                     <span className="block font-mono text-xs font-normal text-muted-foreground">

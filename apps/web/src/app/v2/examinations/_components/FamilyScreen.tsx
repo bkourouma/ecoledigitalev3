@@ -15,7 +15,7 @@ function ExamCard({ exam }: { exam: ExamFamilyExamDto }) {
   const labels = useExamLabels();
   const date = useDateFormat();
   return (
-    <li className="space-y-3 rounded-md border p-4" data-testid="family-exam">
+    <li className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4" data-testid="family-exam">
       <DemoBanner visible={exam.demoRules} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{exam.displayName ?? t("child")} — {exam.examTypeLabel} {exam.sessionYear}</h2>

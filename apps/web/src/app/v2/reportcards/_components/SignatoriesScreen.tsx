@@ -62,7 +62,7 @@ export function SignatoriesScreen() {
       {items.length > 0 ? (
         <ul className="space-y-3" aria-label={t("listLabel")}>
           {items.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 rounded-md border p-3 text-sm">
+            <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
               <div>
                 <p className="font-semibold">
                   {s.fullName} <StatusBadge label={s.active ? t("active") : t("inactive")} tone={s.active ? "success" : "neutral"} />

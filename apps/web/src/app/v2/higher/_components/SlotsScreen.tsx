@@ -42,7 +42,7 @@ export function SlotsScreen() {
       {HIGHER_SLOT_KEYS.map((key) => {
         const list = all.filter((s) => s.slotKey === key).sort((a, b) => b.validFrom.localeCompare(a.validFrom));
         return (
-          <section key={key} aria-label={tKey(key)} className="space-y-2 rounded-md border p-4">
+          <section key={key} aria-label={tKey(key)} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-semibold">{tKey(key)}</h2>
               {canManage.allowed ? (

@@ -1,7 +1,7 @@
 /**
  * Adaptateur ClamAV du port `MalwareScanner`, configurable par l'environnement (aucun secret, aucun binaire embarqué) :
  *
- *   DOCUMENTS_SCANNER              `none` (défaut) | `clamav-tcp` | `clamav-socket` | `clamav-http`
+ *   DOCUMENTS_SCANNER              `none` (défaut) | `clamav-tcp` | `clamav-socket` | `clamav-http` | `dev-eicar` (développement local)
  *   DOCUMENTS_CLAMAV_HOST / _PORT  clamd en TCP (défaut port 3310)
  *   DOCUMENTS_CLAMAV_SOCKET        clamd en socket Unix (chemin)
  *   DOCUMENTS_CLAMAV_URL           passerelle HTTP de type « clamav-rest » : `POST <url>` multipart (champ `file`), réponse JSON
@@ -45,6 +45,21 @@ export function parseClamdResponse(raw: string): ScanVerdict {
   if (found) return { status: "INFECTED", signature: (found[1] ?? "malware").slice(0, 200) };
   if (/\bOK$/.test(line)) return { status: "CLEAN" };
   return { status: "ERROR", reason: `réponse inattendue : ${line.slice(0, 100)}` };
+}
+
+/** Chaîne d'essai antivirus EICAR (inoffensive, reconnue par tous les antivirus) : https://www.eicar.org/download-anti-malware-testfile/ */
+const EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
+
+/**
+ * Analyseur de DÉVELOPPEMENT (`DOCUMENTS_SCANNER=dev-eicar`) : aucun serveur à installer. Un fichier qui contient la chaîne d'essai
+ * EICAR est « infecté » (donc mis en quarantaine), tout autre fichier est « sain ». Il ne détecte AUCUN vrai programme malveillant :
+ * refusé en production par `scanPolicyFromEnv`. Sert à voir l'écran « Quarantaine des documents » se remplir sans ClamAV (L-83).
+ */
+export class DevEicarScanner implements MalwareScanner {
+  readonly engine = "dev-eicar";
+  async scan(bytes: Uint8Array): Promise<ScanVerdict> {
+    return Buffer.from(bytes).includes(EICAR) ? { status: "INFECTED", signature: "Eicar-Test-Signature" } : { status: "CLEAN" };
+  }
 }
 
 export class ClamavScanner implements MalwareScanner {
@@ -161,8 +176,12 @@ export function clamavScannerFromEnv(env: Readonly<Record<string, string | undef
  * production (un antivirus injoignable refuse le dépôt) ; sans scanner, aucune analyse (fichiers `UNSCANNED`).
  */
 export function scanPolicyFromEnv(env: Readonly<Record<string, string | undefined>>, options: { warn?: (message: string) => void } = {}): ScanPolicy {
-  const scanner = clamavScannerFromEnv(env);
   const production = (env.NODE_ENV ?? "").trim().toLowerCase() === "production";
+  if ((env.DOCUMENTS_SCANNER ?? "").trim().toLowerCase() === "dev-eicar") {
+    if (production) throw new Error("DOCUMENTS_SCANNER=dev-eicar est réservé au développement : il ne détecte aucun vrai programme malveillant.");
+    return { scanner: new DevEicarScanner(), failClosed: false };
+  }
+  const scanner = clamavScannerFromEnv(env);
   if (!scanner) {
     if (production) options.warn?.("documents : aucun antivirus configuré (DOCUMENTS_SCANNER) — les fichiers déposés sont enregistrés sans analyse (UNSCANNED).");
     return NO_SCANNER;

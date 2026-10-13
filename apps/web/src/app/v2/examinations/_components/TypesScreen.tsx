@@ -138,7 +138,7 @@ function TypeDetail({ id }: { id: string }) {
   if (query.isError) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} />;
   const d = query.data;
   return (
-    <div className="space-y-5 rounded-md border p-4" data-testid="type-detail">
+    <div className="space-y-5 rounded-xl border border-white/10 bg-white/[0.02] p-4" data-testid="type-detail">
       <DemoBanner visible={d.placeholder} />
       <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div><dt className="text-xs text-muted-foreground">{t("contract")}</dt><dd className="font-medium">{d.resultContractId}</dd></div>
@@ -166,7 +166,7 @@ function TypeDetail({ id }: { id: string }) {
           <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("papers")}>
             <table className="w-full text-sm">
               <caption className="sr-only">{t("papers")}</caption>
-              <thead className="bg-muted/50 text-left"><tr>
+              <thead className="bg-white/[0.04] text-left"><tr>
                 <th scope="col" className="px-3 py-2">{t("code")}</th><th scope="col" className="px-3 py-2">{t("label")}</th>
                 <th scope="col" className="px-3 py-2 text-right">{t("coefficient")}</th><th scope="col" className="px-3 py-2 text-right">{t("scaleMax")}</th>
                 <th scope="col" className="hidden px-3 py-2 md:table-cell">{t("source")}</th>
@@ -238,7 +238,7 @@ export function TypesScreen() {
       {types.isPending ? <LoadingBlock /> : types.isError ? <ErrorBlock error={types.error} onRetry={() => void types.refetch()} /> : items.length === 0 ? <EmptyBlock title={t("empty")} description={t("emptyHint")} /> : (
         <ul className="grid gap-3 md:grid-cols-2">
           {items.map((x) => (
-            <li key={x.id} className="rounded-md border p-4">
+            <li key={x.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">{x.code} — {x.label}</h2>
                 <div className="flex gap-2">

@@ -462,6 +462,59 @@ export const examRevisionListQuerySchema = z.object({ status: z.enum(["PENDING",
 export const examMockLinkBodySchema = z.object({ paperId: examUuidSchema, classroomId: examUuidSchema, assessmentId: examUuidSchema }).strict();
 
 // ---------------------------------------------------------------------------
+// Jury d'un examen BLANC (jamais d'un examen officiel : l'admission officielle est prononcée par l'autorité)
+// ---------------------------------------------------------------------------
+
+export const EXAM_JURY_DECISION_CODES = ["ADMITTED", "FAILED", "DEFERRED"] as const;
+export const examJuryDecisionCodeSchema = z.enum(EXAM_JURY_DECISION_CODES);
+export type ExamJuryDecisionCode = z.infer<typeof examJuryDecisionCodeSchema>;
+export const EXAM_JURY_JUSTIFICATION_MIN = 20;
+
+export const examOpenJuryBodySchema = z.object({ heldOn: examDateSchema.optional(), note: z.string().trim().max(2000).optional() }).strict();
+export type ExamOpenJuryBody = z.infer<typeof examOpenJuryBodySchema>;
+
+export const examJuryDecisionsBodySchema = z
+  .object({
+    items: z
+      .array(z.object({ candidateId: examUuidSchema, finalCode: examJuryDecisionCodeSchema, justification: z.string().trim().max(2000).optional() }).strict())
+      .min(1)
+      .max(1000),
+  })
+  .strict();
+export type ExamJuryDecisionsBody = z.infer<typeof examJuryDecisionsBodySchema>;
+
+export const examJuryRowDtoSchema = z.object({
+  candidateId: examUuidSchema,
+  candidateNumber: z.string().nullable(),
+  lastName: z.string().nullable(),
+  firstName: z.string().nullable(),
+  /** Proposition de la règle (résultat COMPUTED de l'examen blanc), figée dans la décision une fois prise. */
+  proposedCode: examResultCodeSchema,
+  average: z.string().nullable(),
+  rank: z.number().int().nullable(),
+  decision: z.object({ finalCode: examJuryDecisionCodeSchema, justification: z.string().nullable(), decidedAt: examInstantSchema, changedFromProposal: z.boolean() }).nullable(),
+});
+export const examJuryDtoSchema = z.object({
+  id: examUuidSchema,
+  sessionId: examUuidSchema,
+  status: z.enum(["OPEN", "CLOSED"]),
+  heldOn: examDateSchema.nullable(),
+  note: z.string().nullable(),
+  openedAt: examInstantSchema,
+  closedAt: examInstantSchema.nullable(),
+  counts: z.object({ total: z.number().int(), decided: z.number().int(), changed: z.number().int() }),
+  rows: z.array(examJuryRowDtoSchema),
+});
+export type ExamJuryDto = z.infer<typeof examJuryDtoSchema>;
+/** Réponse de `GET …/mock/jury` : `jury` vaut `null` tant que le jury n'est pas ouvert. */
+export const examJuryEnvelopeSchema = z.object({ jury: examJuryDtoSchema.nullable() });
+export const examJurySaveReportDtoSchema = z.object({
+  saved: z.number().int(),
+  failed: z.array(z.object({ index: z.number().int(), candidateId: examUuidSchema, code: z.string(), message: z.string() })),
+});
+export type ExamJurySaveReportDto = z.infer<typeof examJurySaveReportDtoSchema>;
+
+// ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
 
@@ -1004,7 +1057,7 @@ export const EXAMINATIONS_ERROR_CODES = [
   "examinations.batch_not_validated", "examinations.file_empty", "examinations.file_too_large", "examinations.file_unreadable",
   "examinations.format_not_published", "examinations.format_kind_mismatch", "examinations.links_mock_only", "examinations.links_frozen",
   "examinations.assessment_unknown", "examinations.assessment_scale_mismatch", "examinations.assessment_not_mock",
-  "examinations.assessment_classroom_mismatch", "examinations.mock_only", "examinations.no_links", "examinations.format_invalid",
+  "examinations.assessment_classroom_mismatch", "examinations.mock_only", "examinations.no_links", "examinations.jury_not_found", "examinations.jury_closed", "examinations.jury_incomplete", "examinations.jury_no_results", "examinations.jury_justification_required", "examinations.jury_mock_only", "examinations.jury_immutable", "examinations.format_invalid",
   "examinations.format_published_immutable", "examinations.format_transition", "examinations.format_identity_immutable",
   "examinations.export_closed", "examinations.export_failed", "examinations.attestation_requires_admission",
   "examinations.convocation_requires_assignment", "examinations.document_revoked", "examinations.document_issued",

@@ -1,91 +1,62 @@
-/* Import des styles Ant Design - Version 5.x utilise CSS-in-JS */
-/* Les styles sont maintenant gérés par le ConfigProvider */
+/*
+ * Ajustements Ant Design. Les jetons (couleurs, rayons, hauteurs) viennent de `lib/antd-config.ts` ; ici seulement ce que les jetons
+ * ne savent pas dire. Ant Design ne sert qu'aux contrôles de formulaire (voir `platform/ui/FormField.tsx`).
+ */
 
-/* Personnalisations des styles Ant Design */
-.ant-form-item-label > label {
-  font-weight: 500;
-  color: #262626;
-}
-
+/* Les champs remplissent leur colonne ; une liste ne déborde jamais d'une carte étroite. */
 .ant-input,
-.ant-select-selector,
-.ant-input-number {
-  border-radius: 6px !important;
-}
-
-.ant-btn {
-  border-radius: 6px !important;
-  font-weight: 500;
-}
-
-.ant-card {
-  border-radius: 8px !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02) !important;
-}
-
-.ant-card-head {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.ant-card-head-title {
-  font-weight: 600;
-}
-
-/* Styles pour les messages de notification */
-.ant-message {
-  z-index: 9999;
-}
-
-/* Personnalisation des couleurs */
-.ant-btn-primary {
-  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
-  border: none;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
-}
-
-.ant-btn-primary:hover {
-  background: linear-gradient(135deg, #40a9ff 0%, #69c0ff 100%);
-  box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
-}
-
-/* Styles pour les formulaires */
-.ant-form-item {
-  margin-bottom: 16px;
-}
-
-.ant-form-item-label {
-  padding-bottom: 4px;
-}
-
-/* Styles pour les sélecteurs */
+.ant-input-affix-wrapper,
+.ant-input-number,
 .ant-select {
   width: 100%;
 }
 
-.ant-select-selector {
-  min-height: 40px;
+.ant-select .ant-select-selection-item,
+.ant-select .ant-select-selection-placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ant-select-selection-item {
-  line-height: 38px;
+/* Menu d'une liste : lisible sur le fond sombre, limité à la hauteur de l'écran sur mobile. */
+.ant-select-dropdown {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  max-width: calc(100vw - 2rem);
 }
 
-/* Styles pour les textarea */
-.ant-input {
-  min-height: 40px;
+/* Zone de texte : redimensionnable en hauteur seulement. */
+textarea.ant-input {
+  resize: vertical;
+  min-height: 5rem;
 }
 
-.ant-input[type="number"] {
-  text-align: center;
+/* Un champ date ou heure natif garde son icône lisible sur fond sombre. */
+.ant-input[type='date']::-webkit-calendar-picker-indicator,
+.ant-input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .ant-card {
-    margin: 0 8px;
+/* Case à cocher : la zone cliquable est tout le libellé (cible tactile). */
+.ant-checkbox-wrapper {
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+/* Mouvement réduit : pas de transitions. */
+@media (prefers-reduced-motion: reduce) {
+  .ant-input,
+  .ant-select,
+  .ant-select-selector,
+  .ant-checkbox-inner {
+    transition: none !important;
   }
-  
-  .ant-form-item {
-    margin-bottom: 12px;
-  }
+}
+
+/* Cases à cocher et boutons radio natifs (tableaux, listes) : même violet que les contrôles Ant Design. */
+input[type='checkbox']:not(.ant-checkbox-input),
+input[type='radio'] {
+  accent-color: #8b5cf6;
+  cursor: pointer;
 }

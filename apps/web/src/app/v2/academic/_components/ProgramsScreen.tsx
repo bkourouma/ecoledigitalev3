@@ -50,7 +50,7 @@ export function ProgramsScreen() {
       {programs.data && programs.data.length === 0 ? <EmptyBlock title={t("empty")} description={t("emptyHint")} /> : null}
       {programs.data && programs.data.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <section aria-labelledby="programs-tree-title" className="rounded-lg border p-3">
+          <section aria-labelledby="programs-tree-title" className="rounded-2xl border border-white/10 bg-card/40 p-3">
             <h2 id="programs-tree-title" className="mb-2 text-sm font-semibold">
               {t("treeTitle")}
             </h2>
@@ -129,7 +129,7 @@ function ProgramDetail({ program, levelLabel, onEdit, onFlash }: { program: Acad
   }
 
   return (
-    <article className="space-y-4 rounded-lg border p-4" aria-labelledby="program-title">
+    <article className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4" aria-labelledby="program-title">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 id="program-title" className="text-lg font-semibold">

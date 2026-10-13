@@ -203,7 +203,7 @@ function SettingsPanel() {
   }
 
   return (
-    <section aria-labelledby="settings-h" className="max-w-3xl space-y-2 rounded-md border p-4">
+    <section aria-labelledby="settings-h" className="max-w-3xl space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id="settings-h" className="text-lg font-semibold">
         {t("title")}
       </h2>

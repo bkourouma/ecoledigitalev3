@@ -9,6 +9,7 @@ import { CheckControl, FormField, TextControl } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { toneOfStatus } from "../../assessments/_components/shared";
+import { useStudentNames } from "../../assessments/_components/shared";
 import { ClassPeriodSelector, useClassPeriodSelection } from "../../results/_components/shared";
 import { DownloadButton } from "./shared";
 
@@ -22,12 +23,18 @@ export function IssueScreen({ initialClassroomId = "", initialPeriodId = "" }: {
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
   const create = useCreateBatch();
+  // Émission pour quelques élèves seulement (L-41) : sans sélection, tout l'effectif est traité.
+  const [onlySome, setOnlySome] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const roster = useStudentNames(sel.classroomId || null);
+  const rosterEntries = [...roster.byEnrollment.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
   const hasSelection = Boolean(sel.classroomId && sel.periodId);
   const pre = usePreflight(hasSelection ? { classroomId: sel.classroomId, academicPeriodId: sel.periodId, kind: "REPORT_CARD", provisional } : null);
 
-  const vars = { classroomId: sel.classroomId, academicPeriodId: sel.periodId, kind: "REPORT_CARD" as const, provisional, ...(reissue ? { reissueReason: reason.trim() } : {}) };
+  const vars = { classroomId: sel.classroomId, academicPeriodId: sel.periodId, kind: "REPORT_CARD" as const, provisional, ...(reissue ? { reissueReason: reason.trim() } : {}), ...(onlySome && picked.length > 0 ? { enrollmentIds: picked } : {}) };
 
   async function generate() {
+    if (onlySome && picked.length === 0) return setReasonError(t("pickAtLeastOne"));
     if (reissue && reason.trim().length < 5) return setReasonError(t("reasonTooShort"));
     setReasonError(null);
     try {
@@ -61,7 +68,7 @@ export function IssueScreen({ initialClassroomId = "", initialPeriodId = "" }: {
         <div className="space-y-6">
           <CheckControl checked={provisional} onChange={setProvisional} label={t("provisional")} hint={t("provisionalHint")} />
 
-          <section aria-label={t("preflightTitle")} className="space-y-3 rounded-md border p-4">
+          <section aria-label={t("preflightTitle")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <h2 className="text-lg font-semibold">{t("preflightTitle")}</h2>
             {pre.isPending && pre.fetchStatus !== "idle" ? <LoadingBlock /> : null}
             {pre.isError ? <ErrorBlock error={pre.error} onRetry={() => void pre.refetch()} /> : null}
@@ -74,7 +81,7 @@ export function IssueScreen({ initialClassroomId = "", initialPeriodId = "" }: {
                 {pre.data.issues.length > 0 ? (
                   <ul className="space-y-2" aria-label={t("issues")}>
                     {pre.data.issues.map((i, n) => (
-                      <li key={`${i.code}-${n}`} className="flex flex-wrap items-start justify-between gap-2 rounded-md border p-3 text-sm">
+                      <li key={`${i.code}-${n}`} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                         <span>
                           <StatusBadge label={t(i.blocking ? "blocking" : "warning")} tone={i.blocking ? "danger" : "warning"} /> <span className="ml-1">{i.message}</span>
                         </span>
@@ -92,8 +99,20 @@ export function IssueScreen({ initialClassroomId = "", initialPeriodId = "" }: {
             ) : null}
           </section>
 
-          <section aria-label={t("generateTitle")} className="space-y-3 rounded-md border p-4">
+          <section aria-label={t("generateTitle")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <h2 className="text-lg font-semibold">{t("generateTitle")}</h2>
+            <CheckControl checked={onlySome} onChange={(v) => { setOnlySome(v); setReasonError(null); }} label={t("onlySome")} hint={t("onlySomeHint")} />
+            {onlySome ? (
+              <fieldset className="space-y-1 rounded-md border border-white/10 p-3">
+                <legend className="px-1 text-sm font-medium">{t("pickStudents")}</legend>
+                {rosterEntries.length === 0 ? <p className="text-sm text-muted-foreground">{t("noStudents")}</p> : null}
+                {rosterEntries.map(([enrollmentId, s]) => (
+                  <CheckControl key={enrollmentId} checked={picked.includes(enrollmentId)} onChange={(v) => setPicked((l) => (v ? [...l, enrollmentId] : l.filter((x) => x !== enrollmentId)))} label={s.number ? `${s.name} (${s.number})` : s.name} />
+                ))}
+                {roster.truncated ? <p className="text-xs text-muted-foreground">{t("rosterTruncated")}</p> : null}
+                {reasonError && picked.length === 0 ? <p role="alert" className="text-xs font-medium text-destructive">{reasonError}</p> : null}
+              </fieldset>
+            ) : null}
             <CheckControl checked={reissue} onChange={setReissue} label={t("reissue")} hint={t("reissueHint")} />
             {reissue ? (
               <FormField label={t("reissueReason")} required error={reasonError} hint={t("reasonHint")}>
@@ -145,7 +164,7 @@ function BatchProgress({ batchId, resume, classroomId, periodId }: { batchId: st
   }
 
   return (
-    <section aria-label={t("progressTitle")} className="space-y-4 rounded-md border p-4">
+    <section aria-label={t("progressTitle")} className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">{t("progressTitle")}</h2>
         <StatusBadge label={tBatch(b.status)} tone={b.status === "COMPLETED" ? "success" : b.status === "FAILED" || b.status === "CANCELLED" ? "danger" : toneOfStatus(b.status === "COMPLETED_WITH_ERRORS" ? "COMPLETED_WITH_ERRORS" : "PENDING")} />
@@ -170,7 +189,7 @@ function BatchProgress({ batchId, resume, classroomId, periodId }: { batchId: st
           <h3 className="text-sm font-semibold">{t("problems")}</h3>
           <ul className="space-y-1 text-sm">
             {problems.map((i) => (
-              <li key={i.enrollmentId} className="rounded-md border px-3 py-2">
+              <li key={i.enrollmentId} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                 <StatusBadge label={tOutcome(i.outcome)} tone={i.outcome === "FAILED" ? "danger" : "warning"} /> <span className="font-mono text-xs">{i.enrollmentId.slice(0, 8)}</span> {i.message ?? i.reasonCode}
               </li>
             ))}

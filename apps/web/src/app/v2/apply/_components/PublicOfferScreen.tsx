@@ -6,7 +6,23 @@ import { publicRespondOffer, publicViewOffer } from "@/platform/v2/admissions";
 import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass } from "@/platform/ui/PageHeader";
 import { LoadingBlock, Notice } from "@/platform/ui/states";
+import { ApiError } from "@/platform/api/errors";
 import { publicErrorKey } from "./PublicFormScreen";
+
+type OfferErrorKey = "notFound" | "tooMany" | "unavailable" | "expired" | "processing";
+
+/**
+ * Message affiché à la famille. Le détail d'un refus interne (pièce non acceptée, sexe absent, classe non désignée) n'est jamais
+ * montré : un 409 devient « l'établissement vous contactera » (et non plus « lien invalide »), un 410 « proposition échue ».
+ */
+function offerErrorKey(error: unknown): OfferErrorKey {
+  if (error instanceof ApiError) {
+    if (error.status === 410) return "expired";
+    if (error.status === 409) return "processing";
+  }
+  const k = publicErrorKey(error);
+  return k === "tooMany" || k === "unavailable" ? k : "notFound";
+}
 
 /** Lit le secret dans le FRAGMENT de l'adresse (`#t=...`) : jamais envoyé au serveur, ni consigné dans ses journaux, ni transmis en `Referer`. */
 export function readOfferToken(hash: string): string | null {
@@ -31,7 +47,7 @@ export function PublicOfferScreen({ school }: { school: string }) {
   const fmt = useDateFormat();
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [view, setView] = useState<View | null>(null);
-  const [error, setError] = useState<ReturnType<typeof publicErrorKey> | null>(null);
+  const [error, setError] = useState<OfferErrorKey | null>(null);
   const [answer, setAnswer] = useState<{ status: "ACCEPTED" | "DECLINED"; message: string } | null>(null);
   const [pending, setPending] = useState(false);
   const [confirming, setConfirming] = useState<"accept" | "decline" | null>(null);
@@ -45,7 +61,7 @@ export function PublicOfferScreen({ school }: { school: string }) {
     let cancelled = false;
     publicViewOffer(school, token).then(
       (v) => !cancelled && setView(v),
-      (e) => !cancelled && setError(publicErrorKey(e)),
+      (e) => !cancelled && setError(offerErrorKey(e)),
     );
     return () => {
       cancelled = true;
@@ -59,7 +75,7 @@ export function PublicOfferScreen({ school }: { school: string }) {
     try {
       setAnswer(await publicRespondOffer(school, token, accept));
     } catch (e) {
-      setError(publicErrorKey(e));
+      setError(offerErrorKey(e));
       setConfirming(null);
     } finally {
       setPending(false);
@@ -76,7 +92,7 @@ export function PublicOfferScreen({ school }: { school: string }) {
       </div>
     );
   }
-  if (error && !view) return <Notice kind={error === "unavailable" || error === "tooMany" ? "warning" : "info"}>{t(`error.${error === "unavailable" || error === "tooMany" ? error : "notFound"}`)}</Notice>;
+  if (error && !view) return <Notice kind={error === "unavailable" || error === "tooMany" ? "warning" : "info"}>{t(`error.${error}`)}</Notice>;
   if (!view) return <LoadingBlock />;
 
   const open = view.status === "PENDING";
@@ -107,7 +123,7 @@ export function PublicOfferScreen({ school }: { school: string }) {
         ) : null}
       </dl>
       {!open ? <Notice kind="info">{t(`closed.${view.status}`)}</Notice> : null}
-      {error ? <Notice kind={error === "unavailable" || error === "tooMany" ? "warning" : "error"}>{t(`error.${error === "unavailable" || error === "tooMany" ? error : "notFound"}`)}</Notice> : null}
+      {error ? <Notice kind={error === "unavailable" || error === "tooMany" ? "warning" : "error"}>{t(`error.${error}`)}</Notice> : null}
       {open ? (
         confirming ? (
           <div className="max-w-xl space-y-3 rounded-lg border p-4" role="group" aria-label={t("confirmTitle")}>

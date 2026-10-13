@@ -6,6 +6,7 @@ import type { ImportJobDto, ImportOnExisting, ImportOptionDef, ImportUploadResul
 import { buttonClass, LoadingBlock, Notice, useDescribeError } from "@/platform/ui";
 import { useCreateTemplate, useMappingTemplates, useOptionChoices, useSetMapping, useValidateImport } from "@/platform/v2/imports";
 import { INPUT_CLASS } from "./import-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 const norm = (s: string): string => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -26,14 +27,14 @@ function OptionField({ importer, def, value, onChange, error }: { importer: Impo
         ) : null}
       </label>
       {def.kind === "choice" ? (
-        <select id={id} className={INPUT_CLASS} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}>
+        <AntSelect id={id} className={INPUT_CLASS} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}>
           <option value="">{choices.isLoading ? t("loadingChoices") : t("choose")}</option>
           {items.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
           ))}
-        </select>
+        </AntSelect>
       ) : (
         <input id={id} type="text" className={INPUT_CLASS} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`} />
       )}
@@ -127,14 +128,14 @@ export function MappingStep({ job, importer, suggestion }: { job: ImportJobDto; 
           <label htmlFor="mapping-template" className="mb-1 block text-sm font-medium">
             {t("applyTemplate")}
           </label>
-          <select id="mapping-template" className={INPUT_CLASS} value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
+          <AntSelect id="mapping-template" className={INPUT_CLASS} value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
             <option value="">{t("noTemplate")}</option>
             {templates.data.items.map((x) => (
               <option key={x.id} value={x.id}>
                 {x.name}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
       ) : null}
 
@@ -160,7 +161,7 @@ export function MappingStep({ job, importer, suggestion }: { job: ImportJobDto; 
                     </>
                   ) : null}
                 </label>
-                <select
+                <AntSelect
                   id={id}
                   className={INPUT_CLASS}
                   value={mapping[c.key] ?? ""}
@@ -175,7 +176,7 @@ export function MappingStep({ job, importer, suggestion }: { job: ImportJobDto; 
                       {used.has(h) && used.get(h) !== c.key ? ` — ${t("alreadyUsed")}` : ""}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
                 <p id={`${id}-hint`} className="mt-1 text-xs text-muted-foreground">
                   {c.description}
                   {c.example ? ` ${t("example", { value: c.example })}` : ""}

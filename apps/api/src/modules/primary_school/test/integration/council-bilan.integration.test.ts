@@ -130,7 +130,16 @@ describeIntegration("primary_school : conseil des maîtres, bilan annuel scellé
     const twice = await decideCouncilCase(deps, admin(), caseOf[e("s1")] as string, {}, DIRECTION);
     expect(twice.ok).toBe(false);
     if (!twice.ok) expect(twice.error.code).toBe("primary_school.case_already_decided");
-    unwrap(await decideCouncilCase(deps, admin(), caseOf[e("s3")] as string, {}, DIRECTION));
+    // s3 : la règle n'a rien proposé (résultats non calculés) -> le conseil de fin d'année tranche lui-même, par une décision motivée (L-50)
+    for (const [k, list] of w.world.decisions) w.world.decisions.set(k, list.filter((d) => d.enrollmentId !== e("s3")));
+    const noCode = await decideCouncilCase(deps, admin(), caseOf[e("s3")] as string, {}, DIRECTION);
+    expect(noCode.ok).toBe(false);
+    if (!noCode.ok) expect(noCode.error.field ?? noCode.error.code).toMatch(/finalCode|invalid_input/);
+    const unexplained = await decideCouncilCase(deps, admin(), caseOf[e("s3")] as string, { finalCode: "REPEAT", justification: "trop court" }, DIRECTION);
+    expect(unexplained.ok).toBe(false);
+    const d3 = unwrap(await decideCouncilCase(deps, admin(), caseOf[e("s3")] as string, { finalCode: "REPEAT", justification: "Résultats non calculés : décision du conseil motivée." }, DIRECTION));
+    expect(d3).toMatchObject({ finalCode: "REPEAT", ruleProposalCode: null, changedFromProposal: false, outcomeRecorded: "REPEATED", case: { status: "DECIDED" } });
+    expect(audit.entries.find((a) => a.action === "primary_school.council_case.decided" && a.resourceId === caseOf[e("s3")])).toMatchObject({ sensitive: true, reason: "Résultats non calculés : décision du conseil motivée." });
     const o = unwrap(await getCouncil(deps, admin(), deliberationId, DIRECTION));
     expect(o.counts).toEqual({ total: 3, open: 0, decided: 3, deferred: 0 });
     expect(o.cases.find((c) => c.enrollmentId === e("s2"))).toMatchObject({ finalCode: "REPEAT", justification: "Trois mois d'absence non justifiée cette année." });

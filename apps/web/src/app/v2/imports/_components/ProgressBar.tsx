@@ -13,8 +13,8 @@ export function ProgressBar({ label, done, total }: { label: string; done: numbe
           {done} / {total} ({value} %)
         </span>
       </div>
-      <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} className="h-3 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${value}%` }} />
+      <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-400 transition-[width] duration-500" style={{ width: `${value}%` }} />
       </div>
     </div>
   );

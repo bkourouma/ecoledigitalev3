@@ -137,7 +137,7 @@ function PrerequisitesContent({ canManage, canCheck }: { canManage: boolean; can
                     type="button"
                     aria-pressed={selectedId === n.id}
                     onClick={() => setSelectedId(n.id)}
-                    className={`flex min-h-[2.75rem] w-full flex-col rounded-md border px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === n.id ? "border-primary bg-primary/5" : "hover:bg-accent"}`}
+                    className={`flex min-h-[2.75rem] w-full flex-col rounded-xl border px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === n.id ? "border-violet-400/60 bg-violet-500/15" : "border-white/10 hover:bg-white/[0.06]"}`}
                   >
                     <span className="font-medium">{n.label}</span>
                     <span className="text-xs text-muted-foreground">
@@ -247,11 +247,11 @@ function PrerequisitesEditor({
     >
       {flash.node}
       <p className="text-sm text-muted-foreground">{t("editorHint")}</p>
-      {rows.length === 0 ? <p className="rounded-md border p-3 text-sm text-muted-foreground">{t("none")}</p> : null}
+      {rows.length === 0 ? <p className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm text-muted-foreground">{t("none")}</p> : null}
       <ul className="space-y-3" aria-label={t("prerequisites")}>
         {rows.map((r, i) =>
           canManage ? (
-            <li key={i} className="space-y-3 rounded-md border p-3">
+            <li key={i} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormField label={t("prerequisiteUe")} required error={errors[`prerequisites.${i}.prerequisiteNodeId`]}>
                   {(c) => <NativeSelect {...c} value={r.prerequisiteNodeId} placeholder={t("chooseUe")} onChange={(v) => setRow(i, { prerequisiteNodeId: v })} options={options(i)} />}
@@ -270,7 +270,7 @@ function PrerequisitesEditor({
               </button>
             </li>
           ) : (
-            <li key={i} className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
+            <li key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
               <span className="font-medium">{labelOf(r.prerequisiteNodeId)}</span>
               <StatusBadge label={tMode(r.mode)} tone="info" />
               {r.mode === "MIN_AVERAGE" ? <span className="text-muted-foreground">{t("minAverageValue", { value: showDecimal(r.minAverage) })}</span> : null}
@@ -319,7 +319,7 @@ function StudentCheck({ ue, all }: { ue: UeNode; all: ReadonlyArray<UeNode> }) {
   const check = usePrerequisitesCheck(student?.value ?? null, ue.id);
   const labelOf = (id: string) => all.find((n) => n.id === id)?.label ?? id.slice(0, 8);
   return (
-    <section aria-labelledby="check-title" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="check-title" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h3 id="check-title" className="text-base font-semibold">
         {t("title")}
       </h3>

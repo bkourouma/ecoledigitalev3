@@ -144,7 +144,7 @@ function PolicyCard() {
   const set = useSetExemptionPolicy();
   const current = settings.data?.exemptionCreditPolicy;
   return (
-    <section aria-labelledby="exemption-policy" className="space-y-2 rounded-lg border p-4">
+    <section aria-labelledby="exemption-policy" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="exemption-policy" className="text-lg font-semibold">
         {t("title")}
       </h2>

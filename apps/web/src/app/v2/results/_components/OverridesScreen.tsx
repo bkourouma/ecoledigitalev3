@@ -89,7 +89,7 @@ function OverrideCard({ override: o, name, onMessage }: { override: Override; na
   const originalText = o.kind === "VALUE" ? (o.originalValue ?? "—").replace(".", ",") : o.originalValue === null ? "—" : o.originalValue;
 
   return (
-    <article className="space-y-2 rounded-md border p-3 text-sm" aria-label={t("cardLabel", { name })}>
+    <article className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm" aria-label={t("cardLabel", { name })}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           {name} · <span className="font-mono text-xs">{o.ruleKey}</span>

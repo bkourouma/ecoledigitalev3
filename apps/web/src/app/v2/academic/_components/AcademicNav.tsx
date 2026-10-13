@@ -14,6 +14,7 @@ export function AcademicNav() {
         { href: "/v2/academic/years", label: t("years"), permission: "academic.year.read" },
         { href: "/v2/academic/programs", label: t("programs"), permission: "academic.program.read" },
         { href: "/v2/academic/curriculum", label: t("curriculum"), permission: "curriculum.read" },
+        { href: "/v2/academic/subjects", label: t("subjects"), permission: "curriculum.read" },
         { href: "/v2/academic/classrooms", label: t("classrooms"), permission: "academic.classroom.read" },
         { href: "/v2/academic/offerings", label: t("offerings"), permission: "academic.classroom.read" },
         { href: "/v2/academic/rollover", label: tRollover("nav"), permission: "academic.year.rollover" },

@@ -156,7 +156,7 @@ export function GuardianDetail({ id }: { id: string }) {
       />
       {flash.node}
       {inviteError ? <ErrorBlock error={inviteError} /> : null}
-      <section aria-labelledby="g-contact" className="rounded-lg border p-4">
+      <section aria-labelledby="g-contact" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="g-contact" className="mb-3 text-lg font-semibold">
           {t("contact")}
         </h2>

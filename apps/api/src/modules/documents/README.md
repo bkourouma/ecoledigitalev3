@@ -75,7 +75,7 @@ Permissions sensibles (MFA) : `documents.read.confidential`, `documents.manage`,
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `STORAGE_*` | — | stockage d'objets partagé (voir `platform-assembly.md` §8) |
-| `DOCUMENTS_SCANNER` | `none` | `none`, `clamav-tcp`, `clamav-socket`, `clamav-http` |
+| `DOCUMENTS_SCANNER` | `none` | `none`, `clamav-tcp`, `clamav-socket`, `clamav-http`, `dev-eicar` (développement uniquement, refusé en production : seule la chaîne d'essai EICAR est « infectée » ; actif par défaut sous `pnpm dev:v2`) |
 | `DOCUMENTS_CLAMAV_HOST`, `_PORT` (3310), `_SOCKET`, `_URL`, `_TIMEOUT_MS` (30000) | — | joignabilité de l'antivirus ; `StreamMaxLength` de clamd ≥ `DOCUMENTS_HARD_MAX_BYTES` |
 | `DOCUMENTS_SCAN_FAIL_CLOSED` | vrai en production | antivirus injoignable : refuser (`503`) ou stocker `UNSCANNED` |
 | `DOCUMENTS_HARD_MAX_BYTES` | 52 428 800 (50 Mio, plafond 100 Mio) | taille maximale absolue d'un fichier |

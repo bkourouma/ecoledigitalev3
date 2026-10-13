@@ -8,6 +8,7 @@ import { usePermission } from "@/platform/access";
 import { buttonClass, DataTable, PageHeader, StatusBadge, useDateFormat, type DataTableColumn } from "@/platform/ui";
 import { useImportJobs, useImporters } from "@/platform/v2/imports";
 import { INPUT_CLASS, formatDuration, toneOf } from "./import-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 /** Historique des imports : un tableau lisible sur mobile (colonnes secondaires masquées), filtres par importeur et état. */
 export function HistoryScreen() {
@@ -63,12 +64,12 @@ export function HistoryScreen() {
           ) : undefined
         }
       />
-      <form className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => e.preventDefault()} aria-label={t("history.filters")}>
+      <form className="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-4 [grid-template-columns:repeat(auto-fit,minmax(14rem,18rem))]" onSubmit={(e) => e.preventDefault()} aria-label={t("history.filters")}>
         <div>
           <label htmlFor="imports-filter-importer" className="mb-1 block text-sm font-medium">
             {t("history.filterImporter")}
           </label>
-          <select
+          <AntSelect
             id="imports-filter-importer"
             className={INPUT_CLASS}
             value={importer}
@@ -83,13 +84,13 @@ export function HistoryScreen() {
                 {i.label}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
         <div>
           <label htmlFor="imports-filter-status" className="mb-1 block text-sm font-medium">
             {t("history.filterStatus")}
           </label>
-          <select
+          <AntSelect
             id="imports-filter-status"
             className={INPUT_CLASS}
             value={status}
@@ -104,7 +105,7 @@ export function HistoryScreen() {
                 {t(`status.${s}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
       </form>
       <DataTable

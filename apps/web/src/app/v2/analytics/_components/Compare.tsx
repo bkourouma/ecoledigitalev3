@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import type { AnalyticsComparisonDomain, AnalyticsCompareQuery } from "@ecoledigitale/contracts/v2/analytics";
 import { usePermission } from "@/platform/access";
 import { useAnalyticsCompare, useAnalyticsScopes } from "@/platform/v2/analytics";
@@ -97,7 +98,7 @@ function Compare() {
       {domains.length === 0 ? (
         <Notice kind="info">{t("noPermission")}</Notice>
       ) : (
-        <form className="space-y-4" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("form")}>
+        <form className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4 sm:p-5" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("form")}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label={t("domain")}>
               {(c) => <NativeSelect {...c} value={domain} onChange={(v) => set({ domain: v as AnalyticsComparisonDomain })} options={domains.map((x) => ({ value: x, label: t(`domains.${x}`) }))} />}
@@ -151,7 +152,7 @@ function Compare() {
               { id: "metric", header: t("metric"), rowHeader: true, cell: (r) => t(`metrics.${d.domain}.${r.key}`) },
               { id: "baseline", header: d.baseline.label || t("baseline"), align: "right", cell: (r) => <span className="tabular-nums">{cell(r.baseline, r.unit)}</span> },
               { id: "target", header: d.target.label || t("target"), align: "right", cell: (r) => <span className="tabular-nums">{cell(r.target, r.unit)}</span> },
-              { id: "delta", header: t("delta"), align: "right", cell: (r) => <span className="tabular-nums">{r.delta === null ? t("notMeasured") : signed(r.delta, r.unit)}</span> },
+              { id: "delta", header: t("delta"), align: "right", cell: (r) => <span className="inline-flex items-center justify-end gap-1 tabular-nums">{r.delta === null ? t("notMeasured") : <><Trend value={r.delta} />{signed(r.delta, r.unit)}</>}</span> },
               { id: "change", header: t("change"), align: "right", cell: (r) => <span className="tabular-nums">{r.changeBps === null ? "—" : signedPercent(r.changeBps)}</span>, className: "hidden sm:table-cell" },
             ]}
             rows={d.metrics}
@@ -174,4 +175,10 @@ function Compare() {
   function signedPercent(bps: number): string {
     return `${bps > 0 ? "+" : ""}${date.number(bps / 100)} %`;
   }
+}
+
+/** Flèche de tendance (décorative : le signe + / − du texte porte le sens ; aucune valeur n'est jugée bonne ou mauvaise). */
+function Trend({ value }: { value: number }) {
+  const Icon = value > 0 ? ArrowUpRight : value < 0 ? ArrowDownRight : Minus;
+  return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
 }

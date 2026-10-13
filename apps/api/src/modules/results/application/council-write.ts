@@ -189,6 +189,7 @@ export async function publishYearDecision(deps: ResultsDeps, ctx: RequestContext
           by: ctx.userId as string,
           byName: actorName,
           at: now,
+          justification: input.justification?.trim() ? input.justification.trim() : null,
         }),
       );
       if (!done) return err(conflict(ResultsCode.DECISION_TRANSITION, "Une décision de fin d'année existe déjà pour cette inscription.", {}));

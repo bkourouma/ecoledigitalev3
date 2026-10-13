@@ -45,7 +45,7 @@ export function RolloverWarnings({ warnings, titleKey = "plan" }: { warnings: Re
 function Counter({ label, value, tone }: { label: string; value: number; tone?: "warning" }) {
   const { number } = useDateFormat();
   return (
-    <div className={`rounded-md border p-3 ${tone === "warning" && value > 0 ? "border-amber-300 bg-amber-50" : ""}`}>
+    <div className={`rounded-xl border p-3 ${tone === "warning" && value > 0 ? "border-amber-400/40 bg-amber-400/10" : ""}`}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold">{number(value)}</dd>
     </div>
@@ -54,7 +54,7 @@ function Counter({ label, value, tone }: { label: string; value: number; tone?: 
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby={id} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h3 id={id} className="text-base font-semibold">
         {title}
       </h3>
@@ -79,7 +79,7 @@ export function AnomalyGroups({ anomalies }: { anomalies: ReadonlyArray<Rollover
       {[...groups.entries()].map(([code, list]) => {
         const { shown, more } = capped(list, 15);
         return (
-          <div key={code} className="rounded-md border border-amber-300 bg-amber-50/60 p-3 text-sm">
+          <div key={code} className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm">
             <p className="font-medium">{t("group", { label: t(`code.${code}`), count: list.length })}</p>
             <ul className="mt-1 list-disc space-y-1 pl-5">
               {shown.map((a, i) => {
@@ -189,7 +189,7 @@ export function RolloverPlanView({ plan }: { plan: AcademicRolloverPlanDto }) {
             <Counter label={t("holidays.notRecurring")} value={plan.holidays.notRecurring} tone="warning" />
           </dl>
           {plan.holidays.notRecurring > 0 ? (
-            <p className="text-sm text-amber-900">
+            <p className="text-sm text-amber-300">
               {t("holidays.notRecurringHint", { count: plan.holidays.notRecurring })}{" "}
               <Link href="/v2/academic/settings?tab=calendar" className="font-medium underline underline-offset-4">
                 {t("holidays.openCalendar")}

@@ -126,7 +126,7 @@ export function SuggestionsPanel({ facts }: { facts: CouncilsFacts | null }) {
   const text = useEnumText();
   const list = facts?.results?.suggestions ?? [];
   return (
-    <section aria-labelledby="item-suggestions" className="space-y-2 rounded-lg border border-dashed border-amber-400 bg-amber-50/40 p-3">
+    <section aria-labelledby="item-suggestions" className="space-y-2 rounded-2xl border border-dashed border-amber-400/40 bg-amber-400/10 p-3">
       <h2 id="item-suggestions" className="text-lg font-semibold">
         {t("title")}
       </h2>
@@ -309,7 +309,7 @@ export function DecisionsPanel({ decisions }: { decisions: readonly CouncilsDeci
       ) : (
         <ul className="space-y-3">
           {decisions.map((d) => (
-            <li key={d.id} className="space-y-1 rounded-md border p-3">
+            <li key={d.id} className="space-y-1 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <strong className="text-sm">{d.decisionTypeLabel ?? d.decisionTypeCode}</strong>
                 <EnumLabel group="decisionStatus" value={d.status} />
@@ -388,7 +388,7 @@ function TargetFields({ programId, gradeLevelId, label, onProgram, onGrade, onLa
   const programs = usePrograms();
   const grades = useReference("grade-levels");
   return (
-    <fieldset className="space-y-3 rounded-md border p-3">
+    <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <legend className="px-1 text-sm font-medium">{t("target")}</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label={t("targetProgram")} error={errors.targetProgramId ?? null}>
@@ -553,7 +553,7 @@ export function DecisionForm({ itemId, detail, council }: { itemId: string; deta
         </FormField>
         {type?.requiresTarget ? <TargetFields programId={programId} gradeLevelId={gradeLevelId} label={targetLabel} onProgram={setProgramId} onGrade={setGradeLevelId} onLabel={setTargetLabel} errors={errors} /> : null}
         {existing ? (
-          <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+          <div className="space-y-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
             <p className="text-sm">{t("existing", { decision: existing.decisionTypeLabel ?? existing.decisionTypeCode })}</p>
             <FormField label={t("supersedeReason")} required error={errors.supersedeReason ?? null}>
               {(c) => <TextAreaControl {...c} value={supersedeReason} onChange={setSupersedeReason} rows={2} maxLength={1000} />}

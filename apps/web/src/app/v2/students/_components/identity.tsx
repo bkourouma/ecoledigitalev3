@@ -157,17 +157,17 @@ export function DuplicateWarning({
   const t = useTranslations("v2Students.duplicates");
   if (candidates.length === 0) return null;
   return (
-    <section aria-labelledby="dup-title" className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+    <section aria-labelledby="dup-title" className="space-y-3 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
       <h3 id="dup-title" className="font-semibold">
         {t("title", { count: candidates.length })}
       </h3>
       <p>{t("explain")}</p>
-      <ul className="divide-y divide-amber-200 rounded border border-amber-200 bg-white/60">
+      <ul className="divide-y divide-amber-400/20 rounded border border-amber-400/40 bg-white/5">
         {candidates.map((c) => (
           <li key={c.personId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2">
             <span className="font-medium">{c.displayName}</span>
             <span className="text-xs text-muted-foreground">{c.birthDate ?? t("noBirthDate")}</span>
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">{t(`match.${c.match}`)}</span>
+            <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-xs">{t(`match.${c.match}`)}</span>
             {c.studentNumber ? <span className="text-xs">{c.studentNumber}</span> : null}
             {c.roles.map((r) => (
               <span key={r} className="rounded bg-muted px-1.5 py-0.5 text-xs">

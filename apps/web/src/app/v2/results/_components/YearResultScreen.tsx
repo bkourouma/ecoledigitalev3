@@ -39,7 +39,7 @@ export function YearResultScreen({ enrollmentId, yearId }: { enrollmentId: strin
                 <p>{t("missing", { periods: data.missingPeriodIds.map(periodLabel).join(", ") || "—" })}</p>
               </Notice>
             ) : null}
-            <section aria-label={t("summary")} className="space-y-3 rounded-md border p-4">
+            <section aria-label={t("summary")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold">{t("summary")}</h2>
                 {data.validated === true ? <StatusBadge label={t("validated")} tone="success" /> : null}
@@ -69,7 +69,7 @@ export function YearResultScreen({ enrollmentId, yearId }: { enrollmentId: strin
               <div role="region" aria-label={t("periodsCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <table className="w-full border-collapse text-sm">
                   <caption className="sr-only">{t("periodsCaption")}</caption>
-                  <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th scope="col" className="px-3 py-2">{t("columns.period")}</th>
                       <th scope="col" className="px-3 py-2 text-right">{t("columns.average")}</th>

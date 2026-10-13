@@ -29,9 +29,9 @@ export interface ResponsiveTableProps<T> {
  */
 export function ResponsiveTable<T>({ columns, rows, rowKey, caption, className, rowClassName }: ResponsiveTableProps<T>) {
   return (
-    <div role="table" aria-label={caption} className={cn("w-full text-sm", className)}>
+    <div role="table" aria-label={caption} className={cn("w-full text-sm md:overflow-hidden md:rounded-2xl md:border md:border-white/10 md:bg-card/40", className)}>
       <div role="rowgroup" className="hidden md:block">
-        <div role="row" className="grid grid-flow-col auto-cols-fr gap-4 border-b px-3 py-2 text-left font-medium text-muted-foreground">
+        <div role="row" className="grid grid-flow-col auto-cols-fr gap-4 border-b border-white/10 bg-white/[0.04] px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {columns.map((c) => (
             <div key={c.key} role="columnheader" className={c.className}>
               {c.header}
@@ -45,7 +45,7 @@ export function ResponsiveTable<T>({ columns, rows, rowKey, caption, className, 
             key={rowKey(row)}
             role="row"
             className={cn(
-              "rounded-lg border p-3 md:grid md:grid-flow-col md:auto-cols-fr md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b",
+              "rounded-2xl border border-white/10 bg-card/40 p-3 md:grid md:grid-flow-col md:auto-cols-fr md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b md:border-white/5 md:bg-transparent md:px-3 md:py-2.5 md:transition-colors md:hover:bg-white/[0.04] md:last:border-b-0",
               rowClassName?.(row),
             )}
           >

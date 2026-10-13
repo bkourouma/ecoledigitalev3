@@ -67,7 +67,7 @@ export function CopyableValue({ label, value }: { label: string; value: string }
   return (
     <div className="space-y-1.5">
       <FormField label={label}>
-        {(c) => <input {...c} readOnly value={value} onFocus={(e) => e.currentTarget.select()} className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 font-mono text-xs" />}
+        {(c) => <input {...c} readOnly value={value} onFocus={(e) => e.currentTarget.select()} className="flex h-10 w-full rounded-xl border border-input bg-muted px-3 py-2 font-mono text-xs" />}
       </FormField>
       <button
         type="button"

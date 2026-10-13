@@ -78,7 +78,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
   return (
     <div className="space-y-4">
       <Can permission="exam.candidate.manage">
-        <section aria-labelledby="add-title" className="space-y-3 rounded-md border p-4">
+        <section aria-labelledby="add-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h2 id="add-title" className="text-base font-semibold">{t("add.title")}</h2>
           <p className="text-sm text-muted-foreground">{t("add.hint")}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

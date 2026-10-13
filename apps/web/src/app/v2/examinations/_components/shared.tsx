@@ -62,7 +62,7 @@ export function Phases({ status }: { status: ExamSessionStatus }) {
   return (
     <ol aria-label={tp("phases")} className="flex flex-wrap gap-2">
       {SESSION_PHASES.map((p, i) => (
-        <li key={p} aria-current={i === index ? "step" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium", i < index && "border-emerald-300 bg-emerald-50 text-emerald-800", i === index && "border-primary bg-primary text-primary-foreground", i > index && "text-muted-foreground")}>
+        <li key={p} aria-current={i === index ? "step" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium", i < index && "border-emerald-400/40 bg-emerald-400/10 text-emerald-200", i === index && "border-primary bg-primary text-primary-foreground", i > index && "text-muted-foreground")}>
           {t(p as never)}
         </li>
       ))}

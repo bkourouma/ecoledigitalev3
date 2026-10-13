@@ -6,7 +6,7 @@ import { NOTIF_CHANNELS, NOTIF_STRATEGIES, type NotifRuleView } from "@ecoledigi
 import { usePermission } from "@/platform/access";
 import { useNotifCatalog, useNotifRules, useNotifTriggers, useResetRule, useSaveRule } from "@/platform/v2/notifications";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { ModalDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
@@ -146,13 +146,13 @@ function RuleForm({ rule, templates, audiences, onDone }: { rule: NotifRuleView;
       </label>
       <FormField label={t("templateField")}>
         {(c) => (
-          <select {...c} value={d.templateCode} onChange={(e) => setD({ ...d, templateCode: e.target.value as RuleDraft["templateCode"] })} className={inputClass}>
+          <AntSelect {...c} value={d.templateCode} onChange={(e) => setD({ ...d, templateCode: e.target.value as RuleDraft["templateCode"] })} className={inputClass}>
             {templates.map((tpl) => (
               <option key={tpl.code} value={tpl.code}>
                 {tpl.label}
               </option>
             ))}
-          </select>
+          </AntSelect>
         )}
       </FormField>
 
@@ -160,13 +160,13 @@ function RuleForm({ rule, templates, audiences, onDone }: { rule: NotifRuleView;
         <legend className="px-1 text-sm font-semibold">{t("audienceField")}</legend>
         <FormField label={t("audienceKind")}>
           {(c) => (
-            <select {...c} value={d.audienceKind} onChange={(e) => setD({ ...d, audienceKind: e.target.value as RuleDraft["audienceKind"] })} className={inputClass}>
+            <AntSelect {...c} value={d.audienceKind} onChange={(e) => setD({ ...d, audienceKind: e.target.value as RuleDraft["audienceKind"] })} className={inputClass}>
               {allowedAudiences.map((k) => (
                 <option key={k} value={k}>
                   {t(`audiences.${k}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
         {d.audienceKind === "STUDENT_GUARDIANS" ? (
@@ -206,13 +206,13 @@ function RuleForm({ rule, templates, audiences, onDone }: { rule: NotifRuleView;
         </div>
         <FormField label={t("strategyField")} hint={t("strategyHint")}>
           {(c) => (
-            <select {...c} value={d.strategy} onChange={(e) => setD({ ...d, strategy: e.target.value as RuleDraft["strategy"] })} className={inputClass}>
+            <AntSelect {...c} value={d.strategy} onChange={(e) => setD({ ...d, strategy: e.target.value as RuleDraft["strategy"] })} className={inputClass}>
               {NOTIF_STRATEGIES.map((s) => (
                 <option key={s} value={s}>
                   {t(`strategies.${s}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
         <label className="flex items-center gap-2 text-sm">

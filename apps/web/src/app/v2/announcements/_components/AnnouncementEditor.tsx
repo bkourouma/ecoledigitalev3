@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { MESSAGING_AUDIENCES, messagingCreateAnnouncementBodySchema, type MessagingAnnouncementDto, type MessagingAttachmentDto, type MessagingAudience } from "@ecoledigitale/contracts/v2/messaging";
 import { useAnnouncement, useAudiencePreview, useCreateAnnouncement, usePublishAnnouncement, useUpdateAnnouncement } from "@/platform/v2/messaging";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
 import { apiErrorToFieldErrors, validateWith, type FieldErrors } from "@/platform/ui/validation";
@@ -117,13 +117,13 @@ function EditorForm({ existing }: { existing: MessagingAnnouncementDto | null })
       <div className="grid gap-4 sm:grid-cols-3">
         <FormField label={t("editor.priority")}>
           {(c) => (
-            <select {...c} value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} className={inputClass}>
+            <AntSelect {...c} value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} className={inputClass}>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
                   {tp(p)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
         <FormField label={t("editor.publishAt")} hint={t("editor.publishAtHint")} error={errors["publishAt"]}>

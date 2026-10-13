@@ -56,7 +56,7 @@ export function TemplatesScreen() {
           {kinds.map((kind) => {
             const list = (configs.data ?? []).filter((c) => c.documentKind === kind && c.isCurrent);
             return (
-              <li key={kind} className="space-y-2 rounded-md border p-4">
+              <li key={kind} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold">{t(`kinds.${kind}`)}</h3>
                   <button type="button" className={buttonClass.secondary} onClick={() => setEditing({ kind, config: list[0] ?? null })} aria-label={t("configureOf", { kind: t(`kinds.${kind}`) })}>
@@ -92,7 +92,7 @@ export function TemplatesScreen() {
         {!templates.isPending && !templates.isError && (templates.data ?? []).length === 0 ? <EmptyBlock title={t("none")} /> : null}
         <ul className="space-y-2">
           {(templates.data ?? []).map((tpl) => (
-            <li key={`${tpl.key}-${tpl.version}`} className="rounded-md border p-3 text-sm">
+            <li key={`${tpl.key}-${tpl.version}`} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
               <p className="flex flex-wrap items-center gap-2 font-medium">
                 {tpl.title} <StatusBadge label={tPack(tpl.pack)} tone="neutral" /> <span className="font-mono text-xs font-normal">{`${tpl.key} · v${tpl.version}`}</span>
               </p>
@@ -179,7 +179,7 @@ function ConfigDialog({ kind, config, templates, onClose, onDone }: { kind: Repo
         </FormField>
       </div>
       {Object.keys(options).length > 0 ? (
-        <fieldset className="space-y-3 rounded-md border p-3">
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("options")}</legend>
           {Object.entries(options).map(([key, spec]) =>
             spec.type === "boolean" ? (
@@ -197,7 +197,7 @@ function ConfigDialog({ kind, config, templates, onClose, onDone }: { kind: Repo
         </fieldset>
       ) : null}
       {template && template.signatureSlots.length > 0 ? (
-        <fieldset className="space-y-3 rounded-md border p-3">
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("signatories")}</legend>
           {template.signatureSlots.map((slot) => (
             <FormField key={slot.slot} label={`${slot.label}${slot.required ? "" : ` (${t("optional")})`}`} required={slot.required} error={errors[`signatureAssignments.${slot.slot}`]}>

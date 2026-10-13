@@ -9,6 +9,8 @@
  */
 
 import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { ArrowRight, Clock, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ANALYTICS_FEATURES, type AnalyticsExportDataset, type AnalyticsMeta, type AnalyticsReadingStatus, type AnalyticsScopeQuery } from "@ecoledigitale/contracts/v2/analytics";
 import { useFeature, usePermission } from "@/platform/access";
@@ -17,32 +19,7 @@ import { downloadText } from "@/platform/ui/csv";
 import { FormField, NativeSelect } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, StatusBadge, type Tone } from "@/platform/ui/PageHeader";
-import { SectionNav, type SectionNavItem } from "@/platform/ui/SectionNav";
 import { LoadingBlock, Notice } from "@/platform/ui/states";
-
-// ---------------------------------------------------------------------------------------------------------------------
-// Navigation de section
-// ---------------------------------------------------------------------------------------------------------------------
-
-export function AnalyticsNav() {
-  const t = useTranslations("v2Owner.nav");
-  const items: SectionNavItem[] = [
-    { href: "/v2/direction", label: t("dashboard"), permission: "analytics.read", exact: true },
-    { href: "/v2/analytics", label: t("indicators"), permission: "analytics.read", exact: true },
-    { href: "/v2/direction/effectifs", label: t("enrollment"), permission: "analytics.read" },
-    { href: "/v2/analytics/admissions", label: t("admissions"), permission: "analytics.admissions.read" },
-    { href: "/v2/analytics/vie-scolaire", label: t("schoollife"), permission: "analytics.schoollife.read" },
-    { href: "/v2/owner/pedagogie", label: t("pedagogy"), permission: "analytics.pedagogy.read" },
-    { href: "/v2/owner/scolarite", label: t("tuition"), permission: "analytics.finance.read" },
-    { href: "/v2/owner/tresorerie", label: t("treasury"), permission: "analytics.treasury.read" },
-    { href: "/v2/owner/paie", label: t("payroll"), permission: "analytics.payroll.read" },
-    { href: "/v2/owner/charges", label: t("charges"), permission: "analytics.charges.read" },
-    { href: "/v2/analytics/comparaisons", label: t("compare"), permission: "analytics.read" },
-    { href: "/v2/analytics/alertes", label: t("alerts"), permission: "analytics.alerts.read" },
-    { href: "/v2/owner/fraicheur", label: t("freshness"), permission: "analytics.read", exact: true },
-  ];
-  return <SectionNav label={t("label")} items={items} />;
-}
 
 /**
  * Bandeau « règles de démonstration » : tant qu'une période lue repose sur un jeu de règles fictif (`placeholder`), les moyennes,
@@ -118,7 +95,7 @@ export function ScopeFilters({ value, onChange, fields }: { value: ScopeValue; o
   );
   const set = (patch: Partial<ScopeValue>) => onChange({ ...value, ...patch });
   return (
-    <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("label")}>
+    <form className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-4 [grid-template-columns:repeat(auto-fit,minmax(12rem,18rem))]" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("label")}>
       {fields.includes("institution") && institutions.length > 1 ? (
         <FormField label={t("institution")}>
           {(c) => <NativeSelect {...c} value={value.institutionId} onChange={(v) => set({ institutionId: v, campusId: "", classroomId: "" })} placeholder={t("allInstitutions")} options={institutions.map((i) => ({ value: i.id, label: i.label }))} />}
@@ -159,7 +136,10 @@ export function FreshnessBar({ meta }: { meta: AnalyticsMeta | undefined }) {
   if (!meta) return null;
   return (
     <div className="space-y-2" data-testid="freshness">
-      <p className="text-sm text-muted-foreground">{meta.asOf ? t("asOf", { date: date.instant(meta.asOf) }) : t("never")}</p>
+      <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-muted-foreground">
+        <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+        {meta.asOf ? t("asOf", { date: date.instant(meta.asOf) }) : t("never")}
+      </p>
       {meta.stale && meta.asOf ? <Notice kind="warning">{t("stale")}</Notice> : null}
       {meta.gaps.length > 0 ? (
         <Notice kind="warning">
@@ -186,16 +166,24 @@ export function StatusLabel({ status }: { status: AnalyticsReadingStatus }) {
   return <StatusBadge label={t(status)} tone={TONE[status]} />;
 }
 
+const ACCENT: Record<AnalyticsReadingStatus, string> = { good: "bg-emerald-400", warning: "bg-amber-400", critical: "bg-red-400", neutral: "bg-transparent" };
+
 /** Carte d'indicateur : valeur, détail, état en texte ; « Non mesuré » quand la source n'a rien mesuré. */
-export function KpiCard({ label, value, detail, status, measured = true }: { label: string; value: ReactNode; detail?: ReactNode; status?: AnalyticsReadingStatus; measured?: boolean }) {
+export function KpiCard({ label, value, detail, status, measured = true, icon: Icon }: { label: string; value: ReactNode; detail?: ReactNode; status?: AnalyticsReadingStatus; measured?: boolean; icon?: LucideIcon }) {
   const t = useTranslations("v2Owner.common");
   return (
-    <div className="rounded-lg border p-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums">{measured ? value : <span className="text-base font-medium text-muted-foreground">{t("notMeasured")}</span>}</dd>
-      {measured && detail ? <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd> : null}
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-card/60 p-4 shadow-sm transition-colors hover:border-violet-400/30">
+      {measured && status ? <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-0.5 ${ACCENT[status]}`} /> : null}
+      {Icon ? (
+        <span aria-hidden="true" className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+      ) : null}
+      <dt className={`text-sm font-medium leading-snug text-muted-foreground ${Icon ? "pr-12" : ""}`}>{label}</dt>
+      <dd className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{measured ? value : <span className="text-base font-medium text-muted-foreground">{t("notMeasured")}</span>}</dd>
+      {measured && detail ? <dd className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{detail}</dd> : null}
       {measured && status ? (
-        <dd className="mt-2">
+        <dd className="mt-3">
           <StatusLabel status={status} />
         </dd>
       ) : null}
@@ -206,22 +194,39 @@ export function KpiCard({ label, value, detail, status, measured = true }: { lab
 export function KpiGrid({ children, label }: { children: ReactNode; label: string }) {
   return (
     <section aria-label={label}>
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</dl>
+      <dl className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">{children}</dl>
     </section>
   );
 }
 
-export function Section({ id, title, actions, children }: { id: string; title: string; actions?: ReactNode; children: ReactNode }) {
+export function Section({ id, title, actions, icon: Icon, children }: { id: string; title: string; actions?: ReactNode; icon?: LucideIcon; children: ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id={`${id}-title`} className="text-lg font-semibold">
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-4 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
+        <h2 id={`${id}-title`} className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+          {Icon ? (
+            <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+              <Icon className="h-4 w-4" />
+            </span>
+          ) : (
+            <span aria-hidden="true" className="h-5 w-1 rounded-full bg-[var(--brand-primary,#8b5cf6)]" />
+          )}
           {title}
         </h2>
         {actions}
       </div>
       {children}
     </section>
+  );
+}
+
+/** Lien « voir le détail » d'un bloc : discret, avec flèche (remplace un bouton plein). */
+export function MoreLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="group inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-violet-300 transition-colors hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {children}
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+    </Link>
   );
 }
 

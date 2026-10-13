@@ -158,7 +158,7 @@ function BindingsContent() {
         ? groups.map(({ contractId, items }) => {
             const info = contractName.get(contractId);
             return (
-              <section key={contractId} aria-labelledby={`contract-${contractId}`} className="space-y-2 rounded-lg border p-4">
+              <section key={contractId} aria-labelledby={`contract-${contractId}`} className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
                 <div>
                   <h2 id={`contract-${contractId}`} className="text-lg font-semibold">
                     {info?.name ?? contractId} <span className="font-mono text-xs font-normal text-muted-foreground">{contractId}</span>
@@ -276,7 +276,7 @@ function BindingDialog({ initial, contracts, onClose, onDone }: { initial: Rules
       <fieldset className="space-y-2" disabled={editing}>
         <legend className="text-sm font-medium">{t("scope")}</legend>
         {(["tenant", "program", "level"] as const).map((k) => (
-          <label key={k} className="flex min-h-[2.75rem] items-start gap-3 rounded-md border p-3 text-sm">
+          <label key={k} className="flex min-h-[2.75rem] items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
             <input type="radio" name="binding-scope" value={k} checked={form.scope === k} onChange={() => set("scope")(k)} className="mt-1 h-4 w-4 accent-primary" />
             <span>
               <span className="block font-medium">{tScope(k)}</span>

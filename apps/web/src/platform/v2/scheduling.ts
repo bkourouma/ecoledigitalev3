@@ -384,6 +384,16 @@ export function useSchedulingSettings(institutionId: string | null) {
   return hooks.useApiQuery([...KEY, "settings", institutionId], `${SCHEDULING_BASE}/reference/settings`, { schema: schedulingSettingsDtoSchema, query: { institutionId: institutionId ?? undefined }, enabled: institutionId !== null, retry: false, staleTime: 5 * 60_000 });
 }
 
+export function useUpdateSchedulingSettings() {
+  return useApiAction({
+    method: "PUT",
+    path: `${SCHEDULING_BASE}/reference/settings`,
+    body: (v: { institutionId: string; openingStart?: string | null; openingEnd?: string | null; openingWeekdays?: number[] | null }) => v,
+    schema: schedulingSettingsDtoSchema,
+    invalidate: [[...KEY, "settings"], [...KEY, "rooms"]],
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Emplois du temps (patrons récurrents)
 // ---------------------------------------------------------------------------

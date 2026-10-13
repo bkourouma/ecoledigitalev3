@@ -72,7 +72,7 @@ export function ConflictsScreen() {
             const incoming = str(c.incoming.statusCode);
             const existing = c.existing ? str(c.existing.statusCode) : null;
             return (
-              <li key={c.id} className="space-y-3 rounded-lg border p-4">
+              <li key={c.id} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold">
                     <StudentName id={c.studentId} />

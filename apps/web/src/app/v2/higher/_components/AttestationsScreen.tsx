@@ -50,10 +50,10 @@ export function AttestationsScreen() {
       {roster.isError ? <ErrorBlock error={roster.error} onRetry={() => void roster.refetch()} /> : null}
       {programNodeId && !roster.isPending && !roster.isError && rows.length === 0 ? <EmptyBlock title={t("empty")} /> : null}
       {rows.length > 0 ? (
-        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("tableCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.student")}</th>
                 <th scope="col" className="px-3 py-2 text-right">{t("columns.ue")}</th>
@@ -66,7 +66,7 @@ export function AttestationsScreen() {
               {rows.map((r) => {
                 const name = r.fullName ?? t("studentFallback", { id: r.studentId.slice(0, 4) });
                 return (
-                  <tr key={r.studentId} className="border-t align-top">
+                  <tr key={r.studentId} className="border-t border-white/5 align-top transition-colors hover:bg-white/[0.04]">
                     <th scope="row" className="min-w-[8rem] px-3 py-2 text-left font-medium">
                       {name}
                       {r.matricule ? <span className="block text-xs font-normal text-muted-foreground">{r.matricule}</span> : null}

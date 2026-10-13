@@ -61,7 +61,7 @@ export function SlotSuggester({
   }
 
   return (
-    <section aria-labelledby="slots-title" className="space-y-3 rounded-md border p-3">
+    <section aria-labelledby="slots-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <h3 id="slots-title" className="text-sm font-semibold">
         {t("title")}
       </h3>

@@ -21,10 +21,13 @@ import {
 } from "@/platform/v2/attendance";
 import { addDays, todayCivil } from "@/platform/v2/dates";
 import { useStaffDirectory } from "@/platform/v2/directory";
+import { useDocumentCategories } from "@/platform/v2/documents";
 import { useStaffOptions } from "@/platform/v2/lookups";
+import { useMyStaff } from "@/platform/v2/people";
 import { Can, FeatureNotice } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { CheckControl, FormField, NativeSelect, TextAreaControl, TextControl } from "@/platform/ui/FormField";
+import { DocumentPicker, type DocumentRef } from "@/platform/ui/DocumentPicker";
 import { useDateFormat } from "@/platform/ui/format";
 import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge, type Tone } from "@/platform/ui/PageHeader";
@@ -184,7 +187,7 @@ function OwnView() {
       />
       {flash.node}
       <Can permission="attendance.own.record">
-        <section aria-labelledby="own-clock" className="space-y-3 rounded-lg border p-4">
+        <section aria-labelledby="own-clock" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
           <h2 id="own-clock" className="text-lg font-semibold">
             {t("clock")}
           </h2>
@@ -371,8 +374,19 @@ function LeaveDialog({ withStaffPicker = false, onClose, onDone }: { withStaffPi
   const [halfStart, setHalfStart] = useState(false);
   const [halfEnd, setHalfEnd] = useState(false);
   const [reason, setReason] = useState("");
+  const [proof, setProof] = useState<DocumentRef | null>(null);
+  const [categoryId, setCategoryId] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const apiErrors = apiErrorToFieldErrors(request.error);
+  // Justificatif (certificat médical…) : un document du personnel, déposé ici ou choisi parmi les siens. Il appartient au membre
+  // concerné : la personne choisie par la RH, ou soi-même en libre-service (L-33 : le congé maladie exigeait un justificatif
+  // impossible à joindre depuis l'écran).
+  const mine = useMyStaff(!withStaffPicker);
+  const ownerStaffId = withStaffPicker ? (person?.value ?? null) : (mine.data?.id ?? null);
+  const categories = useDocumentCategories({ kind: "TEACHER" });
+  const uploadable = (categories.data?.items ?? []).filter((c) => c.canUpload);
+  const effectiveCategory = categoryId || uploadable[0]?.id || "";
+  const needsProof = types.data?.find((x) => x.code === type)?.requiresAttachment === true;
   const typeOptions = types.data && types.data.length > 0 ? types.data.filter((x) => x.active).map((x) => ({ value: x.code, label: x.label })) : FALLBACK_LEAVE_TYPES.map((c) => ({ value: c, label: tFallback(c) }));
   const useStaffPick = (search: string, enabled: boolean) => useStaffOptions(search, enabled, { status: "ACTIVE" });
 
@@ -385,10 +399,12 @@ function LeaveDialog({ withStaffPicker = false, onClose, onDone }: { withStaffPi
       ...(halfStart ? { halfDayStart: true } : {}),
       ...(halfEnd ? { halfDayEnd: true } : {}),
       ...(reason.trim() ? { reason: reason.trim() } : {}),
+      ...(proof ? { documentRef: proof.id } : {}),
     };
     const v = validateWith(attendanceRequestLeaveBodySchema, body);
     const e: FieldErrors = v.ok ? {} : v.errors;
     if (withStaffPicker && !person) e.staffId = t("required");
+    if (needsProof && !proof) e.documentRef = t("proofRequired");
     setErrors(e);
     if (!v.ok || Object.keys(e).length > 0) return;
     request.mutate(v.data, { onSuccess: () => { onClose(); onDone(); } });
@@ -415,6 +431,28 @@ function LeaveDialog({ withStaffPicker = false, onClose, onDone }: { withStaffPi
       <CheckControl checked={halfStart} onChange={setHalfStart} label={t("halfStart")} />
       <CheckControl checked={halfEnd} onChange={setHalfEnd} label={t("halfEnd")} />
       <FormField label={t("reason")}>{(c) => <TextAreaControl {...c} value={reason} onChange={setReason} maxLength={1000} />}</FormField>
+      {ownerStaffId && effectiveCategory ? (
+        <>
+          {uploadable.length > 1 ? (
+            <FormField label={t("proofCategory")}>
+              {(c) => <NativeSelect {...c} value={effectiveCategory} onChange={setCategoryId} options={uploadable.map((x) => ({ value: x.id, label: x.label }))} />}
+            </FormField>
+          ) : null}
+          <DocumentPicker
+            key={`${ownerStaffId}-${effectiveCategory}`}
+            value={proof}
+            onChange={setProof}
+            label={t("proof")}
+            hint={needsProof ? t("proofHintRequired") : t("proofHint")}
+            required={needsProof}
+            error={errors.documentRef ?? apiErrors.documentRef ?? null}
+            filter={{ ownerType: "STAFF", ownerId: ownerStaffId }}
+            upload={{ categoryId: effectiveCategory, ownerType: "STAFF", ownerId: ownerStaffId, defaultTitle: t("proofDefaultTitle") }}
+          />
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">{needsProof ? t("proofNeedsPersonRequired") : t("proofNeedsPerson")}</p>
+      )}
     </FormDialog>
   );
 }

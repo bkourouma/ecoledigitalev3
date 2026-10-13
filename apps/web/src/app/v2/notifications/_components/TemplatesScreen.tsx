@@ -7,7 +7,7 @@ import { usePermission } from "@/platform/access";
 import { useActivateTemplateVersion, useEnableTemplate, useNotifCatalog, useNotifTemplates, usePreviewTemplate, usePublishTemplate, useTemplateVersions } from "@/platform/v2/notifications";
 import { useDateFormat } from "@/platform/ui/format";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { CHANNELS_WITH_SUBJECT, TEMPLATES } from "./notifications-utils";
@@ -282,7 +282,7 @@ export function TemplatesScreen() {
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label={t("template")}>
               {(c) => (
-                <select
+                <AntSelect
                   {...c}
                   value={current?.code ?? ""}
                   onChange={(e) => {
@@ -296,7 +296,7 @@ export function TemplatesScreen() {
                       {e.label}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               )}
             </FormField>
             {current ? <p className="self-end pb-2 text-sm text-muted-foreground">{current.description}</p> : null}

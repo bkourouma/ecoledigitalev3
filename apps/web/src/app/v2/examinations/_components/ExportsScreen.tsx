@@ -34,7 +34,7 @@ function RunRow({ run }: { run: ExamExportRunDto }) {
     }
   }
   return (
-    <li className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="font-medium">{run.formatCode ?? "—"} v{run.formatVersion}</p>
         <p className="text-sm text-muted-foreground">{date.instant(run.createdAt)}{run.rowCount !== null ? ` — ${t("rows", { count: run.rowCount })}` : ""}</p>
@@ -84,7 +84,7 @@ function DocumentRow({ d, onRevoke }: { d: ExamIssuedDocumentDto; onRevoke: (d: 
   const t = useTranslations("v2Examinations.documents");
   const labels = useExamLabels();
   return (
-    <li className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="font-medium">{labels.docKind(d.kind)} v{d.version} — {d.candidateNumber ?? d.candidateId.slice(0, 8)}</p>
         <p className="text-sm text-muted-foreground">{labels.docStatus(d.status)}{d.revokedReason ? ` — ${d.revokedReason}` : ""}</p>

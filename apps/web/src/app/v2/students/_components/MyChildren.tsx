@@ -35,7 +35,7 @@ export function MyChildrenScreen() {
       {children.data && children.data.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("listLabel")}>
           {children.data.map((c) => (
-            <li key={c.id} className="rounded-lg border p-4">
+            <li key={c.id} className="rounded-2xl border border-white/10 bg-card/40 p-4">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="text-base font-semibold">
                   <Link href={`/v2/students/children/${c.id}`} className="text-primary underline-offset-4 hover:underline">
@@ -103,7 +103,7 @@ export function ChildDetail({ id }: { id: string }) {
         }
       />
       {flash.node}
-      <section aria-labelledby="child-summary" className="rounded-lg border p-4">
+      <section aria-labelledby="child-summary" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="child-summary" className="mb-3 flex flex-wrap items-center gap-2 text-lg font-semibold">
           {t("summary")} <StatusBadge label={tStatus(student.status)} tone={studentTone(student.status)} />
         </h2>

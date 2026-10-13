@@ -208,7 +208,7 @@ function SettingsSection({ settings, onEdit }: { settings: CouncilsSettingsDto[]
       ) : (
         <ul className="space-y-3">
           {settings.map((s) => (
-            <li key={s.institutionId} className="space-y-2 rounded-md border p-3">
+            <li key={s.institutionId} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div><dt className="text-xs text-muted-foreground">{t("requireSeparateUnlocker")}</dt><dd className="text-sm font-medium">{yesNo(tc, s.requireSeparateUnlocker)}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">{t("effectsTrigger")}</dt><dd className="text-sm font-medium">{text("effectsTrigger", s.effectsTrigger)}</dd></div>
@@ -272,7 +272,7 @@ function RoleDialog({ row, onClose, onDone }: { row: CouncilsParticipantRoleDto 
 
 function ToggleList({ legend, items, selected, onChange, error }: { legend: string; items: Array<{ value: string; label: string }>; selected: string[]; onChange: (next: string[]) => void; error?: string | null }) {
   return (
-    <fieldset className="rounded-md border p-3">
+    <fieldset className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <legend className="px-1 text-sm font-medium">{legend}</legend>
       {items.map((i) => (
         <CheckControl key={i.value} checked={selected.includes(i.value)} onChange={(on) => onChange(on ? [...selected, i.value] : selected.filter((x) => x !== i.value))} label={i.label} />

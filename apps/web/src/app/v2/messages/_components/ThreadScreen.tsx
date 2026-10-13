@@ -18,7 +18,7 @@ import {
   useReportMessage,
 } from "@/platform/v2/messaging";
 import { useDateFormat } from "@/platform/ui/format";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { ModalDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
@@ -80,13 +80,13 @@ function ReportDialog({ message, onClose, onDone }: { message: MessagingMessageD
       <form onSubmit={submit} className="space-y-4" noValidate>
         <FormField label={t("reason")} required>
           {(c) => (
-            <select {...c} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm sm:h-10">
+            <AntSelect {...c} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm sm:h-10">
               {MESSAGING_REPORT_REASONS.map((r) => (
                 <option key={r} value={r}>
                   {t(`reasons.${r}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
         <FormField label={t("details")} hint={t("detailsHint")}>

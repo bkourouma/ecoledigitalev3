@@ -33,6 +33,7 @@ import {
   type SendCredentialsResult,
 } from "@/lib/hooks/use-registration-requests";
 import { useActiveAcademicYear } from "@/lib/hooks/use-academic-years";
+import { AntSelect } from "@/platform/ui/FormField";
 
 type Tab = "requests" | "credentials";
 
@@ -170,7 +171,7 @@ function RequestsTab() {
                 className="pl-10 h-11"
               />
             </div>
-            <select
+            <AntSelect
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value as RegistrationStatus | "all");
@@ -182,8 +183,8 @@ function RequestsTab() {
               <option value="approved">Validées</option>
               <option value="rejected">Rejetées</option>
               <option value="all">Toutes</option>
-            </select>
-            <select
+            </AntSelect>
+            <AntSelect
               value={accountType}
               onChange={(e) => {
                 setAccountType(e.target.value as AccountType | "all");
@@ -194,7 +195,7 @@ function RequestsTab() {
               <option value="all">Tous les types</option>
               <option value="student">Étudiants</option>
               <option value="parent">Parents</option>
-            </select>
+            </AntSelect>
           </div>
         </CardContent>
       </Card>
@@ -850,7 +851,7 @@ function CredentialsTab() {
                 className="pl-10 h-11"
               />
             </div>
-            <select
+            <AntSelect
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as AccountType | "all")}
               className={SELECT_CLASS}
@@ -858,7 +859,7 @@ function CredentialsTab() {
               <option value="all">Tous les comptes</option>
               <option value="student">Étudiants</option>
               <option value="parent">Parents</option>
-            </select>
+            </AntSelect>
             <Button
               onClick={() => send(Array.from(selected))}
               disabled={selected.size === 0 || sendCredentials.isPending}

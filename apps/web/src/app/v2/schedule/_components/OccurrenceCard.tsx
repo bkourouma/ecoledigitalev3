@@ -44,7 +44,7 @@ export function OccurrenceCard({ o, dirs, actions, compact = false }: { o: Occur
   return (
     <article
       aria-label={`${range(o)} ${title}`}
-      className={cn("space-y-1.5 rounded-md border bg-card p-2.5 text-sm", cancelled && "border-dashed opacity-75", o.needsReplacement && !cancelled && "border-amber-400")}
+      className={cn("space-y-1.5 rounded-xl border bg-card p-2.5 text-sm", cancelled && "border-dashed opacity-75", o.needsReplacement && !cancelled && "border-amber-400/40")}
     >
       <p className="font-semibold tabular-nums">{range(o)}</p>
       <p className={cn("font-medium", cancelled && "line-through")}>{title}</p>
@@ -80,13 +80,13 @@ export function ConflictList({ conflicts, title }: { conflicts: ReadonlyArray<Sc
   return (
     <div className="space-y-2" aria-label={title ?? t("title")}>
       {blocking.length > 0 ? (
-        <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           <p className="font-semibold">{t("blocking", { count: blocking.length })}</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">{blocking.map(item)}</ul>
         </div>
       ) : null}
       {warnings.length > 0 ? (
-        <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
           <p className="font-semibold">{t("warnings", { count: warnings.length })}</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">{warnings.map(item)}</ul>
         </div>

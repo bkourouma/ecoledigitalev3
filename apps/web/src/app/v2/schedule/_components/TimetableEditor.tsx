@@ -123,13 +123,13 @@ export function TimetableEditor({ id }: { id: string }) {
             {[1, 2, 3, 4, 5, 6, 7]
               .filter((d) => byDay.has(d))
               .map((d) => (
-                <section key={d} aria-labelledby={`wd-${d}`} className="space-y-2 rounded-lg border p-2">
+                <section key={d} aria-labelledby={`wd-${d}`} className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-2">
                   <h3 id={`wd-${d}`} className="text-sm font-semibold">
                     {tDay(String(d))}
                   </h3>
                   <ul className="space-y-2">
                     {(byDay.get(d) ?? []).map((e) => (
-                      <li key={e.id} className="space-y-1 rounded-md border bg-card p-2 text-sm">
+                      <li key={e.id} className="space-y-1 rounded-xl border border-white/10 bg-card p-2 text-sm">
                         <p className="font-semibold tabular-nums">
                           {e.startTime} – {e.endTime}
                         </p>
@@ -168,7 +168,7 @@ export function TimetableEditor({ id }: { id: string }) {
             {t("refreshConflicts")}
           </button>
         </div>
-        {conflicts.isPending ? <LoadingBlock /> : conflicts.isError ? <ErrorBlock error={conflicts.error} onRetry={() => void conflicts.refetch()} /> : conflicts.data.length === 0 ? <p className="text-sm text-emerald-800">{t("noConflicts")}</p> : <ConflictList conflicts={conflicts.data} />}
+        {conflicts.isPending ? <LoadingBlock /> : conflicts.isError ? <ErrorBlock error={conflicts.error} onRetry={() => void conflicts.refetch()} /> : conflicts.data.length === 0 ? <p className="text-sm text-emerald-300">{t("noConflicts")}</p> : <ConflictList conflicts={conflicts.data} />}
       </section>
 
       {editing ? (
@@ -192,7 +192,7 @@ function GenerationReport({ report, onClose }: { report: Report; onClose: () => 
   const t = useTranslations("v2Schedule.editor.report");
   const date = useDateFormat();
   return (
-    <section aria-labelledby="report-title" className="space-y-2 rounded-lg border p-4 text-sm">
+    <section aria-labelledby="report-title" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4 text-sm">
       <div className="flex items-center justify-between gap-2">
         <h2 id="report-title" className="text-lg font-semibold">
           {t("title", { from: date.civil(report.from), to: date.civil(report.to) })}
@@ -211,14 +211,14 @@ function GenerationReport({ report, onClose }: { report: Report; onClose: () => 
             ["skippedCapped", report.skippedCapped],
           ] as const
         ).map(([k, v]) => (
-          <div key={k} className="rounded-md border p-2">
+          <div key={k} className="rounded-xl border border-white/10 bg-white/[0.02] p-2">
             <dt className="text-xs text-muted-foreground">{t(k)}</dt>
             <dd className="text-xl font-semibold">{v}</dd>
           </div>
         ))}
       </dl>
       {report.conflicts.length > 0 ? (
-        <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900">
+        <div role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-amber-200">
           <p className="font-medium">{t("conflicts", { count: report.conflicts.length })}</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">
             {report.conflicts.slice(0, 30).map((c, i) => (
@@ -275,7 +275,7 @@ function GenerateDialog({ id, defaultFrom, defaultTo, onClose, onDone }: { id: s
             <span className="block text-xs text-muted-foreground">{t("capHint")}</span>
           </span>
         </label>
-        {generate.error ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{generate.error.message}</p> : null}
+        {generate.error ? <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{generate.error.message}</p> : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" className={buttonClass.secondary} onClick={onClose}>
             {t("cancel")}

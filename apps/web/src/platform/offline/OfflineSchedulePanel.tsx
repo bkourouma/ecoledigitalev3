@@ -10,6 +10,7 @@ import { useEffect, useId, useState } from "react";
 import { DEFAULT_TIME_ZONE } from "@/platform/i18n/config";
 import { browserScheduleCache } from "./browser-schedule-cache";
 import { freshnessOf, groupByDay, pickSnapshot, type ScheduleSnapshot } from "./schedule-cache";
+import { AntSelect } from "@/platform/ui/FormField";
 
 export interface OfflineScheduleLabels {
   title: string;
@@ -69,13 +70,13 @@ export function OfflineSchedulePanel({ labels }: { labels: OfflineScheduleLabels
           <label htmlFor={selectId} className="font-medium">
             {labels.period}
           </label>
-          <select id={selectId} value={selected ?? ""} onChange={(e) => setSelected(e.target.value)} className="block h-10 w-full rounded-md border border-input bg-background px-2">
+          <AntSelect id={selectId} value={selected ?? ""} onChange={(e) => setSelected(e.target.value)} className="block h-10 w-full rounded-md border border-input bg-background px-2">
             {list.map((s) => (
               <option key={s.key} value={s.key}>
                 {range(s)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
       ) : null}
       {days.length === 0 ? <p className="text-sm">{labels.empty}</p> : null}

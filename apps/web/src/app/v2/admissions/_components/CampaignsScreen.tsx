@@ -47,7 +47,7 @@ export function CampaignsScreen() {
       <QueryBoundary query={campaigns} isEmpty={items.length === 0} empty={<EmptyBlock title={t("empty")} description={t("emptyHint")} />}>
         <ul className="space-y-4">
           {items.map((c) => (
-            <li key={c.id} className="rounded-lg border p-4">
+            <li key={c.id} className="rounded-2xl border border-white/10 bg-card/40 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-base font-semibold">

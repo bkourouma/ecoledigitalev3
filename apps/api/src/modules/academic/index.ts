@@ -38,6 +38,7 @@ export {
   type InvoiceFactsReader,
   type OfferingReadinessGuard,
   type PeriodClosureGuard,
+  type EnrollmentBilling,
   type RegistrationFeeProbe,
   type ScheduleConflictChecker,
   type StudentDirectory,

@@ -159,13 +159,24 @@ export async function checkStudentEnrollable(deps: AcademicDeps, ctx: RequestCon
 export async function enrollStudent(deps: AcademicDeps, ctx: RequestContext, input: AcademicEnrollStudentBody): Promise<Result<Enrollment, AppError>> {
   const student = await checkStudentEnrollable(deps, ctx, input.studentId, { admission: input.sourceKind === "ADMISSION" });
   if (!student.ok) return student;
-  return inTx(deps, ctx, async (tx) => {
+  const result = await inTx(deps, ctx, async (tx) => {
     const events = new EventBuffer(deps, ctx);
     const created = await createEnrollmentInTx(deps, ctx, tx, events, input, student.value);
     if (!created.ok) return created;
     await events.flush(tx);
     return created;
   });
+  // Facturation des frais d'inscription (L-60) : saisie manuelle ou en ligne seulement ; l'admission, l'import et la reconduction
+  // ont leur propre circuit. Après la validation de l'inscription ; un échec ne la défait pas (l'économe peut facturer ensuite).
+  const kind = input.sourceKind ?? "MANUAL";
+  if (result.ok && (kind === "MANUAL" || kind === "ONLINE")) {
+    try {
+      await deps.ports.billing.invoiceRegistrationFees(ctx, { enrollmentId: result.value.id, studentId: result.value.studentId });
+    } catch (e) {
+      deps.logger.warn({ enrollmentId: result.value.id, err: e instanceof Error ? e.message : String(e) }, "academic : facture d'inscription non créée");
+    }
+  }
+  return result;
 }
 
 export async function createEnrollmentInTx(

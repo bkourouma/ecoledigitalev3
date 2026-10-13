@@ -84,7 +84,7 @@ function ReportsBody() {
     <div className="space-y-4">
       <PageHeader title={t("title")} description={t("description")} />
       <RuleBanner />
-      <fieldset className="space-y-3 rounded-md border p-3">
+      <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <legend className="px-1 text-sm font-medium">{t("form.legend")}</legend>
         <FormField label={t("form.report")} required>
           {(c) => (

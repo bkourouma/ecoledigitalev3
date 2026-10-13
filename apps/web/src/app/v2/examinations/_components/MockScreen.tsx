@@ -11,6 +11,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { useAssessments } from "@/platform/v2/assess";
 import { useClassroomOptions } from "@/platform/v2/lookups";
 import { useComputeMock, useImportFromAssess, useLinkAssessment, useMockLinks, useUnlinkAssessment } from "@/platform/v2/examinations";
+import { JuryPanel } from "./JuryPanel";
 import { BatchReport, SessionScope } from "./shared";
 
 function Panel({ session }: { session: ExamSessionDetailDto }) {
@@ -46,7 +47,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
         {links.isPending ? <LoadingBlock /> : links.isError ? <ErrorBlock error={links.error} onRetry={() => void links.refetch()} /> : links.data.length === 0 ? <EmptyBlock title={t("noLinks")} description={t("noLinksHint")} /> : (
           <ul className="space-y-2">
             {links.data.map((l) => (
-              <li key={l.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <li key={l.id} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>{t("linkLine", { paper: papers.get(l.paperId)?.label ?? l.paperCode, assessment: l.assessmentId.slice(0, 8) })}</span>
                 <button type="button" className={buttonClass.ghost} disabled={unlink.isPending} onClick={() => unlink.mutate(l.id)}>{t("unlink")}</button>
               </li>
@@ -56,7 +57,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
         {unlink.isError ? <ErrorBlock error={unlink.error} /> : null}
       </section>
 
-      <section aria-labelledby="add-title" className="space-y-3 rounded-md border p-4">
+      <section aria-labelledby="add-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h2 id="add-title" className="text-base font-semibold">{t("add.title")}</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <FormField label={t("add.paper")} required>{(c) => <NativeSelect {...c} value={paperId} placeholder={t("add.choose")} options={session.papers.map((p) => ({ value: p.id, label: `${p.code} — ${p.label}` }))} onChange={setPaperId} />}</FormField>
@@ -67,7 +68,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
         {link.isError ? <ErrorBlock error={link.error} /> : null}
       </section>
 
-      <section aria-labelledby="run-title" className="space-y-3 rounded-md border p-4">
+      <section aria-labelledby="run-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h2 id="run-title" className="text-base font-semibold">{t("run.title")}</h2>
         <p className="text-sm text-muted-foreground">{t("run.hint")}</p>
         <div className="flex flex-wrap gap-2">
@@ -85,6 +86,8 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
           </div>
         ) : null}
       </section>
+
+      <JuryPanel sessionId={session.id} />
     </div>
   );
 }

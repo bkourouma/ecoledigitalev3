@@ -145,7 +145,7 @@ export function DocumentPdfActions({ doc, label }: { doc: HigherDocumentDto; lab
       </div>
       <div aria-live="polite" className="text-xs">
         {phase.kind === "preparing" ? <p className="text-muted-foreground">{t("preparing")}</p> : null}
-        {phase.kind === "ready" ? <p className="text-emerald-800">{t("nowReady")}</p> : null}
+        {phase.kind === "ready" ? <p className="text-emerald-300">{t("nowReady")}</p> : null}
         {phase.kind === "timeout" ? <p className="text-muted-foreground">{t("timeout")}</p> : null}
         {failed ? <p className="text-destructive">{canIssue.allowed ? t("failed") : t("failedNoRetry")}</p> : null}
         {phase.kind === "error" ? (

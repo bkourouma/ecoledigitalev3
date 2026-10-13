@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { json, renderWithProviders } from "@/platform/test/render";
 import { classroom, period, uuid as academicUuid, year } from "../../_test/fixtures";
+import { category as docCategory, summary as docSummary, page as docPage } from "../../documents/_test/fixtures";
+import { staffSummary } from "../../_test/fixtures-people";
 import { absenceRow, conflictDto, IDS, justificationDto, leaveDto, sessionDto, STUDENTS, summaryDto } from "../_test/fixtures";
 import { AbsencesScreen } from "./AbsencesScreen";
 import { AlertsScreen } from "./AlertsScreen";
@@ -415,6 +417,38 @@ describe("StaffAttendanceScreen", () => {
     expect(await screen.findByText("Arrivée enregistrée.")).toBeTruthy();
     expect(api.calls.find((c) => c.path.endsWith("/check-in"))!.body).toEqual({});
   });
+
+  it("personnel : un congé maladie exige un justificatif, qu'on joint depuis l'écran (L-33)", async () => {
+    const staffId = academicUuid(4000);
+    const me = { ...staffSummary({ id: staffId, displayName: "KOUASSI Marc" }), otherNames: null, sex: null, email: null, phone: null, phoneAlt: null, addressLine: null, city: null, hiredOn: null, leftOn: null, primaryCampusId: null, affiliations: [], portalAccount: "NONE", externalRef: null, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+    const proof = docSummary({ id: academicUuid(8800), title: "Certificat médical", fileName: "certificat.pdf" });
+    const api = setTestApi({
+      ...accessRoutes(["attendance.own.read", "attendance.leave.request", "staff.own.read"], ["attendance.staff"]),
+      [`GET ${A}/me/staff-attendance`]: { records: [], leaves: [], nextCursor: null },
+      [`GET ${A}/reference/leave-types`]: { items: [{ id: academicUuid(70), code: "SICK", label: "Congé maladie", isPaid: true, requiresApproval: true, requiresAttachment: true, active: true }] },
+      "GET /api/v1/people/me/staff": me,
+      "GET /api/v1/documents/categories": { items: [docCategory({ id: academicUuid(11), code: "STAFF_DIPLOMA", label: "Diplômes et attestations", kind: "TEACHER" })] },
+      "GET /api/v1/documents/documents": docPage([proof]),
+      [`POST ${A}/staff/leaves`]: () => json(leaveDto({ leaveTypeCode: "SICK", documentRef: proof.id }), { status: 201 }),
+    });
+    renderWithProviders(<StaffAttendanceScreen mode="own" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Demander un congé" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Type de congé/), { target: { value: "SICK" } });
+    fireEvent.change(within(dialog).getByLabelText(/Premier jour/), { target: { value: "2026-10-14" } });
+    fireEvent.change(within(dialog).getByLabelText(/Dernier jour/), { target: { value: "2026-10-16" } });
+    // Sans justificatif : refus côté écran, aucun envoi.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Envoyer la demande" }));
+    expect(await within(dialog).findByText("Joignez le justificatif exigé pour ce type de congé.")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "POST" && c.path === `${A}/staff/leaves`)).toBe(false);
+    // Le justificatif est choisi dans les documents du membre.
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Choisir un document" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Certificat médical/ }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Demander un congé" })).getByRole("button", { name: "Envoyer la demande" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.path === `${A}/staff/leaves`)).toBe(true));
+    expect(api.calls.find((c) => c.method === "POST" && c.path === `${A}/staff/leaves`)!.body).toMatchObject({ leaveTypeCode: "SICK", startsOn: "2026-10-14", endsOn: "2026-10-16", documentRef: proof.id });
+    expect(api.calls.find((c) => c.path === "/api/v1/documents/documents")!.query).toMatchObject({ ownerType: "STAFF", ownerId: staffId });
+  }, 120_000);
 
   it("fonction non incluse", async () => {
     setTestApi({ ...accessRoutes(["attendance.staff.read"], []) });

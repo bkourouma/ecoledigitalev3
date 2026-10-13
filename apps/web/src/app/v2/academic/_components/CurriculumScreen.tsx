@@ -121,7 +121,7 @@ export function CurriculumScreen() {
                 onSelectNode={setSelectedId}
               />
               <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <section aria-labelledby="curriculum-tree-title" className="rounded-lg border p-3">
+                <section aria-labelledby="curriculum-tree-title" className="rounded-2xl border border-white/10 bg-card/40 p-3">
                   <h2 id="curriculum-tree-title" className="mb-2 text-sm font-semibold">
                     {t("treeTitle")}
                   </h2>
@@ -207,7 +207,7 @@ function VersionBar({
   const amendments = useCurriculumAmendments(version.id, showAmendments);
 
   return (
-    <section aria-labelledby="version-title" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="version-title" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="version-title" className="text-lg font-semibold">
@@ -394,9 +394,9 @@ function CloneDialog({
         {(c) => <NativeSelect {...c} value={targetYearId} onChange={setTargetYearId} placeholder={t("chooseYear")} options={yearOptions.filter((y) => y.id !== currentYearId).map((y) => ({ value: y.id, label: y.label }))} />}
       </FormField>
       <FormField label={t("cloneNote")}>
-        {(c) => <input {...c} type="text" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}
+        {(c) => <input {...c} type="text" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}
       </FormField>
-      <section aria-labelledby="clone-preview" className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+      <section aria-labelledby="clone-preview" className="space-y-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm">
         <h3 id="clone-preview" className="font-semibold">
           {t("preview")}
         </h3>

@@ -112,7 +112,7 @@ function Matrix({ classroomId }: { classroomId: string }) {
   const renderChips = (items: PeopleAssignmentDto[]) => (
       <ul className="flex flex-wrap gap-1">
         {items.map((a) => (
-          <li key={a.id} className="flex items-center gap-1 rounded-full border bg-muted/40 py-0.5 pl-2 pr-1 text-xs">
+          <li key={a.id} className="flex items-center gap-1 rounded-full border bg-white/[0.04] py-0.5 pl-2 pr-1 text-xs">
             <span className="font-medium">{a.staffDisplayName ?? a.staffId.slice(0, 8)}</span>
             {periodLabel(a.periodId) ? <span className="text-muted-foreground">· {periodLabel(a.periodId)}</span> : null}
             <Can permission="teaching.assign">
@@ -152,7 +152,7 @@ function Matrix({ classroomId }: { classroomId: string }) {
       <div role="region" aria-label={t("matrixCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <table className="w-full min-w-[40rem] border-collapse text-sm">
           <caption className="sr-only">{t("matrixCaption")}</caption>
-          <thead className="bg-muted/50">
+          <thead className="bg-white/[0.04]">
             <tr>
               <th scope="col" className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t("columns.subject")}

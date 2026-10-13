@@ -34,7 +34,7 @@ import {
 } from "../infrastructure/council-repository";
 import { requireClassAccess } from "./access";
 import { actorOf, EventBuffer, inTx, type PrimarySchoolDeps } from "./deps";
-import type { PeriodInfo, ProposalInfo } from "./ports";
+import type { ConfirmedDecision, PeriodInfo, ProposalInfo } from "./ports";
 
 /** Issue d'inscription correspondant à un code de décision de fin d'année (codes de `results` -> codes d'`academic`). */
 export function outcomeCodeOfDecision(finalCode: string | null): string | null {
@@ -281,18 +281,38 @@ export async function decideCouncilCase(deps: PrimarySchoolDeps, ctx: RequestCon
     if (!delib) return err(notFound(PrimaryCode.COUNCIL_NOT_FOUND, "Conseil", current.deliberationId));
     const proposals = await deps.ports.results.listProposals(ctx, { classroomId: current.classroomId, periodId: delib.periodId });
     const proposal = proposals.find((p) => p.enrollmentId === current.enrollmentId);
-    if (!proposal) {
-      return err(conflict(PrimaryCode.CASE_NO_DECISION, "La règle n'a produit aucune proposition pour cet élève : les résultats de la période ne sont pas calculés.", { enrollmentId: current.enrollmentId }));
+    const periods = await deps.ports.classrooms.listPeriods(ctx, classroom.academicYearId);
+    let confirmed: ConfirmedDecision;
+    if (proposal) {
+      if (decisionNeedsJustification(proposal.ruleProposalCode, input.finalCode) && (input.justification?.trim().length ?? 0) < JUSTIFICATION_MIN_LENGTH) {
+        return err(validation(PrimaryCode.INVALID_INPUT, `Une décision différente de la proposition de la règle exige une justification (${JUSTIFICATION_MIN_LENGTH} caractères au moins).`, "justification"));
+      }
+      confirmed = await deps.ports.results.confirmDecision(ctx, { decisionId: proposal.decisionId, deliberationId: current.deliberationId, finalCode: input.finalCode, justification: input.justification });
+    } else {
+      // Aucune proposition de la règle (résultats de la période non calculés, ex. école neuve) : le conseil de FIN D'ANNÉE peut trancher
+      // lui-même, à condition d'indiquer la décision et de la motiver ; la justification est conservée avec la décision (L-50).
+      const noProposal = (message: string) => conflict(PrimaryCode.CASE_NO_DECISION, message, { enrollmentId: current.enrollmentId });
+      if (!isLastPeriod(periods, delib.periodId)) {
+        return err(noProposal("La règle n'a produit aucune proposition pour cet élève : les résultats de la période ne sont pas calculés. Seul le conseil de fin d'année peut trancher sans proposition."));
+      }
+      if (!input.finalCode) return err(validation(PrimaryCode.INVALID_INPUT, "La règle n'a rien proposé : indiquez la décision du conseil.", "finalCode"));
+      if ((input.justification?.trim().length ?? 0) < JUSTIFICATION_MIN_LENGTH) {
+        return err(validation(PrimaryCode.INVALID_INPUT, `Sans proposition de la règle, la décision du conseil doit être motivée (${JUSTIFICATION_MIN_LENGTH} caractères au moins).`, "justification"));
+      }
+      confirmed = await deps.ports.results.publishManualDecision(ctx, {
+        classroomId: current.classroomId,
+        periodId: delib.periodId,
+        deliberationId: current.deliberationId,
+        enrollmentId: current.enrollmentId,
+        finalCode: input.finalCode,
+        justification: (input.justification as string).trim(),
+        councilRef: caseId,
+      });
     }
-    if (decisionNeedsJustification(proposal.ruleProposalCode, input.finalCode) && (input.justification?.trim().length ?? 0) < JUSTIFICATION_MIN_LENGTH) {
-      return err(validation(PrimaryCode.INVALID_INPUT, `Une décision différente de la proposition de la règle exige une justification (${JUSTIFICATION_MIN_LENGTH} caractères au moins).`, "justification"));
-    }
-    const confirmed = await deps.ports.results.confirmDecision(ctx, { decisionId: proposal.decisionId, deliberationId: current.deliberationId, finalCode: input.finalCode, justification: input.justification });
     const decided = await guarded(() => markCaseDecided(tx, caseId, confirmed.decisionId));
 
     // La décision de FIN D'ANNÉE alimente l'issue d'inscription, sans saisie manuelle ; la reconduction annuelle la lit.
     let outcomeRecorded: string | null = null;
-    const periods = await deps.ports.classrooms.listPeriods(ctx, classroom.academicYearId);
     const outcomeCode = outcomeCodeOfDecision(confirmed.finalCode);
     if (outcomeCode && isLastPeriod(periods, delib.periodId)) {
       await deps.ports.outcomes.recordOutcome(ctx, { enrollmentId: current.enrollmentId, outcomeCode, decisionRef: confirmed.decisionId });
@@ -303,9 +323,9 @@ export async function decideCouncilCase(deps: PrimarySchoolDeps, ctx: RequestCon
       action: "primary_school.council_case.decided",
       resourceType: "council_case",
       resourceId: caseId,
-      reason: confirmed.changedFromProposal ? (input.justification ?? null) : null,
-      metadata: { classroomId: current.classroomId, deliberationId: current.deliberationId, decisionId: confirmed.decisionId, changedFromProposal: confirmed.changedFromProposal, outcomeRecorded },
-      sensitive: confirmed.changedFromProposal,
+      reason: confirmed.changedFromProposal || !proposal ? (input.justification ?? null) : null,
+      metadata: { classroomId: current.classroomId, deliberationId: current.deliberationId, decisionId: confirmed.decisionId, changedFromProposal: confirmed.changedFromProposal, manual: !proposal, outcomeRecorded },
+      sensitive: confirmed.changedFromProposal || !proposal,
     });
     await events.flush(tx);
     return ok<DecisionView>({ case: decided, decisionId: confirmed.decisionId, finalCode: confirmed.finalCode, ruleProposalCode: confirmed.ruleProposalCode, changedFromProposal: confirmed.changedFromProposal, outcomeRecorded });

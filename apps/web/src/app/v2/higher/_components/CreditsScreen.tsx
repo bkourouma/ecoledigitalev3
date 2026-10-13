@@ -59,10 +59,10 @@ function CreditsBody({ data, pathway }: { data: Credits; pathway: Pathway | null
         {data.entries.length === 0 ? (
           <EmptyBlock title={t("noEntries")} />
         ) : (
-          <div role="region" aria-label={t("ledgerCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <div role="region" aria-label={t("ledgerCaption")} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <table className="w-full border-collapse text-sm">
               <caption className="sr-only">{t("ledgerCaption")}</caption>
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-white/[0.04] text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-3 py-2">{t("columns.ue")}</th>
                   <th scope="col" className="px-3 py-2 text-right">{t("columns.credits")}</th>
@@ -74,7 +74,7 @@ function CreditsBody({ data, pathway }: { data: Credits; pathway: Pathway | null
               </thead>
               <tbody>
                 {data.entries.map((e) => (
-                  <tr key={e.id} className="border-t">
+                  <tr key={e.id} className="border-t border-white/5 transition-colors hover:bg-white/[0.04]">
                     <th scope="row" className="px-3 py-2 text-left font-mono text-xs font-normal">{t("ueShort", { id: shortId(e.ueNodeId) })}</th>
                     <td className="px-3 py-2 text-right tabular-nums">{String(e.credits).replace(".", ",")}</td>
                     <td className="hidden px-3 py-2 sm:table-cell">
@@ -103,7 +103,7 @@ function CreditsBody({ data, pathway }: { data: Credits; pathway: Pathway | null
         ) : (
           <ul className="space-y-2">
             {data.debts.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <span className="font-mono text-xs">{t("ueShort", { id: shortId(d.ueNodeId) })}</span>
                 <span className="flex flex-wrap items-center gap-2">
                   <StatusBadge label={tDebt(d.status)} tone={d.status === "OPEN" ? "warning" : "success"} />
@@ -122,7 +122,7 @@ function CreditsBody({ data, pathway }: { data: Credits; pathway: Pathway | null
           </h2>
           <ul className="space-y-2">
             {pathway.resits.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <span>
                   <span className="font-mono text-xs">{t("ueShort", { id: shortId(r.ueNodeId) })}</span> — {t("window", { from: date.civil(r.opensOn), to: date.civil(r.closesOn) })}
                 </span>
@@ -141,9 +141,9 @@ function CreditsBody({ data, pathway }: { data: Credits; pathway: Pathway | null
 
 function Stat({ label, value, danger = false }: { label: string; value: string | number; danger?: boolean }) {
   return (
-    <div className={`rounded-md border p-3 ${danger ? "border-destructive/40 bg-destructive/5" : ""}`}>
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
+    <div className={`rounded-2xl border p-4 ${danger ? "border-red-400/40 bg-red-400/10" : "border-white/10 bg-card/60"}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-3xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-200" : ""}`}>{value}</p>
     </div>
   );
 }
@@ -176,7 +176,7 @@ function SettingsPanel() {
   }
 
   return (
-    <section aria-labelledby="settings-h" className="max-w-xl space-y-3 rounded-md border p-4">
+    <section aria-labelledby="settings-h" className="max-w-xl space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id="settings-h" className="text-lg font-semibold">
         {t("title")}
       </h2>

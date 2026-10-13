@@ -98,7 +98,7 @@ function CouncilBody({ initialClassroomId }: { initialClassroomId: string | null
       {flash.node}
 
       {canPrepare ? (
-        <section aria-label={t("prepare.label")} className="space-y-3 rounded-lg border p-3">
+        <section aria-label={t("prepare.label")} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-3">
           <h2 className="text-base font-semibold">{t("prepare.title")}</h2>
           <p className="text-sm text-muted-foreground">{t("prepare.hint")}</p>
           {sel.classes.isPending ? <LoadingBlock /> : null}
@@ -118,7 +118,7 @@ function CouncilBody({ initialClassroomId }: { initialClassroomId: string | null
         <QueryBoundary query={councils} isEmpty={(councils.data ?? []).length === 0} empty={<EmptyBlock title={t("list.empty")} description={t("list.emptyHint")} />}>
           <ul className="space-y-2">
             {(councils.data ?? []).map((c) => (
-              <li key={c.deliberationId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+              <li key={c.deliberationId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-card/40 p-3">
                 <div className="min-w-0">
                   <p className="font-medium">{`${classroomName(c.classroomId)} · ${periodLabel(c.classroomId, c.periodId)}`}</p>
                   <p className="text-sm text-muted-foreground">{t("list.counts", { total: c.total, open: c.open, decided: c.decided })}</p>
@@ -209,7 +209,7 @@ function AttendanceSheet({ overview, canManage }: { overview: PrimaryCouncilOver
   }
 
   return (
-    <section aria-label={t("label")} className="space-y-3 rounded-lg border p-3">
+    <section aria-label={t("label")} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-3">
       <h3 className="text-base font-semibold">{t("title")}</h3>
       <QuorumLine overview={overview} />
       {flash.node}
@@ -220,7 +220,7 @@ function AttendanceSheet({ overview, canManage }: { overview: PrimaryCouncilOver
           const name = r.staffName ?? t("staffFallback", { id: r.staffId.slice(-4) });
           const editable = canManage && !signed;
           return (
-            <li key={r.staffId} className="space-y-2 rounded-md border p-3">
+            <li key={r.staffId} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">{name}</p>
                 {signed ? <StatusBadge label={t("signedAt", { date: dateFmt.instant(r.signedAt) })} tone="success" /> : null}
@@ -262,7 +262,7 @@ function AttendanceSheet({ overview, canManage }: { overview: PrimaryCouncilOver
         })}
       </ul>
       {canManage && canReadStaff ? (
-        <div className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-3">
+        <div className="grid gap-3 rounded-xl border border-dashed border-white/15 p-3 sm:grid-cols-3">
           <FormField label={t("addStaff")}>
             {(c) => <NativeSelect {...c} value={addStaff} onChange={setAddStaff} placeholder={t("addStaffChoose")} options={candidates.map((s) => ({ value: s.id, label: s.displayName }))} />}
           </FormField>
@@ -395,7 +395,7 @@ function CaseCard({ overview, c, canManage, canPrepare }: { overview: PrimaryCou
   }
 
   return (
-    <article aria-label={t("articleLabel", { name })} className="space-y-4 rounded-lg border p-4">
+    <article aria-label={t("articleLabel", { name })} className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-lg font-semibold">{name}</h4>
         <StatusBadge label={label("caseStatus", c.status)} tone={toneOfCase(c.status)} />
@@ -423,7 +423,7 @@ function CaseCard({ overview, c, canManage, canPrepare }: { overview: PrimaryCou
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{t("ruleProposalHint")}</p>
         </div>
-        <div className="rounded-md border p-3">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <p className="text-xs font-medium uppercase text-muted-foreground">{t("councilDecision")}</p>
           <p className="mt-1 text-base font-semibold" data-testid="council-decision">
             {c.finalCode ? label("ruleProposal", c.finalCode) : t("noDecision")}
@@ -433,7 +433,7 @@ function CaseCard({ overview, c, canManage, canPrepare }: { overview: PrimaryCou
       </div>
 
       {canPrepare && !decided ? (
-        <fieldset className="space-y-3 rounded-md border p-3">
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("myProposal.legend")}</legend>
           <FormField label={t("myProposal.code")}>
             {(f) => <NativeSelect {...f} value={proposalCode} onChange={setProposalCode} placeholder={t("myProposal.none")} options={DECIDABLE_CODES.map((x) => ({ value: x, label: label("ruleProposal", x) }))} />}
@@ -451,14 +451,14 @@ function CaseCard({ overview, c, canManage, canPrepare }: { overview: PrimaryCou
           <PrimaryError error={update.error} />
         </fieldset>
       ) : c.proposalCode || c.proposalNote ? (
-        <div className="rounded-md border p-3 text-sm">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
           <p className="font-medium">{t("myProposal.shown", { code: c.proposalCode ? label("ruleProposal", c.proposalCode) : "—" })}</p>
           {c.proposalNote ? <p className="mt-1 text-muted-foreground">{c.proposalNote}</p> : null}
         </div>
       ) : null}
 
       {canManage && !decided ? (
-        <fieldset className="space-y-3 rounded-md border p-3">
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("decision.legend")}</legend>
           <div role="radiogroup" aria-label={t("decision.mode")} className="space-y-1">
             <label className="flex min-h-[2.75rem] items-start gap-3 text-sm">
@@ -527,7 +527,7 @@ function MinutesPanel({ overview }: { overview: PrimaryCouncilOverviewDto }) {
   }
 
   return (
-    <section aria-label={t("label")} className="space-y-3 rounded-lg border p-3">
+    <section aria-label={t("label")} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-3">
       <h3 className="text-base font-semibold">{t("title")}</h3>
       <p className="text-sm text-muted-foreground">{t("hint")}</p>
       {overview.minutesDocumentId ? <Notice kind="info">{t("alreadyRequested")}</Notice> : null}

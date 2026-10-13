@@ -6,7 +6,7 @@ import type { ImportJobDto } from "@ecoledigitale/contracts/v2/imports";
 import type { Tone } from "@/platform/ui";
 
 export const INPUT_CLASS =
-  "block h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:h-10";
+  "block h-11 w-full rounded-[10px] border border-[#3d4450] bg-[#2c3139] px-3.5 text-sm transition-colors placeholder:text-[#7c8aa0] hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50";
 
 export type AssistantStep = "upload" | "mapping" | "validation" | "preview" | "import" | "report";
 export const ASSISTANT_STEPS: readonly AssistantStep[] = ["upload", "mapping", "validation", "preview", "import", "report"];

@@ -102,7 +102,7 @@ function ColumnView({ column, onMove }: { column: Column; onMove: (card: Admissi
   const ts = useTranslations("v2Admissions.status");
   const headingId = `col-${column.stage.id}`;
   return (
-    <li className="w-72 shrink-0 rounded-lg border bg-muted/30">
+    <li className="w-72 shrink-0 rounded-lg border bg-white/[0.04]">
       <section aria-labelledby={headingId}>
         <header className="flex items-start justify-between gap-2 border-b p-3">
           <div className="min-w-0">
@@ -118,7 +118,7 @@ function ColumnView({ column, onMove }: { column: Column; onMove: (card: Admissi
         <ul className="space-y-2 p-2">
           {column.cards.length === 0 ? <li className="px-1 py-3 text-center text-xs text-muted-foreground">{t("emptyColumn")}</li> : null}
           {column.cards.map((card) => (
-            <li key={card.id} className="rounded-md border bg-background p-3 text-sm shadow-sm">
+            <li key={card.id} className="rounded-xl border border-white/10 bg-background p-3 text-sm shadow-sm">
               <Link href={`/v2/admissions/applications/${card.id}`} className="block font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {fullName(card)}
               </Link>
@@ -171,7 +171,7 @@ function MoveDialog({ board, card, column, onClose, onMoved }: { board: Admissio
         {options.map(({ transition, stage }) => (
           <li key={transition.id}>
             {stage.requiresDecision ? (
-              <div className="rounded-md border p-3 text-sm">
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <p className="font-medium">
                   {stage.label} <StatusBadge label={ts(stage.canonicalStatus)} tone={statusTone(stage.canonicalStatus)} />
                 </p>
@@ -185,7 +185,7 @@ function MoveDialog({ board, card, column, onClose, onMoved }: { board: Admissio
                 type="button"
                 aria-pressed={picked === stage.id}
                 onClick={() => setPicked(stage.id)}
-                className={`flex w-full items-center justify-between gap-2 rounded-md border p-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${picked === stage.id ? "border-primary bg-accent" : ""}`}
+                className={`flex w-full items-center justify-between gap-2 rounded-xl border p-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${picked === stage.id ? "border-primary bg-accent" : ""}`}
               >
                 <span className="font-medium">{stage.label}</span>
                 <StatusBadge label={ts(stage.canonicalStatus)} tone={statusTone(stage.canonicalStatus)} />
@@ -200,7 +200,7 @@ function MoveDialog({ board, card, column, onClose, onMoved }: { board: Admissio
         </FormField>
       ) : null}
       {action.error ? (
-        <p role="alert" className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        <p role="alert" className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
           {describe(action.error)}
         </p>
       ) : null}

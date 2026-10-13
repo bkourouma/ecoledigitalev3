@@ -67,7 +67,7 @@ export function CalendarScreen() {
           </Link>
         </Notice>
       ) : null}
-      <form className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("filters.label")} onSubmit={(e) => e.preventDefault()}>
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("filters.label")} onSubmit={(e) => e.preventDefault()}>
         <FormField label={t("filters.classroom")}>
           {(c) => <NativeSelect {...c} value={classroomId} placeholder={t("filters.all")} onChange={reset(setClassroomId)} options={classes.options} />}
         </FormField>
@@ -97,7 +97,7 @@ export function CalendarScreen() {
       </form>
 
       {classroomId && summary.data ? (
-        <section aria-labelledby="cal-summary" className="space-y-2 rounded-lg border p-3">
+        <section aria-labelledby="cal-summary" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-3">
           <h2 id="cal-summary" className="text-lg font-semibold">
             {t("summary.title")}
           </h2>

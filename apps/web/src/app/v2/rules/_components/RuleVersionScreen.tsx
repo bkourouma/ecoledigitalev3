@@ -146,7 +146,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 function ValidationReport({ report, version }: { report: RulesValidateResponse; version: RulesVersionDetailDto }) {
   const t = useTranslations("v2Rules.version");
   return (
-    <section aria-label={t("validationTitle")} className="space-y-2 rounded-md border p-4">
+    <section aria-label={t("validationTitle")} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <Notice kind={report.ok ? "success" : "error"}>{t(report.ok ? "validationOk" : "validationKo")}</Notice>
       {report.violations.length > 0 ? (
         <div role="alert">
@@ -181,7 +181,7 @@ function Journal({ version }: { version: RulesVersionDetailDto }) {
   return (
     <ol className="space-y-2" aria-label={t("label")}>
       {events.map((e) => (
-        <li key={e.id} className="rounded-md border p-3 text-sm">
+        <li key={e.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
           <p className="font-medium">
             {e.fromStatus ? `${tStatus(e.fromStatus)} → ` : ""}
             {tStatus(e.toStatus)}
@@ -216,11 +216,11 @@ function WorkflowPanel({ version, onMessage }: { version: RulesVersionDetailDto;
   const currentIndex = RULES_STATUSES.indexOf(version.status);
   const actions = isTenant && canPropose.allowed ? (NEXT[version.status] ?? []) : [];
   return (
-    <section aria-label={t("label")} className="space-y-3 rounded-md border p-3">
-      <ol aria-label={t("steps")} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+    <section aria-label={t("label")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <ol aria-label={t("steps")} className="flex flex-wrap items-center gap-2 text-xs">
         {RULES_STATUSES.filter((s) => s !== "retired" || version.status === "retired").map((s, i) => (
-          <li key={s} aria-current={s === version.status ? "step" : undefined} className={s === version.status ? "font-semibold text-primary" : i < currentIndex ? "text-emerald-700" : "text-muted-foreground"}>
-            {i > 0 ? <span aria-hidden="true"> › </span> : null}
+          <li key={s} aria-current={s === version.status ? "step" : undefined} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium ${s === version.status ? "border-violet-400/60 bg-violet-500/20 text-violet-200" : i < currentIndex ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-muted-foreground"}`}>
+            <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-[10px]">{i < currentIndex ? "✓" : i + 1}</span>
             {tStatus(s)}
             {s === version.status ? <span className="sr-only"> ({t("current")})</span> : null}
           </li>

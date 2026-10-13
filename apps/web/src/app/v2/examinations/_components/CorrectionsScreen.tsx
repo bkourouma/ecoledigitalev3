@@ -78,7 +78,7 @@ function NewRequest({ session }: { session: ExamSessionDetailDto }) {
 
   return (
     <Can permission="exam.result.enter">
-      <section aria-labelledby="new-title" className="space-y-3 rounded-md border p-4">
+      <section aria-labelledby="new-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h2 id="new-title" className="text-base font-semibold">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">{t("hint")}</p>
         <FormField label={t("target")} className="max-w-xs">{(c) => <NativeSelect {...c} value={target} options={[{ value: "RESULT", label: t("targetResult") }, { value: "SCORE", label: t("targetScore") }]} onChange={(v) => { setTarget(v as "RESULT" | "SCORE"); setErrors({}); }} />}</FormField>
@@ -113,7 +113,7 @@ function RequestCard({ r }: { r: ExamRevisionRequestDto }) {
   const reject = useRejectRevision();
   const [rejecting, setRejecting] = useState(false);
   return (
-    <li className="space-y-3 rounded-md border p-4">
+    <li className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-semibold">{r.targetKind === "RESULT" ? t("result") : t("score")} — {r.candidateNumber ?? "—"}</h3>
         <StatusPill label={labels.revisionStatus(r.status)} tone={revisionTone(r.status)} />

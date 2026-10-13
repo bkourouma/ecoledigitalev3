@@ -13,13 +13,15 @@ import { findActiveMenuKey, sortMenuItems, type MenuItem, type MenuPortal } from
 export const MANAGEMENT_PORTALS: readonly MenuPortal[] = ["admin", "owner"];
 
 /** Module d'une entrée : préfixe de sa clé (`finance.invoices` -> `finance`) ; les entrées locales `v2.*` ont leur table. */
-const LOCAL_MODULE: Readonly<Record<string, string>> = Object.freeze({ "v2.settings": "tenancy", "v2.access.roles": "rbac", "v2.access.assignments": "rbac", "v2.audit": "audit" });
+const LOCAL_MODULE: Readonly<Record<string, string>> = Object.freeze({ "v2.settings": "tenancy", "v2.access.roles": "rbac", "v2.access.assignments": "rbac", "v2.audit": "audit", "v2.analytics.freshness": "analytics" });
 
 export function moduleKeyOf(item: Pick<MenuItem, "key">): string {
   const local = LOCAL_MODULE[item.key];
   if (local) return local;
-  const head = item.key.split(".")[0] ?? item.key;
-  return head === "v2" ? "tenancy" : head;
+  const [head, second] = item.key.split(".");
+  // Entrée locale `v2.<module>.<nom>` : elle rejoint le groupe de son module.
+  if (head === "v2") return second && KNOWN_MODULES.includes(second) ? second : "tenancy";
+  return head ?? item.key;
 }
 
 /** Modules connus de l'API et libellés (clé i18n `v2Shell.modules.<clé>`) ; un module inconnu s'affiche avec sa clé lisible. */
@@ -51,6 +53,79 @@ export const KNOWN_MODULES: readonly string[] = [
   "tenancy",
   "audit",
 ];
+
+/**
+ * Catégories du menu latéral : les modules (une trentaine) sont rangés sous quelques grands titres, dans cet ordre. Un module
+ * inconnu de la table tombe dans `other` (toujours affiché en dernier) : jamais d'entrée perdue.
+ */
+export const MENU_CATEGORIES: readonly string[] = ["pilotage", "scolarite", "evaluations", "viescolaire", "finance", "communication", "administration", "other"];
+
+const MODULE_CATEGORY: Readonly<Record<string, string>> = Object.freeze({
+  analytics: "pilotage",
+  admissions: "scolarite",
+  academic: "scolarite",
+  people: "scolarite",
+  scheduling: "scolarite",
+  attendance: "scolarite",
+  assess: "evaluations",
+  results: "evaluations",
+  reportcards: "evaluations",
+  councils: "evaluations",
+  examinations: "evaluations",
+  primary: "evaluations",
+  higher: "evaluations",
+  schoollife: "viescolaire",
+  finance: "finance",
+  payroll: "finance",
+  stateassign: "finance",
+  documents: "communication",
+  messaging: "communication",
+  notifications: "communication",
+  imports: "administration",
+  rules: "administration",
+  iam: "administration",
+  rbac: "administration",
+  tenancy: "administration",
+  audit: "administration",
+});
+
+export function categoryKeyOf(moduleKey: string): string {
+  return MODULE_CATEGORY[moduleKey] ?? "other";
+}
+
+/** Icône (nom lucide en kebab-case, voir `PlatformSidebar`) de chaque module : en-tête du groupe et repli des entrées sans icône. */
+const MODULE_ICON: Readonly<Record<string, string>> = Object.freeze({
+  analytics: "gauge",
+  admissions: "user-plus",
+  academic: "school",
+  people: "users",
+  scheduling: "calendar-days",
+  attendance: "clipboard-check",
+  assess: "file-pen",
+  results: "table",
+  reportcards: "file-badge",
+  councils: "gavel",
+  examinations: "award",
+  primary: "book",
+  higher: "library",
+  stateassign: "landmark",
+  schoollife: "shield",
+  finance: "wallet",
+  payroll: "banknote",
+  documents: "folder",
+  messaging: "mail",
+  notifications: "bell",
+  imports: "upload",
+  rules: "scale",
+  iam: "user-cog",
+  rbac: "shield-check",
+  tenancy: "building",
+  audit: "history",
+});
+
+export function moduleIconOf(moduleKey: string): string | undefined {
+  return MODULE_ICON[moduleKey];
+}
 
 export interface ManagementMenuInput {
   apiItems: readonly MenuItem[];

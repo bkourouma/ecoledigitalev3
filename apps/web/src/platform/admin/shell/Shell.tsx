@@ -92,7 +92,7 @@ export function Shell({ items, isLoading, navUnavailable, navLabel, title, heade
       <aside
         id="v2-sidebar"
         ref={drawerRef}
-        className={`fixed inset-y-0 left-0 z-40 w-64 shrink-0 transition-transform md:static md:visible md:translate-x-0 print:hidden ${
+        className={`fixed inset-y-0 left-0 z-40 w-72 shrink-0 transition-transform md:static md:visible md:translate-x-0 print:hidden ${
           open ? "visible translate-x-0" : "invisible -translate-x-full"
         }`}
       >

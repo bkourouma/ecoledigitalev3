@@ -68,7 +68,7 @@ export function AppreciationsScreen() {
       <RuleBanner />
       {flash.node}
 
-      <section aria-label={t("draft.label")} className="space-y-3 rounded-lg border p-3">
+      <section aria-label={t("draft.label")} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-3">
         <h2 className="text-base font-semibold">{t("draft.title")}</h2>
         <FormField label={t("draft.field")} hint={t("draft.hint")}>
           {(c) => (
@@ -104,7 +104,7 @@ export function AppreciationsScreen() {
         <p className="text-xs text-muted-foreground">{t("draft.notice")}</p>
       </section>
 
-      <fieldset className="space-y-3 rounded-md border p-3">
+      <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <legend className="px-1 text-sm font-medium">{t("filters.legend")}</legend>
         <div className="grid gap-3 sm:grid-cols-3">
           <FormField label={t("filters.scope")}>
@@ -123,7 +123,7 @@ export function AppreciationsScreen() {
       <QueryBoundary query={phrases} isEmpty={(phrases.data ?? []).length === 0} empty={<EmptyBlock title={t("empty")} description={t("emptyHint")} />}>
         <ul className="space-y-3" aria-label={t("list")}>
           {(phrases.data ?? []).map((p) => (
-            <li key={p.id} className="space-y-2 rounded-lg border p-3">
+            <li key={p.id} className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-3">
               <p className="text-sm">{p.body}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge label={label("phraseScope", p.scope)} tone="neutral" />

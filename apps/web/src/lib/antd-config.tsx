@@ -1,62 +1,54 @@
 import React from 'react';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme as antdTheme, type ThemeConfig } from 'antd';
 import frFR from 'antd/locale/fr_FR';
 
-// Configuration Ant Design pour l'application
-export const antdConfig = {
-  locale: frFR,
-  theme: {
-    token: {
-      // Couleurs principales
-      colorPrimary: '#1890ff',
-      colorSuccess: '#52c41a',
-      colorWarning: '#faad14',
-      colorError: '#ff4d4f',
-      
-      // Couleurs de fond
-      colorBgContainer: '#ffffff',
-      colorBgElevated: '#ffffff',
-      
-      // Bordures
-      borderRadius: 6,
-      borderColor: '#d9d9d9',
-      
-      // Typographie
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontSize: 14,
+/**
+ * Thème Ant Design de l'application. Ant Design ne sert qu'aux CONTRÔLES DE FORMULAIRE (champs, listes, cases : voir
+ * `platform/ui/FormField.tsx`) ; le reste de l'interface reste en Tailwind. L'application est sombre (variables de `globals.css`) :
+ * les jetons ci-dessous en reprennent les valeurs (Ant Design calcule ses teintes dérivées en JS, il lui faut des couleurs, pas des
+ * `var(--…)`).
+ */
+const PRIMARY = '#8b5cf6'; // --primary
+const INPUT_BG = '#2c3139'; // --input
+const SURFACE = '#24282e'; // --card / --popover
+const BORDER = '#3d4450'; // --border (un cran plus clair : un champ doit se voir sur la carte)
+
+export const antdTokens: ThemeConfig = {
+  algorithm: antdTheme.darkAlgorithm,
+  token: {
+    colorPrimary: PRIMARY,
+    colorError: '#f26b6b', // --destructive
+    colorSuccess: '#34d399',
+    colorWarning: '#fbbf24',
+    colorBgContainer: INPUT_BG,
+    colorBgElevated: SURFACE,
+    colorBorder: BORDER,
+    colorText: '#f8fafc', // --foreground
+    colorTextPlaceholder: '#7c8aa0',
+    colorTextDisabled: '#64748b',
+    borderRadius: 10,
+    controlHeight: 36,
+    controlHeightLG: 44, // cible tactile : 44 px, comme les boutons du reste de l'application
+    fontFamily: 'inherit',
+    fontSize: 14,
+  },
+  components: {
+    Input: { activeShadow: '0 0 0 3px rgba(139, 92, 246, 0.25)', paddingInlineLG: 14 },
+    Select: {
+      optionSelectedBg: 'rgba(139, 92, 246, 0.2)',
+      optionActiveBg: 'rgba(255, 255, 255, 0.06)',
+      optionPadding: '8px 12px',
+      optionLineHeight: 1.45,
     },
-    components: {
-      // Configuration des composants
-      Form: {
-        labelColor: '#262626',
-        labelFontSize: 14,
-        itemMarginBottom: 16,
-      },
-      Input: {
-        borderRadius: 6,
-        paddingInline: 12,
-        paddingBlock: 8,
-      },
-      Button: {
-        borderRadius: 6,
-        fontWeight: 500,
-      },
-      Select: {
-        borderRadius: 6,
-      },
-      Card: {
-        borderRadius: 8,
-        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)',
-      },
-    },
+    Checkbox: { borderRadiusSM: 5 },
   },
 };
 
-// Wrapper pour ConfigProvider
+export const antdConfig = {
+  locale: frFR,
+  theme: antdTokens,
+};
+
 export const AntdConfigProvider = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <ConfigProvider {...antdConfig}>
-      {children}
-    </ConfigProvider>
-  );
+  return React.createElement(ConfigProvider, antdConfig, children);
 };

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useTeacherSessions, useTeacherStudents } from '@/lib/hooks/use-professional-teacher';
 import { SearchableSelect } from '@/components/SearchableSelect';
+import { AntSelect } from "@/platform/ui/FormField";
 
 /**
  * Année scolaire d'une cohorte, d'après sa date de début. Bascule au 1er
@@ -312,7 +313,7 @@ export default function GradesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Évaluation *
               </label>
-              <select
+              <AntSelect
                 value={selectedAssignment}
                 onChange={(e) => setSelectedAssignment(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -324,7 +325,7 @@ export default function GradesPage() {
                     {assignment.name} ({assignment.totalPoints} pts)
                   </option>
                 ))}
-              </select>
+              </AntSelect>
             </div>
           </div>
         </div>

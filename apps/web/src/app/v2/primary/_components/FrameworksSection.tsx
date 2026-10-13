@@ -44,7 +44,7 @@ export function FrameworksSection() {
   const [creating, setCreating] = useState(false);
   const flash = useFlash();
   return (
-    <section aria-labelledby="primary-frameworks" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="primary-frameworks" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="primary-frameworks" className="text-lg font-semibold">
           {t("title")}
@@ -60,7 +60,7 @@ export function FrameworksSection() {
       <QueryBoundary query={list} isEmpty={(list.data ?? []).length === 0} empty={<EmptyBlock title={t("empty")} />}>
         <ul className="space-y-2">
           {(list.data ?? []).map((f) => (
-            <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+            <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="min-w-0 space-y-1">
                 <p className="font-medium">
                   {f.label} <span className="text-xs text-muted-foreground">{t("version", { n: f.version })}</span>
@@ -120,7 +120,7 @@ function FrameworkDetail({ id, onDone, onNewVersion }: { id: string; onDone: (me
       </ul>
       <p className="text-xs text-muted-foreground">{t("scaleLine", { levels: d.scale.levels.map((l) => l.code).join(", ") })}</p>
       {d.publishBlockers.length > 0 ? (
-        <div role="note" className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">
+        <div role="note" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-100">
           <p className="font-medium">{t("blockers")}</p>
           <ul className="mt-1 list-disc pl-5">
             {d.publishBlockers.map((b, i) => (
@@ -221,7 +221,7 @@ function StructureDialog({ detail, onClose, onSaved }: { detail: PrimaryFramewor
         </p>
       ) : null}
       {domains.map((d, i) => (
-        <fieldset key={i} className="space-y-3 rounded-md border p-3">
+        <fieldset key={i} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("domain", { n: i + 1 })}</legend>
           <div className="grid gap-2 sm:grid-cols-[8rem_1fr]">
             <FormField label={t("domainCode", { n: i + 1 })}>{(c) => <TextControl {...c} value={d.code} onChange={(v) => patchDomain(i, { code: v })} maxLength={40} />}</FormField>

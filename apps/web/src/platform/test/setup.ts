@@ -10,6 +10,15 @@ if (typeof window !== "undefined" && typeof (globalThis as { ResizeObserver?: un
   (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverStub;
 }
 
+// Les écrans affichent des listes Ant Design ; leurs tests les pilotent comme des <select> natifs (voir `NativeSelect`).
+(globalThis as { __NATIVE_SELECT_FOR_TESTS__?: boolean }).__NATIVE_SELECT_FOR_TESTS__ = true;
+
+// jsdom n'implémente pas matchMedia (utilisé par Ant Design : champs, listes).
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) =>
+    ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }) as unknown as MediaQueryList;
+}
+
 // Attentes asynchrones plus tolérantes (1 s par défaut) : les écrans RTL lourds (Radix, react-query) dépassent parfois cette
 // durée sur une machine chargée (plusieurs agents, CI partagée) sans qu'il s'agisse d'un défaut de l'écran.
 if (typeof document !== "undefined") {

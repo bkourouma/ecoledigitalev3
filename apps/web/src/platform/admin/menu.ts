@@ -79,10 +79,46 @@ export function mapToV2Href(href: string): string {
 }
 
 /** Entrées v2 « de secours » : portées par l'API quand le module déclare un menu, sinon ajoutées si permises. */
-export const V2_ADMIN_ENTRIES: readonly (MenuItem & { labelKey: string })[] = [
+export const V2_ADMIN_ENTRIES: readonly (MenuItem & { labelKey: string; anyPermission?: readonly string[] })[] = [
   { key: "v2.settings", labelKey: "settings", label: "settings", href: "/v2/settings", permission: "tenancy.institution.read", portal: "admin", icon: "settings", order: 800 },
   { key: "v2.access.roles", labelKey: "roles", label: "roles", href: "/v2/access/roles", permission: "rbac.role.read", portal: "admin", icon: "shield", order: 900 },
   { key: "v2.access.assignments", labelKey: "assignments", label: "assignments", href: "/v2/access/assignments", permission: "rbac.assignment.manage", portal: "admin", icon: "user-cog", order: 910 },
+  { key: "v2.analytics.freshness", labelKey: "freshness", label: "freshness", href: "/v2/owner/fraicheur", permission: "analytics.read", feature: "analytics.direction", portal: "admin", icon: "clock", order: 90 },
+  // Destinations qui n'étaient atteignables que par les onglets des écrans (supprimés dans la coque de gestion) : le menu latéral les porte.
+  { key: "v2.attendance.call", labelKey: "attendance_call", label: "attendance_call", href: "/v2/attendance/call", permission: "attendance.take", portal: "admin", icon: "clipboard-check", order: 301 },
+  { key: "v2.attendance.dashboard", labelKey: "attendance_dashboard", label: "attendance_dashboard", href: "/v2/attendance", permission: "attendance.read", portal: "admin", icon: "layout-dashboard", order: 302 },
+  { key: "v2.attendance.absences", labelKey: "attendance_absences", label: "attendance_absences", href: "/v2/attendance/absences", permission: "attendance.report.read", portal: "admin", icon: "users", order: 342 },
+  { key: "v2.attendance.compliance", labelKey: "attendance_compliance", label: "attendance_compliance", href: "/v2/attendance/compliance", permission: "attendance.report.read", portal: "admin", icon: "clipboard", order: 344 },
+  { key: "v2.attendance.alerts", labelKey: "attendance_alerts", label: "attendance_alerts", href: "/v2/attendance/alerts", permission: "attendance.read", portal: "admin", icon: "bell", order: 346 },
+  { key: "v2.attendance.conflicts", labelKey: "attendance_conflicts", label: "attendance_conflicts", href: "/v2/attendance/conflicts", permission: "attendance.manage", portal: "admin", icon: "git-branch", order: 348 },
+  { key: "v2.scheduling.timetable", labelKey: "scheduling_timetable", label: "scheduling_timetable", href: "/v2/schedule", permission: "schedule.read", portal: "admin", icon: "calendar-days", order: 291 },
+  { key: "v2.scheduling.occurrences", labelKey: "scheduling_occurrences", label: "scheduling_occurrences", href: "/v2/schedule/occurrences", permission: "schedule.read", portal: "admin", icon: "calendar", order: 342 },
+  { key: "v2.scheduling.generator", labelKey: "scheduling_generator", label: "scheduling_generator", href: "/v2/schedule/generator", permission: "schedule.manage", portal: "admin", icon: "workflow", order: 344 },
+  { key: "v2.scheduling.export", labelKey: "scheduling_export", label: "scheduling_export", href: "/v2/schedule/export", permission: "schedule.read", portal: "admin", icon: "download", order: 346 },
+  { key: "v2.results.matrix", labelKey: "results_matrix", label: "results_matrix", href: "/v2/results/matrix", permission: "result.read", portal: "admin", icon: "table", order: 462 },
+  { key: "v2.results.overrides", labelKey: "results_overrides", label: "results_overrides", href: "/v2/results/overrides", permission: "result.override.request", anyPermission: ["result.override.request", "result.override.approve"], portal: "admin", icon: "edit", order: 464 },
+  { key: "v2.results.resit", labelKey: "results_resit", label: "results_resit", href: "/v2/results/resit", permission: "higher.resit.manage", feature: "higher.session2", portal: "admin", icon: "repeat", order: 466 },
+  { key: "v2.finance.overview", labelKey: "finance_overview", label: "finance_overview", href: "/v2/finance", permission: "finance.report.read", portal: "admin", icon: "layout-dashboard", order: 391 },
+  { key: "v2.finance.receipts", labelKey: "finance_receipts", label: "finance_receipts", href: "/v2/finance/receipts", permission: "finance.receipt.read", portal: "admin", icon: "receipt", order: 442 },
+  { key: "v2.finance.refunds", labelKey: "finance_refunds", label: "finance_refunds", href: "/v2/finance/refunds", permission: "finance.payment.read", portal: "admin", icon: "repeat", order: 444 },
+  { key: "v2.higher.attestations", labelKey: "higher_attestations", label: "higher_attestations", href: "/v2/higher/attestations", permission: "higher.diploma.read", portal: "admin", icon: "file-badge", order: 442 },
+  { key: "v2.higher.credits", labelKey: "higher_credits", label: "higher_credits", href: "/v2/higher/credits", permission: "higher.credits.read", portal: "admin", icon: "award", order: 444 },
+  { key: "v2.reportcards.signatories", labelKey: "reportcards_signatories", label: "reportcards_signatories", href: "/v2/reportcards/signatories", permission: "reportcard.signatory.manage", portal: "admin", icon: "pen-line", order: 432 },
+  { key: "v2.documents.search", labelKey: "documents_search", label: "documents_search", href: "/v2/documents/search", permission: "documents.read", anyPermission: ["documents.read", "documents.read.restricted", "documents.read.confidential", "documents.manage", "documents.child.read", "documents.self.read", "documents.own.read"], portal: "admin", icon: "list", order: 842 },
+  { key: "v2.examinations.assignments", labelKey: "examinations_assignments", label: "examinations_assignments", href: "/v2/examinations/assignments", permission: "exam.center.manage", anyPermission: ["exam.center.manage", "exam.session.read"], portal: "admin", icon: "users", order: 672 },
+  { key: "v2.examinations.imports", labelKey: "examinations_imports", label: "examinations_imports", href: "/v2/examinations/imports", permission: "exam.import.manage", portal: "admin", icon: "upload", order: 674 },
+  { key: "v2.examinations.types", labelKey: "examinations_types", label: "examinations_types", href: "/v2/examinations/types", permission: "exam.type.read", portal: "admin", icon: "settings", order: 676 },
+  { key: "v2.imports.templates", labelKey: "imports_templates", label: "imports_templates", href: "/v2/imports/templates", permission: "imports.read", portal: "admin", icon: "file-text", order: 802 },
+  { key: "v2.imports.settings", labelKey: "imports_settings", label: "imports_settings", href: "/v2/imports/settings", permission: "imports.manage", portal: "admin", icon: "settings", order: 804 },
+  { key: "v2.messaging.notifications", labelKey: "messaging_notifications", label: "messaging_notifications", href: "/v2/messages/notifications", permission: "messaging.read", anyPermission: ["messaging.read", "messaging.child.read", "messaging.self.read"], portal: "admin", icon: "bell", order: 732 },
+  { key: "v2.notifications.send", labelKey: "notifications_send", label: "notifications_send", href: "/v2/notifications/send", permission: "notifications.send", anyPermission: ["notifications.send", "notifications.send.urgent"], portal: "admin", icon: "mail", order: 792 },
+  { key: "v2.payroll.payslips", labelKey: "payroll_payslips", label: "payroll_payslips", href: "/v2/payroll/payslips", permission: "payroll.payslip.read", portal: "admin", icon: "file-text", order: 532 },
+  { key: "v2.primary.classe", labelKey: "primary_classe", label: "primary_classe", href: "/v2/primary/classe", permission: "primary.competency.read", anyPermission: ["primary.competency.read", "primary.competency.record", "primary.council.read", "primary.council.prepare", "primary.class.read_all"], portal: "admin", icon: "school", order: 291 },
+  { key: "v2.primary.competences", labelKey: "primary_competences", label: "primary_competences", href: "/v2/primary/competences", permission: "primary.competency.read", anyPermission: ["primary.competency.read", "primary.competency.record"], portal: "admin", icon: "clipboard-check", order: 342 },
+  { key: "v2.primary.appreciations", labelKey: "primary_appreciations", label: "primary_appreciations", href: "/v2/primary/appreciations", permission: "primary.phrase.read", anyPermission: ["primary.phrase.read", "primary.phrase.manage"], portal: "admin", icon: "message", order: 344 },
+  { key: "v2.primary.parametres", labelKey: "primary_parametres", label: "primary_parametres", href: "/v2/primary/parametres", permission: "primary.settings.manage", portal: "admin", icon: "settings", order: 346 },
+  { key: "v2.rules.bindings", labelKey: "rules_bindings", label: "rules_bindings", href: "/v2/rules/bindings", permission: "rules.ruleset.read", portal: "admin", icon: "link", order: 702 },
+  { key: "v2.schoollife.saisie", labelKey: "schoollife_saisie", label: "schoollife_saisie", href: "/v2/schoollife/saisie", permission: "schoollife.incident.write", anyPermission: ["schoollife.incident.write", "schoollife.note.write"], portal: "admin", icon: "edit", order: 642 },
   { key: "v2.audit", labelKey: "audit", label: "audit", href: "/v2/audit", permission: "audit.read", feature: "audit.log", portal: "admin", icon: "shield", order: 920 },
 ];
 
@@ -104,9 +140,9 @@ export function buildV2Menu({ apiItems, permissions, features, labelOf }: BuildM
   if (permissions) {
     for (const entry of V2_ADMIN_ENTRIES) {
       if (known.has(entry.href)) continue;
-      if (!hasPermission(permissions, entry.permission)) continue;
+      if (!(entry.anyPermission ?? [entry.permission]).some((p) => hasPermission(permissions, p))) continue;
       if (entry.feature && !(features ?? []).includes(entry.feature)) continue;
-      const { labelKey, ...item } = entry;
+      const { labelKey, anyPermission: _any, ...item } = entry;
       extras.push({ ...item, label: labelOf(labelKey) });
     }
   }

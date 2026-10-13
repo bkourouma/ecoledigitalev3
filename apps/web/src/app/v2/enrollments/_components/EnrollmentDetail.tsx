@@ -132,7 +132,7 @@ export function EnrollmentDetail({ id }: { id: string }) {
       {flash.node}
       {actionError ? <ErrorBlock error={actionError} /> : null}
 
-      <section aria-labelledby="enr-summary" className="rounded-lg border p-4">
+      <section aria-labelledby="enr-summary" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="enr-summary" className="mb-3 flex flex-wrap items-center gap-2 text-lg font-semibold">
           {t("summary")}
           <StatusBadge label={tStatus(e.status)} tone={enrollmentTone(e.status)} />
@@ -151,7 +151,7 @@ export function EnrollmentDetail({ id }: { id: string }) {
         </dl>
       </section>
 
-      <section aria-labelledby="enr-confirm" className="space-y-2 rounded-lg border p-4">
+      <section aria-labelledby="enr-confirm" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="enr-confirm" className="text-lg font-semibold">
           {t("confirmation.title")}
         </h2>
@@ -165,7 +165,7 @@ export function EnrollmentDetail({ id }: { id: string }) {
         <p className="text-xs text-muted-foreground">{t("confirmation.feesNote")}</p>
       </section>
 
-      <section aria-labelledby="enr-funding" className="space-y-2 rounded-lg border p-4">
+      <section aria-labelledby="enr-funding" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="enr-funding" className="text-lg font-semibold">
             {t("funding.title")}
@@ -505,7 +505,7 @@ function CatalogChoice({ item, selected, onSelect }: { item: AcademicCatalogItem
   // L'éligibilité (prérequis, places, fenêtre) est évaluée par le serveur : on affiche son verdict et ses motifs.
   const blocked = item.eligibility ? !item.eligibility.eligible : false;
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${blocked ? "opacity-60" : ""} ${selected ? "border-primary bg-primary/5" : ""}`}>
+    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${blocked ? "opacity-60" : ""} ${selected ? "border-primary bg-primary/5" : ""}`}>
       <input type="radio" name="offering" checked={selected} disabled={blocked} onChange={onSelect} className="mt-1 h-4 w-4 accent-primary" />
       <span className="min-w-0 flex-1">
         <span className="block font-medium">
@@ -518,7 +518,7 @@ function CatalogChoice({ item, selected, onSelect }: { item: AcademicCatalogItem
         </span>
         {blocked && item.eligibility?.message ? <span className="block text-xs font-medium text-destructive">{item.eligibility.message}</span> : null}
         {item.eligibility?.warnings.map((w) => (
-          <span key={w.code} className="block text-xs text-amber-700">
+          <span key={w.code} className="block text-xs text-amber-300">
             {w.message}
           </span>
         ))}

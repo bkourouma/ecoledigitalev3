@@ -1,0 +1,4 @@
+﻿Code du noeud;Libellé;Type de noeud (code);Code du parent;Code de la matière;Niveau (code);Coefficient;Ordre d'affichage;Obligatoire
+GS;Grande Section;LEVEL;;;GS;;1;oui
+GS-LANGAGE;Langage oral;SUBJECT;GS;LANGAGE;;1;1;oui
+GS-EVEIL;Éveil / Sciences;SUBJECT;GS;EVEIL;;1;2;oui

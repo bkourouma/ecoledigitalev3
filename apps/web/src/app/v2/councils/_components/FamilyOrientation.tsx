@@ -54,7 +54,7 @@ function OrientationBody({ data, mode }: { data: CouncilsFamilyOrientationDto; m
   return (
     <div className="space-y-4">
       {data.studentName ? <p className="text-sm text-muted-foreground">{t("about", { name: data.studentName })}</p> : null}
-      <div className="space-y-2 rounded-lg border p-4">
+      <div className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold">{t("stateTitle")}</h3>
           <StatusBadge label={t(`stage.${file.stage}`)} tone={STAGE_TONE[file.stage] ?? "neutral"} />
@@ -72,14 +72,14 @@ function Wishes({ data }: { data: CouncilsFamilyOrientationDto }) {
   const t = useTranslations("v2CouncilsFamily");
   const wishes = data.file?.wishes ?? [];
   return (
-    <div className="space-y-2 rounded-lg border p-4">
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h3 className="text-base font-semibold">{t("wishesTitle")}</h3>
       {wishes.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("noWishes")}</p>
       ) : (
         <ol className="space-y-2" aria-label={t("wishesTitle")}>
           {wishes.map((w) => (
-            <li key={w.id} className="rounded-md bg-muted/40 p-3 text-sm">
+            <li key={w.id} className="rounded-md bg-white/[0.04] p-3 text-sm">
               <p className="font-medium">
                 {t("wishRank", { rank: w.rank })} — {w.targetLabel ?? t("unnamedTarget")}
               </p>
@@ -119,7 +119,7 @@ function Consent({ data, mode }: { data: CouncilsFamilyOrientationDto; mode: "gu
   }
 
   return (
-    <div className="space-y-2 rounded-lg border p-4">
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-base font-semibold">{t("consentTitle")}</h3>
         <StatusBadge label={t(`consent.${file.guardianConsent}`)} tone={CONSENT_TONE[file.guardianConsent] ?? "neutral"} />
@@ -191,7 +191,7 @@ function WishForm({ data }: { data: CouncilsFamilyOrientationDto }) {
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} noValidate className="space-y-3 rounded-lg border p-4" aria-labelledby="wish-form-title">
+    <form onSubmit={(e) => void submit(e)} noValidate className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4" aria-labelledby="wish-form-title">
       <h3 id="wish-form-title" className="text-base font-semibold">
         {t("formTitle")}
       </h3>

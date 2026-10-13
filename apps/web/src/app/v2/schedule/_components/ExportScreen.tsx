@@ -148,7 +148,7 @@ export function ExportScreen() {
         <Notice kind="info">{t("chooseSubject")}</Notice>
       ) : (
         <>
-          <section aria-labelledby="dl-title" className="space-y-2 rounded-lg border p-4">
+          <section aria-labelledby="dl-title" className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
             <h2 id="dl-title" className="text-lg font-semibold">
               {t("downloadTitle")}
             </h2>
@@ -159,7 +159,7 @@ export function ExportScreen() {
             {downloadError ? <Notice kind="error">{downloadError}</Notice> : null}
           </section>
 
-          <section aria-labelledby="sub-title" className="space-y-3 rounded-lg border p-4">
+          <section aria-labelledby="sub-title" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
             <h2 id="sub-title" className="text-lg font-semibold">
               {t("subscribeTitle")}
             </h2>
@@ -173,12 +173,12 @@ export function ExportScreen() {
             </div>
             {createToken.error ? <Notice kind="error">{createToken.error.message}</Notice> : null}
             {created ? (
-              <div className="space-y-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950" role="status">
+              <div className="space-y-2 rounded-xl border border-emerald-400/40 bg-emerald-400/10 p-3 text-sm text-emerald-200" role="status">
                 <p className="font-medium">{t("createdTitle")}</p>
                 <label className="block text-xs" htmlFor="ics-url">
                   {t("createdLabel")}
                 </label>
-                <input id="ics-url" readOnly value={created.url} onFocus={(e) => e.currentTarget.select()} className="h-10 w-full rounded-md border bg-background px-2 font-mono text-xs" />
+                <input id="ics-url" readOnly value={created.url} onFocus={(e) => e.currentTarget.select()} className="h-10 w-full rounded-xl border border-white/10 bg-background px-2 font-mono text-xs" />
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" className={buttonClass.secondary} onClick={() => void copy(created.url)}>
                     {t("copy")}

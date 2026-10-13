@@ -44,6 +44,7 @@ export function ConfigurationNav() {
   const t = useTranslations("v2Payroll.config.nav");
   return (
     <SectionNav
+      persistent
       label={t("label")}
       items={[
         { href: "/v2/payroll/configuration", label: t("configs"), permission: "payroll.config.read", exact: true },

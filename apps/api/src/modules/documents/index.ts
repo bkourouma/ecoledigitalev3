@@ -42,7 +42,7 @@ export { documentsAuditAdapter } from "./infrastructure/audit-adapter";
 export { EICAR, eicarBytes, FakeScanner, InMemoryOwners, InMemoryStorage, inMemoryPorts, unavailablePorts, type InMemoryWorld } from "./infrastructure/in-memory-ports";
 
 // Antivirus et conversion : adaptateurs configurables par l'environnement
-export { ClamavScanner, clamavScannerFromEnv, scanPolicyFromEnv, type ClamavOptions } from "./infrastructure/clamav-scanner";
+export { ClamavScanner, clamavScannerFromEnv, DevEicarScanner, scanPolicyFromEnv, type ClamavOptions } from "./infrastructure/clamav-scanner";
 export { OfficeConverter, officeConverterFromEnv, type OfficeConverterOptions } from "./infrastructure/office-converter";
 
 // Domaine (types et règles pures, réutilisables par les adaptateurs et les tests)

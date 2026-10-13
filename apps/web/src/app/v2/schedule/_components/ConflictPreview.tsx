@@ -67,9 +67,9 @@ export function ConflictPreviewPanel({
       {preview.isError ? <p className="text-sm text-destructive">{preview.error.message}</p> : null}
       {data ? (
         <>
-          {data.conflicts.length === 0 ? <p className="text-sm text-emerald-800">{t("none")}</p> : <ConflictList conflicts={data.conflicts} />}
+          {data.conflicts.length === 0 ? <p className="text-sm text-emerald-300">{t("none")}</p> : <ConflictList conflicts={data.conflicts} />}
           {data.blocking && canOverride ? (
-            <div className="space-y-2 rounded-md border p-3">
+            <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <CheckControl checked={override.enabled} onChange={(enabled) => onOverrideChange({ ...override, enabled })} label={t("override")} hint={t("overrideHint")} />
               {override.enabled ? (
                 <FormField label={t("overrideReason")} required error={override.reason.trim().length > 0 && override.reason.trim().length < 5 ? t("overrideReasonShort") : null}>

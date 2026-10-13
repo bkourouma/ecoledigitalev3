@@ -7,6 +7,7 @@ import { AuthShell, FormAlert } from "./AuthShell";
 import { TextField } from "./fields";
 import { explainIamError, iamApi } from "./iam-api";
 import { useIamSession } from "./useIamSession";
+import { AntSelect } from "@/platform/ui/FormField";
 
 type Member = Awaited<ReturnType<typeof iamApi.listMembers>>["members"][number];
 
@@ -95,13 +96,13 @@ export function MembersPage() {
           <label htmlFor="invite-role" className="text-sm font-medium">
             Rôle
           </label>
-          <select id="invite-role" className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
+          <AntSelect id="invite-role" className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
             {INVITABLE_ROLES.map((r) => (
               <option key={r.key} value={r.key}>
                 {r.label}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
         <Button type="submit" className="h-11" disabled={busy !== null || !email}>
           {busy === "invite" ? "Envoi…" : "Inviter"}

@@ -42,6 +42,7 @@ export function CatalogNav() {
   const t = useTranslations("v2Finance.catalog.nav");
   return (
     <SectionNav
+      persistent
       label={t("label")}
       items={[
         { href: "/v2/finance/fees", label: t("fees"), exact: true },

@@ -93,7 +93,7 @@ function DocumentList({ query, label }: { query: QueryLike; label: string }) {
   return (
     <ul className="grid gap-3 md:grid-cols-2" aria-label={label}>
       {query.data.map((d) => (
-        <li key={d.id} className="flex flex-col gap-2 rounded-lg border p-3">
+        <li key={d.id} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-card/40 p-3">
           <div>
             <p className="font-medium">{tKind(d.documentKind)}</p>
             <p className="font-mono text-xs text-muted-foreground">

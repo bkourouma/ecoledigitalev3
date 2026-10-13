@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { PEOPLE_STAFF_STATUSES, peopleChangeStaffStatusBodySchema, peopleUpdateStaffBodySchema, type PeopleStaffDetailDto } from "@ecoledigitale/contracts/v2/people";
-import { useChangeStaffStatus, useInvitePortalAccess, useStaff, useStaffCategories, useStaffHistory, useUpdateStaff } from "@/platform/v2/people";
+import { useChangeStaffStatus, useInvitePortalAccess, useLinkPersonIdentity, useStaff, useStaffCategories, useStaffHistory, useUpdateStaff } from "@/platform/v2/people";
 import { useInstitutions } from "@/platform/v2/lookups";
+import { useMembers } from "@/platform/admin/roles/hooks";
 import { usePermission } from "@/platform/access";
 import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
@@ -29,6 +30,7 @@ export function StaffDetail({ id }: { id: string }) {
   const flash = useFlash();
   const [editing, setEditing] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [inviteError, setInviteError] = useState<unknown>(null);
   const contractsAllowed = usePermission("staff.contract.read");
   const teachingAllowed = usePermission("teaching.read");
@@ -64,6 +66,11 @@ export function StaffDetail({ id }: { id: string }) {
                   }}
                 >
                   {t("invite")}
+                </button>
+              ) : null}
+              {s.portalAccount === "NONE" ? (
+                <button type="button" className={buttonClass.secondary} onClick={() => setLinking(true)}>
+                  {t("linkAccount")}
                 </button>
               ) : null}
             </Can>
@@ -117,6 +124,7 @@ export function StaffDetail({ id }: { id: string }) {
       </Tabs>
 
       {editing ? <EditDialog staff={s} onClose={() => setEditing(false)} onDone={() => flash.show(t("updated"))} /> : null}
+      {linking ? <LinkAccountDialog staff={s} onClose={() => setLinking(false)} onDone={() => flash.show(t("linked"))} /> : null}
       {changing ? <StatusDialog staff={s} onClose={() => setChanging(false)} onDone={() => flash.show(t("statusChanged"))} /> : null}
     </div>
   );
@@ -139,7 +147,7 @@ function IdentityTab({ staff: s }: { staff: PeopleStaffDetailDto }) {
   const institutionName = (id: string) => (institutions.data ?? []).find((i) => i.id === id)?.name ?? id.slice(0, 8);
   return (
     <div className="space-y-5">
-      <section aria-labelledby="sid-civil" className="rounded-lg border p-4">
+      <section aria-labelledby="sid-civil" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="sid-civil" className="mb-3 text-lg font-semibold">
           {t("civil")}
         </h2>
@@ -158,7 +166,7 @@ function IdentityTab({ staff: s }: { staff: PeopleStaffDetailDto }) {
           <Item label={t("portalAccount")}>{s.portalAccount === "NONE" ? t("noPortal") : s.portalAccount}</Item>
         </dl>
       </section>
-      <section aria-labelledby="sid-aff" className="rounded-lg border p-4">
+      <section aria-labelledby="sid-aff" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="sid-aff" className="mb-2 text-lg font-semibold">
           {t("affiliations")}
         </h2>
@@ -280,6 +288,34 @@ function StatusDialog({ staff, onClose, onDone }: { staff: PeopleStaffDetailDto;
           </FormField>
         ) : null}
       </div>
+    </FormDialog>
+  );
+}
+
+/**
+ * Relie la fiche à un compte qui a déjà un accès dans l'établissement (ex. le propriétaire, créé sans fiche : « Un compte sans fiche de
+ * personnel ne saisit pas d'évaluation »). Aucune invitation n'est envoyée. L'API refuse un compte déjà lié à une autre personne.
+ */
+function LinkAccountDialog({ staff, onClose, onDone }: { staff: PeopleStaffDetailDto; onClose: () => void; onDone: () => void }) {
+  const t = useTranslations("v2Staff.detail.linkDialog");
+  const members = useMembers();
+  const link = useLinkPersonIdentity();
+  const [identityId, setIdentityId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const options = (members.data ?? []).map((m) => ({ value: m.identityId, label: m.email }));
+
+  function submit() {
+    if (!identityId) return setError(t("required"));
+    setError(null);
+    link.mutate({ personId: staff.personId, identityId }, { onSuccess: () => { onClose(); onDone(); } });
+  }
+
+  return (
+    <FormDialog open onOpenChange={(o) => !o && onClose()} title={t("title", { name: staff.displayName })} description={t("description")} submitLabel={t("submit")} onSubmit={submit} isPending={link.isPending} error={link.error}>
+      {members.isError ? <ErrorBlock error={members.error} onRetry={() => void members.refetch()} /> : null}
+      <FormField label={t("account")} required error={error}>
+        {(c) => <NativeSelect {...c} value={identityId} onChange={setIdentityId} placeholder={t("choose")} options={options} />}
+      </FormField>
     </FormDialog>
   );
 }

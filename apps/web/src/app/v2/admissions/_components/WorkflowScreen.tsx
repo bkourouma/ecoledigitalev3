@@ -54,7 +54,7 @@ export function WorkflowScreen() {
             <ul className="space-y-2">
               {items.map((w) => (
                 <li key={w.id}>
-                  <button type="button" aria-current={w.id === current ? "true" : undefined} onClick={() => setSelectedId(w.id)} className={`w-full rounded-md border p-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${w.id === current ? "border-primary bg-accent" : ""}`}>
+                  <button type="button" aria-current={w.id === current ? "true" : undefined} onClick={() => setSelectedId(w.id)} className={`w-full rounded-xl border p-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${w.id === current ? "border-primary bg-accent" : ""}`}>
                     <span className="block font-medium">{w.label}</span>
                     <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>v{w.version}</span>
@@ -135,7 +135,7 @@ function Detail({ workflow, onSelect }: { workflow: AdmissionsWorkflowViewDto; o
 
   return (
     <div className="space-y-4">
-      <section aria-labelledby="wf-title" className="rounded-lg border p-4">
+      <section aria-labelledby="wf-title" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 id="wf-title" className="text-base font-semibold">
@@ -208,7 +208,7 @@ function StagesTable({ stages }: { stages: ReadonlyArray<AdmissionsStageDto> }) 
   const t = useTranslations("v2Admissions.workflow");
   const ts = useTranslations("v2Admissions.status");
   return (
-    <section aria-labelledby="wf-stages" className="rounded-lg border p-4">
+    <section aria-labelledby="wf-stages" className="rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="wf-stages" className="mb-3 text-base font-semibold">
         {t("stages")}
       </h2>
@@ -247,7 +247,7 @@ function TransitionsTable({ workflow }: { workflow: AdmissionsWorkflowViewDto })
   const t = useTranslations("v2Admissions.workflow");
   const label = new Map(workflow.stages.map((s) => [s.id, s.label]));
   return (
-    <section aria-labelledby="wf-transitions" className="rounded-lg border p-4">
+    <section aria-labelledby="wf-transitions" className="rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="wf-transitions" className="mb-3 text-base font-semibold">
         {t("transitions")}
       </h2>
@@ -318,13 +318,13 @@ function StagesEditor({ workflow }: { workflow: AdmissionsWorkflowViewDto }) {
   }
 
   return (
-    <form noValidate onSubmit={submit} aria-label={t("stages")} className="space-y-4 rounded-lg border p-4">
+    <form noValidate onSubmit={submit} aria-label={t("stages")} className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 className="text-base font-semibold">{t("stages")}</h2>
       {flash.node}
       <ol className="space-y-3">
         {rows.map((r, i) => (
           <li key={i}>
-            <fieldset className="space-y-3 rounded-md border p-3">
+            <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <legend className="px-1 text-sm font-medium">{t("stageN", { n: i + 1, label: r.label || r.code })}</legend>
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormField label={t("code")} required error={shown[`stages.${i}.code`]}>
@@ -406,13 +406,13 @@ function TransitionsEditor({ workflow }: { workflow: AdmissionsWorkflowViewDto }
   }
 
   return (
-    <form noValidate onSubmit={submit} aria-label={t("transitions")} className="space-y-4 rounded-lg border p-4">
+    <form noValidate onSubmit={submit} aria-label={t("transitions")} className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 className="text-base font-semibold">{t("transitions")}</h2>
       <p className="text-sm text-muted-foreground">{t("transitionsHint")}</p>
       {flash.node}
       <ul className="space-y-3">
         {rows.map((r, i) => (
-          <li key={i} className="space-y-3 rounded-md border p-3">
+          <li key={i} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <FormField label={t("from")} error={shown[`transitions.${i}.fromStage`]}>
                 {(c) => <NativeSelect {...c} value={r.fromStage} onChange={(v) => patch(i, { fromStage: v })} placeholder={t("choose")} options={stageOptions} />}

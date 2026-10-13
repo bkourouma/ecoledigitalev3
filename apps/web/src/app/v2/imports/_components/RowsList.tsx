@@ -6,6 +6,7 @@ import type { ImportColumnDef, ImportIssue } from "@ecoledigitale/contracts/v2/i
 import { buttonClass, EmptyBlock, ErrorBlock, LoadingBlock, StatusBadge } from "@/platform/ui";
 import { useImportRows, type ImportRowsQuery } from "@/platform/v2/imports";
 import { INPUT_CLASS } from "./import-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 /**
  * Tableau des problèmes par ligne et par colonne, FILTRABLE (champ, code, seulement les lignes à problème) et paginé côté
@@ -36,12 +37,12 @@ export function RowsList({ jobId, columns, headers, base, defaultOnlyProblems = 
 
   return (
     <section aria-label={t("title")} className="space-y-3">
-      <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => e.preventDefault()} aria-label={t("filters")}>
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => e.preventDefault()} aria-label={t("filters")}>
         <div>
           <label htmlFor="rows-filter-column" className="mb-1 block text-sm font-medium">
             {t("filterColumn")}
           </label>
-          <select
+          <AntSelect
             id="rows-filter-column"
             className={INPUT_CLASS}
             value={column}
@@ -56,7 +57,7 @@ export function RowsList({ jobId, columns, headers, base, defaultOnlyProblems = 
                 {c.label}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </div>
         <div>
           <label htmlFor="rows-filter-code" className="mb-1 block text-sm font-medium">
@@ -97,7 +98,7 @@ export function RowsList({ jobId, columns, headers, base, defaultOnlyProblems = 
       </p>
       <ul className="space-y-3" aria-label={t("list")}>
         {(rows.data?.items ?? []).map((r) => (
-          <li key={r.rowNo} className="rounded-md border p-3 md:grid md:grid-cols-[6rem_1fr] md:gap-4">
+          <li key={r.rowNo} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 md:grid md:grid-cols-[6rem_1fr] md:gap-4">
             <div className="mb-2 md:mb-0">
               <span className="text-sm font-semibold">{t("line", { n: r.rowNo })}</span>
             </div>

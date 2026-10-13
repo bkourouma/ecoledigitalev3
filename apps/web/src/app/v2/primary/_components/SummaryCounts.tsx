@@ -15,11 +15,11 @@ export function SummaryCounts({ data }: { data: PrimaryCompetencySummaryDto }) {
   for (const byLevel of Object.values(data.summary)) for (const code of Object.keys(byLevel)) if (!levels.includes(code)) levels.push(code);
   if (domains.length === 0) return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
   return (
-    <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("region")}>
+    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40" tabIndex={0} role="region" aria-label={t("region")}>
       <table className="w-full text-sm">
         <caption className="sr-only">{t("caption")}</caption>
         <thead>
-          <tr className="border-b bg-muted/40 text-left">
+          <tr className="border-b border-white/10 bg-white/[0.04] text-left">
             <th scope="col" className="px-3 py-2 font-medium">
               {t("domain")}
             </th>
@@ -33,7 +33,7 @@ export function SummaryCounts({ data }: { data: PrimaryCompetencySummaryDto }) {
         </thead>
         <tbody>
           {domains.map((domain) => (
-            <tr key={domain} className="border-b last:border-0">
+            <tr key={domain} className="border-b border-white/5 last:border-0">
               <th scope="row" className="px-3 py-2 text-left font-medium">
                 {data.domainLabels[domain] ?? domain}
               </th>

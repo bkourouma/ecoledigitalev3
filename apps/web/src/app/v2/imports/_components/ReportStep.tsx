@@ -50,8 +50,8 @@ export function ReportStep({ job, importer }: { job: ImportJobDto; importer: Imp
                   ["failed", summary.data.totals.failed],
                 ] as const
               ).map(([k, v]) => (
-                <div key={k} className="rounded-md border p-3">
-                  <dt className="text-sm text-muted-foreground">{t(`totalsLabel.${k}`)}</dt>
+                <div key={k} className="rounded-2xl border border-white/10 bg-card/60 p-4">
+                  <dt className="text-sm font-medium text-muted-foreground">{t(`totalsLabel.${k}`)}</dt>
                   <dd className={`mt-1 text-2xl font-bold tabular-nums ${k === "failed" && v > 0 ? "text-destructive" : ""}`}>{v}</dd>
                 </div>
               ))}

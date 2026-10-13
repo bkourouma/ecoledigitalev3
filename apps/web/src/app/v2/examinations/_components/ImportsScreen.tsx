@@ -57,7 +57,7 @@ function BatchDetail({ batch }: { batch: ExamBatchDto }) {
   }
   const report = validate.data;
   return (
-    <div className="space-y-3 rounded-md border p-4" data-testid="batch-detail">
+    <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4" data-testid="batch-detail">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-semibold">{batch.fileName}</h3>
         <StatusPill label={labels.batchStatus(batch.status)} tone={batchTone(batch.status)} />
@@ -87,7 +87,7 @@ function BatchDetail({ batch }: { batch: ExamBatchDto }) {
         <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("errorRows")}>
           <table className="w-full text-sm">
             <caption className="sr-only">{t("errorRows")}</caption>
-            <thead className="bg-muted/50 text-left"><tr><th scope="col" className="px-3 py-2">{t("line")}</th><th scope="col" className="px-3 py-2">{t("error")}</th><th scope="col" className="hidden px-3 py-2 sm:table-cell">{t("candidate")}</th></tr></thead>
+            <thead className="bg-white/[0.04] text-left"><tr><th scope="col" className="px-3 py-2">{t("line")}</th><th scope="col" className="px-3 py-2">{t("error")}</th><th scope="col" className="hidden px-3 py-2 sm:table-cell">{t("candidate")}</th></tr></thead>
             <tbody>
               {detail.data.rows.items.map((r) => (
                 <tr key={r.id} className="border-t"><th scope="row" className="px-3 py-2 text-left">{r.lineNo}</th><td className="px-3 py-2">{r.errorCode ? labels.importError(r.errorCode) : "—"}</td><td className="hidden px-3 py-2 sm:table-cell">{r.candidateNumber ?? "—"}</td></tr>
@@ -137,7 +137,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
   return (
     <div className="space-y-4">
       <Notice kind="info">{t("notice")}</Notice>
-      <section aria-labelledby="upload-title" className="space-y-3 rounded-md border p-4">
+      <section aria-labelledby="upload-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h2 id="upload-title" className="text-base font-semibold">{t("upload.title")}</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <FormField label={t("upload.kind")} required>{(c) => <NativeSelect {...c} value={kind} options={KINDS.map((k) => ({ value: k, label: labels.batchKind(k) }))} onChange={(v) => { setKind(v as ExamBatchKind); setFormatId(""); }} />}</FormField>
@@ -154,7 +154,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
         {batches.isPending ? <LoadingBlock /> : batches.isError ? <ErrorBlock error={batches.error} onRetry={() => void batches.refetch()} /> : items.length === 0 ? <EmptyBlock title={t("batches.empty")} description={t("batches.emptyHint")} /> : (
           <ul className="space-y-2">
             {items.map((b) => (
-              <li key={b.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <li key={b.id} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{b.fileName}</p>
                   <p className="text-sm text-muted-foreground">{labels.batchKind(b.kind)} — {date.instant(b.createdAt)}</p>

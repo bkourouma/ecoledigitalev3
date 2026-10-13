@@ -68,7 +68,7 @@ function ArchivesBody() {
       <PageHeader title={t("title")} description={t("description")} />
       <RuleBanner />
       {flash.node}
-      <fieldset className="space-y-3 rounded-md border p-3">
+      <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <legend className="px-1 text-sm font-medium">{t("pickers")}</legend>
         <div className="max-w-sm">
           <FormField label={t("year")}>{(c) => <NativeSelect {...c} value={yearId} onChange={setYearId} placeholder={t("chooseYear")} options={years} />}</FormField>
@@ -90,7 +90,7 @@ function ArchivesBody() {
           <ul className="space-y-4" aria-label={t("list")}>
             {(archives.data ?? []).map((a) => (
               <li key={a.id}>
-                <section aria-label={t("archiveLabel", { status: label("archiveStatus", a.status) })} className="space-y-3 rounded-lg border p-4">
+                <section aria-label={t("archiveLabel", { status: label("archiveStatus", a.status) })} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusBadge label={label("archiveStatus", a.status)} tone={toneOfArchive(a.status)} />
                     <p className="text-sm" data-testid="archive-counts">
@@ -114,7 +114,7 @@ function ArchivesBody() {
                     </div>
                   </dl>
                   {a.blockers.length > 0 ? (
-                    <div role="alert" className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">
+                    <div role="alert" className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-100">
                       <p className="font-medium">{t("blockers")}</p>
                       <ul className="mt-1 list-disc space-y-0.5 pl-5">
                         {a.blockers.map((b, i) => (
@@ -153,7 +153,7 @@ function ArchivesBody() {
         error={freeze.error}
         onConfirm={() => void doFreeze()}
       >
-        <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-900">{t("freezeDialog.irreversible")}</p>
+        <p className="rounded-xl border border-red-400/40 bg-red-400/10 p-3 text-sm font-medium text-red-200">{t("freezeDialog.irreversible")}</p>
       </ConfirmActionDialog>
     </div>
   );

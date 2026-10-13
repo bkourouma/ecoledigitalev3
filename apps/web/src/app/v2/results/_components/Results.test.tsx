@@ -11,6 +11,7 @@ import { ExplainScreen } from "./ExplainScreen";
 import { MatrixScreen } from "./MatrixScreen";
 import { OverridesScreen } from "./OverridesScreen";
 import { PeriodScreen } from "./PeriodScreen";
+import { SettingsScreen } from "./SettingsScreen";
 import { YearResultScreen } from "./YearResultScreen";
 
 vi.mock("@/platform/api/default-client", async () => (await import("@/platform/test/api-mock")).defaultClientModule);
@@ -458,4 +459,29 @@ describe("YearResultScreen", () => {
     expect(screen.getAllByText("13,50").length).toBeGreaterThan(0);
     expect(screen.getByText("Définitif")).toBeTruthy();
   });
+});
+
+describe("SettingsScreen — réglages des résultats (L-22)", () => {
+  const dto = (over: Record<string, unknown> = {}) => ({ requireDeliberation: true, requireSeparateApprover: true, recomputeDelaySeconds: 10, updatedAt: null, ...over });
+
+  it("affiche les réglages de l'API, avertit quand on relâche un garde-fou, n'envoie que des valeurs conformes", async () => {
+    const api = setTestApi({
+      ...accessRoutes(["result.settings.manage"]),
+      "GET /api/v1/results/settings": dto(),
+      "PUT /api/v1/results/settings": () => json(dto({ requireDeliberation: false, updatedAt: "2026-10-13T09:00:00.000Z" })),
+    });
+    renderWithProviders(<SettingsScreen />);
+    const box = (await screen.findByRole("checkbox", { name: /Exiger une délibération avant la clôture/ })) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Temporisation du recalcul/), { target: { value: "abc" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect((await screen.findAllByRole("alert")).length).toBeGreaterThan(0);
+    expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
+    fireEvent.change(screen.getByLabelText(/Temporisation du recalcul/), { target: { value: "20" } });
+    fireEvent.click(box);
+    expect(screen.getByText(/Vous relâchez un garde-fou/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Réglages enregistrés.");
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ requireDeliberation: false, requireSeparateApprover: true, recomputeDelaySeconds: 20 });
+  }, 120_000);
 });

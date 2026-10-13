@@ -346,6 +346,59 @@ describe("Examens blancs", () => {
   });
 });
 
+describe("Jury d'un examen blanc", () => {
+  const cand = (n: number, name: string, code: string, average: string | null, decision: unknown = null) => ({ candidateId: uuid(9100 + n), candidateNumber: `0000${n}`, lastName: name, firstName: "Awa", proposedCode: code, average, rank: n, decision });
+  const dto = (over: Record<string, unknown> = {}) => ({
+    id: uuid(9000), sessionId: IDS.mockSession, status: "OPEN", heldOn: null, note: null, openedAt: "2026-10-20T08:00:00.000Z", closedAt: null,
+    counts: { total: 2, decided: 0, changed: 0 }, rows: [cand(1, "KOUASSI", "ADMITTED", "14.000"), cand(2, "TRAORE", "FAILED", "7.000")], ...over,
+  });
+  const routes = (jury: unknown, extra: Record<string, unknown> = {}) => {
+    nav.search = `session=${IDS.mockSession}`;
+    return {
+      ...accessRoutes(["exam.mock.manage"]),
+      [`GET ${E}/sessions`]: page([session({ id: IDS.mockSession, sessionKind: "MOCK", label: "CEPE blanc" })]),
+      [`GET ${E}/sessions/${IDS.mockSession}`]: sessionDetail({ id: IDS.mockSession, sessionKind: "MOCK", label: "CEPE blanc" }),
+      [`GET ${E}/sessions/${IDS.mockSession}/mock/links`]: { items: [] },
+      [`GET ${E}/sessions/${IDS.mockSession}/mock/jury`]: { jury },
+      ...extra,
+    };
+  };
+
+  it("ouvre le jury quand des résultats sont calculés", async () => {
+    const api = setTestApi(routes(null, { [`POST ${E}/sessions/${IDS.mockSession}/mock/jury`]: () => json(dto(), { status: 201 }) }));
+    renderWithProviders(<MockScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Ouvrir le jury" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.path.endsWith("/mock/jury"))).toBe(true));
+  });
+
+  it("un écart avec la règle exige un motif ; l'accord se confirme sans motif ; la clôture n'est offerte qu'une fois tout tranché", async () => {
+    const api = setTestApi(routes(dto(), { [`PUT ${E}/sessions/${IDS.mockSession}/mock/jury/decisions`]: () => json({ saved: 2, failed: [] }) }));
+    renderWithProviders(<MockScreen />);
+    expect((await screen.findByTestId("jury-counts")).textContent).toContain("0 décisions sur 2 candidats");
+    expect((screen.getByRole("button", { name: "Clore le jury" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Décision du jury pour KOUASSI Awa"), { target: { value: "ADMITTED" } }); // accord avec la règle
+    fireEvent.change(screen.getByLabelText("Décision du jury pour TRAORE Awa"), { target: { value: "ADMITTED" } }); // écart
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les décisions" }));
+    expect(await screen.findByText(/exige un motif de 20 caractères au moins/)).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Motif de la décision pour TRAORE Awa"), { target: { value: "Progrès nets en fin d'année, avis unanime." } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer les décisions" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({
+      items: [{ candidateId: uuid(9101), finalCode: "ADMITTED" }, { candidateId: uuid(9102), finalCode: "ADMITTED", justification: "Progrès nets en fin d'année, avis unanime." }],
+    });
+  }, 120_000);
+
+  it("jury clos : décisions en lecture seule, plus de bouton d'enregistrement", async () => {
+    const decided = (code: string) => ({ finalCode: code, justification: code === "ADMITTED" ? "Progrès nets en fin d'année, avis unanime." : null, decidedAt: "2026-10-20T09:00:00.000Z", changedFromProposal: code === "ADMITTED" });
+    setTestApi(routes(dto({ status: "CLOSED", closedAt: "2026-10-20T10:00:00.000Z", counts: { total: 2, decided: 2, changed: 1 }, rows: [cand(1, "KOUASSI", "ADMITTED", "14.000", decided("ADMITTED")), cand(2, "TRAORE", "FAILED", "7.000", decided("FAILED"))] })));
+    renderWithProviders(<MockScreen />);
+    expect(await screen.findByText("Le jury est clos : ses décisions sont figées.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Enregistrer les décisions" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clore le jury" })).toBeNull();
+  });
+});
+
 describe("Notes et résultats", () => {
   const routes = (permissions: string[], extra: Record<string, unknown> = {}) =>
     scope(permissions, { [`GET ${S}/results`]: page([result(1), result(2, { status: "PUBLISHED", source: "IMPORTED" })]), [`GET ${S}/scores`]: scoreMatrix(), [`GET ${S}/candidates`]: page([candidate(1), candidate(2)]), ...extra });

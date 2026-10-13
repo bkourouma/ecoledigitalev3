@@ -31,6 +31,7 @@ import { createApiHeaders } from "@/lib/api-utils";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { AntSelect } from "@/platform/ui/FormField";
 
 // Function to download material file
 const downloadMaterial = async (materialId: string, materialTitle: string) => {
@@ -229,7 +230,7 @@ export default function StudentContentPage() {
                 </div>
               </div>
               <div className="md:w-64">
-                <select
+                <AntSelect
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -240,7 +241,7 @@ export default function StudentContentPage() {
                       {course.name}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               </div>
             </div>
           </CardContent>

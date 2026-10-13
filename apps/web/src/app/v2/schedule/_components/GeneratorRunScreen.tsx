@@ -166,7 +166,7 @@ function Summary({ result }: { result: Result }) {
     <section aria-label={t("title")} className="space-y-3">
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {items.map(([label, value]) => (
-          <div key={label} className="rounded-md border p-3">
+          <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className={`text-lg font-semibold ${label === t("unplaced") && unplaced > 0 ? "text-destructive" : ""}`}>{value}</dd>
           </div>
@@ -245,7 +245,7 @@ function WeekGrid({ result, placements, kind, caption }: { result: Result; place
     <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={caption}>
       <table className="w-full min-w-[40rem] border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="bg-muted/50">
+        <thead className="bg-white/[0.04]">
           <tr>
             <th scope="col" className="w-24 px-2 py-2 text-left">
               {t("hour")}
@@ -316,7 +316,7 @@ function Issues({ result }: { result: Result }) {
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-[40rem] text-sm">
               <caption className="sr-only">{t("unplaced.caption")}</caption>
-              <thead className="bg-muted/50 text-left">
+              <thead className="bg-white/[0.04] text-left">
                 <tr>
                   <th scope="col" className="px-3 py-2">{t("unplaced.columns.need")}</th>
                   <th scope="col" className="px-3 py-2">{t("unplaced.columns.missing")}</th>
@@ -374,7 +374,7 @@ function Issues({ result }: { result: Result }) {
         <p className="text-sm text-muted-foreground">{t("soft.hint")}</p>
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {(Object.keys(result.score.breakdown) as Array<keyof Result["score"]["breakdown"]>).map((k) => (
-            <div key={k} className="rounded-md border p-3">
+            <div key={k} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <dt className="text-xs text-muted-foreground">{tWeights(k)}</dt>
               <dd className="text-lg font-semibold">{result.score.breakdown[k]}</dd>
             </div>

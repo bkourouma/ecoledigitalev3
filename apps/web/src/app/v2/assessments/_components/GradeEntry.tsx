@@ -486,7 +486,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
         {pasteInfo ? <Notice kind={pasteInfo.skipped > 0 ? "warning" : "info"}>{t(pasteInfo.mode === "keyed" ? "pasteKeyed" : "pastePositional", { applied: pasteInfo.applied, skipped: pasteInfo.skipped })}</Notice> : null}
 
         {editable ? (
-          <details className="rounded-md border bg-muted/30 p-3 text-sm">
+          <details className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm">
             <summary className="cursor-pointer font-medium">{t("helpTitle")}</summary>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
               <li>{t("helpKeys")}</li>
@@ -503,12 +503,12 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
         </p>
 
         {rows.length === 0 ? (
-          <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <table className="w-full border-collapse text-sm">
               <caption className="sr-only">{t("tableCaption")}</caption>
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-3 py-2">
                     {t("columns.student")}
@@ -580,7 +580,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                           onKeyDown={(e) => onKeyDown(e, displayIndex)}
                           onPaste={(e) => onPaste(e, displayIndex)}
                           onFocus={(e) => e.currentTarget.select()}
-                          className="h-11 w-20 rounded-md border border-input bg-background px-2 text-right tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40 sm:h-10 sm:w-24"
+                          className="h-11 w-20 rounded-xl border border-input bg-background px-2 text-right tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40 sm:h-10 sm:w-24"
                         />
                         {message ? (
                           <p id={errId} role="alert" className="mt-1 max-w-[12rem] text-xs font-medium text-destructive">
@@ -607,7 +607,7 @@ function GradeSheetView({ sheet, onReload, isReloading }: { sheet: GradeSheet; o
                           maxLength={500}
                           aria-label={t("commentOf", { name })}
                           onChange={(e) => setComment(row.enrollmentId, e.target.value)}
-                          className="h-10 w-full min-w-[8rem] rounded-md border border-input bg-background px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted/40"
+                          className="h-10 w-full min-w-[8rem] rounded-xl border border-input bg-background px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted/40"
                         />
                       </td>
                     </tr>
@@ -642,8 +642,8 @@ function RowMark({ dirty, saved, error, conflict = false }: { dirty: boolean; sa
   const tConflict = useTranslations("v2Offline.grades.conflicts");
   if (conflict) return <span className="text-xs font-medium text-destructive">{tConflict("rowMark")}</span>;
   if (error) return <span className="text-xs font-medium text-destructive">{t("rowError")}</span>;
-  if (dirty) return <span className="text-xs font-medium text-amber-700">{t("rowDirty")}</span>;
-  if (saved) return <span className="text-xs text-emerald-700">{t("rowSaved")}</span>;
+  if (dirty) return <span className="text-xs font-medium text-amber-300">{t("rowDirty")}</span>;
+  if (saved) return <span className="text-xs text-emerald-300">{t("rowSaved")}</span>;
   return null;
 }
 
@@ -652,15 +652,15 @@ function SaveIndicator({ state, dirty, invalid, at, result }: { state: SaveState
   const date = useDateFormat();
   const tOff = useTranslations("v2Offline.grades");
   if (state === "saving") return <span>{t("saving")}</span>;
-  if (state === "queued") return <span className="font-medium text-amber-700">{tOff("queued")}</span>;
-  if (state === "retry") return <span className="font-medium text-amber-700">{t("retryPending")}</span>;
+  if (state === "queued") return <span className="font-medium text-amber-300">{tOff("queued")}</span>;
+  if (state === "retry") return <span className="font-medium text-amber-300">{t("retryPending")}</span>;
   if (state === "conflict") return <span className="font-medium text-destructive">{t("conflictShort")}</span>;
   if (invalid > 0) return <span className="font-medium text-destructive">{t("invalidRows", { count: invalid })}</span>;
   if (state === "rejected") return <span className="font-medium text-destructive">{t("rejected")}</span>;
-  if (dirty > 0) return <span className="font-medium text-amber-700">{t("unsaved", { count: dirty })}</span>;
+  if (dirty > 0) return <span className="font-medium text-amber-300">{t("unsaved", { count: dirty })}</span>;
   if (state === "saved" && at && result) {
     return (
-      <span className="text-emerald-700">
+      <span className="text-emerald-300">
         {t("saved", { time: date.instant(at.toISOString()), created: result.created, updated: result.updated, unchanged: result.unchanged })}
         {result.replayed ? ` ${t("replayed")}` : ""}
       </span>
@@ -754,7 +754,7 @@ function GradeHistoryDialog({ row, name, onClose }: { row: GridRow; name: string
               ) : (
                 <ul className="mt-1 space-y-2">
                   {history.data.revisions.map((r) => (
-                    <li key={r.id} className="rounded-md border p-2">
+                    <li key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-2">
                       <p className="font-medium">
                         {show(r.oldEntryStatus, r.oldScore)} → {show(r.newEntryStatus, r.newScore)} <StatusBadge label={tRev(r.status)} tone={toneOfStatus(r.status)} />
                       </p>

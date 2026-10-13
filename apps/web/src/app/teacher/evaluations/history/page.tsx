@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { useTeacherEvaluations } from '@/lib/hooks/use-evaluations';
 import { useTeacherCourses } from '@/lib/hooks/use-courses';
 import { useCurrentTeacherId } from '@/lib/hooks/use-current-teacher';
+import { AntSelect } from "@/platform/ui/FormField";
 import { 
   Archive, 
   Calendar, 
@@ -307,7 +308,7 @@ export default function EvaluationHistoryPage() {
               />
             </div>
 
-            <select
+            <AntSelect
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -317,9 +318,9 @@ export default function EvaluationHistoryPage() {
                   {course.name}
                 </option>
               ))}
-            </select>
+            </AntSelect>
 
-            <select
+            <AntSelect
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -329,9 +330,9 @@ export default function EvaluationHistoryPage() {
                   {type.name}
                 </option>
               ))}
-            </select>
+            </AntSelect>
 
-            <select
+            <AntSelect
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -341,7 +342,7 @@ export default function EvaluationHistoryPage() {
                   {period.name}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           </div>
         </div>
 

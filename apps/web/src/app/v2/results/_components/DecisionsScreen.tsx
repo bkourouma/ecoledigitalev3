@@ -105,7 +105,7 @@ function DecisionsTab({ matrix, classroomId }: { matrix: ClassMatrix; classroomI
         <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("tableCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.student")}</th>
                 <th scope="col" className="hidden px-3 py-2 sm:table-cell">{t("columns.kind")}</th>
@@ -275,7 +275,7 @@ function DeliberationsTab({ state }: { state: ResultsStateDto }) {
           {items.map((d) => {
             const participants = participantsOf(d.participants);
             return (
-              <li key={d.id} className="space-y-2 rounded-md border p-3 text-sm">
+              <li key={d.id} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">
                     {t(`kind.${d.kind}`)}
@@ -432,7 +432,7 @@ function AppreciationsTab({ matrix, classroomId }: { matrix: ClassMatrix; classr
         <form
           noValidate
           aria-label={t("formLabel")}
-          className="space-y-3 rounded-md border p-4"
+          className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4"
           onSubmit={(e) => {
             e.preventDefault();
             void submit();
@@ -458,7 +458,7 @@ function AppreciationsTab({ matrix, classroomId }: { matrix: ClassMatrix; classr
       <QueryBoundary query={list} isEmpty={items.length === 0} empty={<EmptyBlock title={t("empty")} />}>
         <ul className="space-y-2" aria-label={t("listLabel")}>
           {items.map((a) => (
-            <li key={a.id} className="rounded-md border p-3 text-sm">
+            <li key={a.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
               <p className="font-medium">
                 {nameOf(a.enrollmentId)} · {tRole(a.authorRole)}
               </p>

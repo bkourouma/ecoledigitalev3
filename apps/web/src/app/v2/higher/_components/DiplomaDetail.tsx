@@ -111,7 +111,7 @@ export function DiplomaDetail({ id }: { id: string }) {
             {tab === "requirements" ? (
               <ul className="space-y-2" aria-label={t("requirements")}>
                 {d.requirements.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                     <span>
                       <span className="font-medium">{r.ueLabel ?? t("unknownUe")}</span> <span className="font-mono text-xs text-muted-foreground">{r.ueCode}</span>
                     </span>
@@ -255,10 +255,10 @@ function CandidatesTab({ diplomaId }: { diplomaId: string }) {
         </div>
       ) : null}
       <QueryBoundary query={query} isEmpty={items.length === 0} empty={<EmptyBlock title={t("empty")} description={t("emptyHint")} />}>
-        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("tableCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.student")}</th>
                 <th scope="col" className="px-3 py-2 text-right">{t("columns.progress")}</th>
@@ -272,7 +272,7 @@ function CandidatesTab({ diplomaId }: { diplomaId: string }) {
                 const name = c.fullName ?? t("studentFallback", { id: c.studentId.slice(0, 4) });
                 const canAward = c.awardStatus !== "OBTAINED" && (c.eligible === true ? canCreate.allowed : canForce.allowed && canCreate.allowed);
                 return (
-                  <tr key={c.studentId} className="border-t align-top">
+                  <tr key={c.studentId} className="border-t border-white/5 align-top transition-colors hover:bg-white/[0.04]">
                     <th scope="row" className="min-w-[8rem] px-3 py-2 text-left font-medium">
                       {name}
                       {c.matricule ? <span className="block text-xs font-normal text-muted-foreground">{c.matricule}</span> : null}
@@ -459,7 +459,7 @@ function AwardsTab({ diplomaId }: { diplomaId: string }) {
           {items.map((a) => {
             const name = names.get(a.studentId) ?? t("studentFallback", { id: a.studentId.slice(0, 4) });
             return (
-              <li key={a.id} className="space-y-2 rounded-md border p-3 text-sm">
+              <li key={a.id} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">
                     {name} <span className="font-mono text-xs font-normal text-muted-foreground">{a.reference}</span>
@@ -477,7 +477,7 @@ function AwardsTab({ diplomaId }: { diplomaId: string }) {
                   <Fact label={t("rule")}>{`${a.rule.ruleSetCode} · v${a.rule.versionNo}`}</Fact>
                   <Fact label={t("awardedBy")}>{`${a.awardedByName} (${date.instant(a.awardedAt)})`}</Fact>
                 </dl>
-                {a.forcedReason ? <p className="text-warning-foreground rounded bg-amber-50 p-2 text-xs text-amber-900">{t("forcedReason", { reason: a.forcedReason })}</p> : null}
+                {a.forcedReason ? <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-2 text-xs text-amber-200">{t("forcedReason", { reason: a.forcedReason })}</p> : null}
                 {a.reawardDecision ? <p className="text-xs text-muted-foreground">{t("reawardDecision", { decision: a.reawardDecision })}</p> : null}
                 {a.status === "REVOKED" ? <p className="text-xs text-destructive">{t("revoked", { name: a.revokedByName ?? "—", date: date.instant(a.revokedAt), reason: a.revokeReason ?? "—" })}</p> : null}
                 <AwardDocuments award={a} />

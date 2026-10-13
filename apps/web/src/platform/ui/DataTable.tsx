@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "luci
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { EmptyBlock, ErrorBlock } from "./states";
+import { AntSelect } from "./FormField";
 
 export type SortDirection = "asc" | "desc";
 export interface SortState {
@@ -94,10 +95,10 @@ export function DataTable<T>({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div role="region" aria-label={caption} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <table className="w-full min-w-[32rem] border-collapse text-sm" aria-busy={isLoading || undefined}>
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-muted/50">
+          <thead className="bg-white/[0.04]">
             <tr>
               {columns.map((column) => {
                 const active = sort?.id === column.id ? sort : null;
@@ -135,7 +136,7 @@ export function DataTable<T>({
                   </tr>
                 ))
               : rows.map((row) => (
-                  <tr key={getRowId(row)} className="border-t hover:bg-muted/30">
+                  <tr key={getRowId(row)} className="border-t border-white/5 transition-colors hover:bg-white/[0.04]">
                     {columns.map((c) =>
                       c.rowHeader ? (
                         <th key={c.id} scope="row" className={cn("px-3 py-2 font-medium", ALIGN[c.align ?? "left"], c.className)}>
@@ -164,7 +165,7 @@ export function Pager({ page, pageSize, total, onPageChange, pageSizeOptions, on
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
-  const btn = "inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
+  const btn = "inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1 rounded-[10px] border border-[#3d4450] bg-[#2c3139] px-3 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
   return (
     <nav aria-label={t("pagination")} className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
       <p aria-live="polite" className="text-muted-foreground">
@@ -174,13 +175,13 @@ export function Pager({ page, pageSize, total, onPageChange, pageSizeOptions, on
         {pageSizeOptions && onPageSizeChange ? (
           <label className="flex items-center gap-2 text-muted-foreground">
             <span>{t("rowsPerPage")}</span>
-            <select value={pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))} className="h-10 rounded-md border border-input bg-background px-2">
+            <AntSelect value={pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))} className="h-10 rounded-[10px] border border-[#3d4450] bg-[#2c3139] px-2 hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-violet-500/25">
               {pageSizeOptions.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           </label>
         ) : null}
         <button type="button" className={btn} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>

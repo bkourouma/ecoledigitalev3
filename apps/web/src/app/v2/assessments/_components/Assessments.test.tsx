@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { json, renderWithProviders } from "@/platform/test/render";
 import { classroom, period } from "../../_test/fixtures";
+import { staffSummary } from "../../_test/fixtures-people";
 import { assessment, assessmentType, revision, SETTINGS, STUDENTS, uuid } from "../_test/fixtures";
 import { AssessmentCreate } from "./AssessmentCreate";
 import { AssessmentDetail } from "./AssessmentDetail";
@@ -280,5 +281,42 @@ describe("AssessmentCreate", () => {
       curriculumNodeId: uuid(510),
     });
     expect(screen.getByRole("link", { name: "Saisir les notes" }).getAttribute("href")).toBe(`/v2/assessments/${uuid(800)}/grades`);
+  });
+
+  it("création en lot par la direction : l'enseignant de chaque ligne est choisi et envoyé (sans lui l'API refuse)", async () => {
+    const api = setTestApi({
+      ...accessRoutes(["assessment.create", "assessment.manage"]),
+      "GET /api/v1/assess/assessment-types": { items: [assessmentType()] },
+      "GET /api/v1/academic/classrooms": { items: [classroom()], total: 1, page: 1, pageSize: 200 },
+      [`GET /api/v1/academic/classrooms/${uuid(500)}`]: classroom(),
+      [`GET /api/v1/academic/classrooms/${uuid(500)}/offerings`]: {
+        items: [{ id: uuid(60), classroomId: uuid(500), curriculumNodeId: uuid(510), label: "Mathématiques", startsOn: "2026-09-01", endsOn: "2027-06-30", registrationOpensAt: null, registrationClosesAt: null, capacity: null, status: "OPEN", heldPlaces: 0 }],
+      },
+      [`GET /api/v1/academic/years/${uuid(100)}/periods`]: { items: [period()] },
+      "GET /api/v1/people/staff": { items: [staffSummary({ id: uuid(900), displayName: "KOUASSI Marc" })], total: 1, limit: 20, offset: 0 },
+      "POST /api/v1/assess/assessments/bulk": () => json({ items: [assessment({ title: "Devoir lot" })] }, { status: 201 }),
+    });
+    renderWithProviders(<AssessmentCreate />);
+    await screen.findByRole("option", { name: "Devoir" });
+    fireEvent.change(screen.getByLabelText(/Type d'évaluation/), { target: { value: uuid(700) } });
+    fireEvent.change(screen.getByLabelText(/Intitulé/), { target: { value: "Devoir lot" } });
+    fireEvent.change(screen.getByLabelText(/Date de l'évaluation/), { target: { value: "2026-10-15" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Créer pour plusieurs/ }));
+
+    const pick = async (name: RegExp, optionName: string) => {
+      const box = await screen.findByRole("combobox", { name });
+      fireEvent.focus(box);
+      fireEvent.click(await screen.findByRole("option", { name: new RegExp(optionName) }));
+    };
+    await pick(/Classe 1/, "Licence 1 A");
+    await screen.findByRole("option", { name: "Mathématiques" });
+    fireEvent.change(screen.getByLabelText(/Cours 1/), { target: { value: uuid(510) } });
+    await pick(/Enseignant du cours 1/, "KOUASSI Marc");
+    await screen.findByRole("option", { name: "Semestre 1" });
+    fireEvent.change(screen.getByLabelText(/^Période/), { target: { value: uuid(200) } });
+    fireEvent.click(screen.getByRole("button", { name: "Créer l'évaluation" }));
+    await screen.findByText("1 évaluation créée.");
+    const call = api.calls.find((c) => c.method === "POST" && c.path.endsWith("/bulk"));
+    expect(call!.body).toMatchObject({ targets: [{ classroomId: uuid(500), curriculumNodeId: uuid(510), teacherId: uuid(900) }] });
   });
 });

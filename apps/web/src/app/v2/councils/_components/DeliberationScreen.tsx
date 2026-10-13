@@ -40,7 +40,7 @@ export function DeliberationScreen({ councilId }: { councilId: string }) {
       <CouncilsBoundary query={agenda} isEmpty={items.length === 0} empty={<EmptyBlock title={t("emptyTitle")} description={t("emptyHint")} action={<Link href={`/v2/councils/${councilId}`} className={buttonClass.secondary}>{t("backToFile")}</Link>} />}>
         {current ? (
           <div className="space-y-4">
-            <nav aria-label={t("navLabel")} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-end">
+            <nav aria-label={t("navLabel")} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-card/40 p-3 sm:flex-row sm:items-end">
               <button type="button" className={buttonClass.secondary} disabled={safeIndex === 0} onClick={() => setIndex(safeIndex - 1)}>
                 {t("previous")}
               </button>

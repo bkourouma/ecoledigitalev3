@@ -11,7 +11,7 @@ import { useShellBranding } from "@/platform/shell/branding";
 import { ShellMenuProvider } from "@/platform/shell/context";
 import { moduleLabel } from "@/platform/shell/labels";
 import { ModuleSwitcher } from "@/platform/shell/ModuleSwitcher";
-import { activeModuleKey, buildBreadcrumb, buildManagementEntries, groupByModule, moduleKeyOf } from "@/platform/shell/modules";
+import { MENU_CATEGORIES, activeModuleKey, buildBreadcrumb, buildManagementEntries, categoryKeyOf, groupByModule, moduleIconOf, moduleKeyOf } from "@/platform/shell/modules";
 import { buildV2Menu } from "../menu";
 import { Shell } from "./Shell";
 
@@ -33,6 +33,7 @@ export function TenantAdminShell({ children, activePath }: { children: ReactNode
   const t = useTranslations("admin.shell");
   const tShell = useTranslations("v2Shell");
   const tModules = useTranslations("v2Shell.modules");
+  const tCategories = useTranslations("v2Shell.categories");
   const nav = useNavigation({});
   const permissions = useMyPermissions();
   const entitlements = useMyEntitlements();
@@ -54,7 +55,14 @@ export function TenantAdminShell({ children, activePath }: { children: ReactNode
   );
   const modules = useMemo(() => groupByModule(items), [items]);
   const labelOf = useCallback((key: string) => moduleLabel(tModules, key), [tModules]);
-  const grouping = useMemo(() => ({ moduleOf: moduleKeyOf, labelOf }), [labelOf]);
+  const categoryOf = useCallback(
+    (moduleKey: string) => {
+      const key = categoryKeyOf(moduleKey);
+      return { key, label: moduleLabel(tCategories, key) };
+    },
+    [tCategories],
+  );
+  const grouping = useMemo(() => ({ moduleOf: moduleKeyOf, labelOf, iconOf: moduleIconOf, categoryOf, categoryOrder: MENU_CATEGORIES }), [labelOf, categoryOf]);
   const crumbs = useMemo(
     () => buildBreadcrumb({ items, pathname: currentPath, homeLabel: tShell("home"), homeHref: MANAGEMENT_HOME, moduleLabelOf: labelOf, detailLabel: tShell("detail") }),
     [items, currentPath, tShell, labelOf],

@@ -23,7 +23,7 @@ interface RateRow {
 
 function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-lg border p-3">
+    <div className="rounded-2xl border border-white/10 bg-card/40 p-3">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-2xl font-semibold">{value}</dd>
     </div>

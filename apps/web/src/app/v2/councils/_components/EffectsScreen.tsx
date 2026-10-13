@@ -49,7 +49,7 @@ export function EffectsScreen({ councilId }: { councilId?: string }) {
           </Link>
         </Notice>
       ) : null}
-      <form className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2" aria-label={t("filters.label")} onSubmit={(e) => e.preventDefault()}>
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-3 sm:grid-cols-2" aria-label={t("filters.label")} onSubmit={(e) => e.preventDefault()}>
         <FormField label={t("filters.status")}>
           {(c) => <NativeSelect {...c} value={status} placeholder={t("filters.all")} onChange={(v) => { setStatus(v); setPage(1); }} options={COUNCIL_EFFECT_STATUSES.map((s) => ({ value: s, label: text("effectStatus", s) }))} />}
         </FormField>

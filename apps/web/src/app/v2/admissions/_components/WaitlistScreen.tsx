@@ -167,6 +167,14 @@ export function WaitlistScreen() {
             </div>
           </Can>
           <Can permission="admission.waitlist.reorder">
+            {/* Un seul dossier : il n'y a rien à monter ni descendre, mais il peut être classé (rang 1) pour ne plus être « à classer » (L-72). */}
+            {!draftValid && shown.length === 1 ? (
+              <div className="mb-3">
+                <button type="button" className={buttonClass.secondary} onClick={() => { setSaved(false); setDraft([shown[0]!.applicationId]); }}>
+                  {t("rankSingle")}
+                </button>
+              </div>
+            ) : null}
             {draftValid ? (
               <div className="mb-3 grid gap-3 sm:max-w-xl" role="group" aria-label={t("reorderGroup")}>
                 <FormField label={t("reason")} hint={t("reasonHint")}>

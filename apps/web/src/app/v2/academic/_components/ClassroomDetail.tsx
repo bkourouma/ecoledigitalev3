@@ -74,7 +74,7 @@ export function ClassroomDetail({ id }: { id: string }) {
         }
       />
       {flash.node}
-      <dl className="grid gap-x-6 gap-y-3 rounded-lg border p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-x-6 gap-y-3 rounded-2xl border border-white/10 bg-card/40 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt className="text-muted-foreground">{t("status")}</dt>
           <dd>

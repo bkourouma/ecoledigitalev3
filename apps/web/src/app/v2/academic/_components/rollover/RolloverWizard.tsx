@@ -197,7 +197,7 @@ export function RolloverWizard() {
       },
       content: (
         <div className="space-y-4">
-          <dl className="grid gap-3 rounded-md border p-4 text-sm sm:grid-cols-2">
+          <dl className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">{t("confirm.from")}</dt>
               <dd className="font-medium">{from?.label ?? "—"}</dd>

@@ -11,6 +11,7 @@ import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "@/platform/ui/states";
 import { cn } from "@/lib/utils";
 import { priorityTone } from "../../messages/_components/messaging-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 function AnnouncementRow({ a, managed }: { a: MessagingAnnouncementDto; managed: boolean }) {
   const t = useTranslations("v2MessagingAnnouncements");
@@ -84,14 +85,14 @@ export function AnnouncementsScreen() {
         {scope === "managed" ? (
           <label className="inline-flex items-center gap-2">
             {t("filterStatus")}
-            <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+            <AntSelect value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">{t("allStatuses")}</option>
               {MESSAGING_ANNOUNCEMENT_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {t(`status.${s}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           </label>
         ) : (
           <>

@@ -372,7 +372,7 @@ function AddCompetencyDialog({ existing, onClose, onSubmit }: { existing: string
       <FormField label={t("subject")} required error={error}>
         {(c) => <SelectAsync {...c} value={subject} onChange={setSubject} useOptions={useSubjectOptions} placeholder={t("subjectPlaceholder")} ariaLabel={t("subject")} />}
       </FormField>
-      <fieldset className="max-h-48 overflow-y-auto rounded-md border p-2">
+      <fieldset className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] p-2">
         <legend className="px-1 text-sm font-medium">{t("levels")}</legend>
         <p className="px-1 text-xs text-muted-foreground">{t("levelsHint")}</p>
         {(grades.data ?? []).filter((g) => g.active).map((g) => (
@@ -429,14 +429,14 @@ export function AvailabilityGrid({
       {error ? <ErrorBlock error={error} /> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="list" aria-label={t("gridLabel")}>
         {byDay.map(({ day, items }) => (
-          <section key={day} role="listitem" aria-labelledby={`wd-${day}`} className="rounded-md border p-2">
+          <section key={day} role="listitem" aria-labelledby={`wd-${day}`} className="rounded-xl border border-white/10 bg-white/[0.02] p-2">
             <h3 id={`wd-${day}`} className="mb-1 text-sm font-semibold">
               {t(`weekday.${day}`)}
             </h3>
             {items.length === 0 ? <p className="text-xs text-muted-foreground">{t("none")}</p> : null}
             <ul className="space-y-1">
               {items.map((s) => (
-                <li key={s.id} className={`flex items-center justify-between gap-1 rounded px-2 py-1 text-xs ${s.kind === "AVAILABLE" ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"}`}>
+                <li key={s.id} className={`flex items-center justify-between gap-1 rounded px-2 py-1 text-xs ${s.kind === "AVAILABLE" ? "bg-emerald-400/10 text-emerald-200" : "bg-red-400/10 text-red-200"}`}>
                   <span>
                     {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)} · {t(`kind.${s.kind}`)}
                     {s.reason ? ` — ${s.reason}` : ""}
@@ -566,7 +566,7 @@ export function LoadTab({ staffId }: { staffId: string }) {
       {load.isPending && load.fetchStatus !== "idle" ? <LoadingBlock /> : null}
       {load.isError ? <ErrorBlock error={load.error} onRetry={() => void load.refetch()} /> : null}
       {load.data ? (
-        <dl className="grid gap-4 rounded-lg border p-4 text-sm sm:grid-cols-3">
+        <dl className="grid gap-4 rounded-2xl border border-white/10 bg-card/40 p-4 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-muted-foreground">{t("planned")}</dt>
             <dd className="text-xl font-semibold">{t("hours", { value: load.data.plannedHours })}</dd>

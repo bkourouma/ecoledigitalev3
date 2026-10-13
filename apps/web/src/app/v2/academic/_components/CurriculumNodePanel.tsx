@@ -90,7 +90,7 @@ export function CurriculumNodePanel({ node, tree, onFlash, onSelect }: { node: T
   }
 
   return (
-    <article className="space-y-4 rounded-lg border p-4" aria-labelledby="node-title">
+    <article className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4" aria-labelledby="node-title">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="node-title" className="text-lg font-semibold">
@@ -613,7 +613,7 @@ function PrerequisitesDialog({ node, tree, onClose, onDone }: { node: TreeNode; 
       error={set.error}
       onSubmit={() => void set.mutateAsync({ id: node.id, requiredLineageIds: [...selected] }).then(() => { onDone(); onClose(); }).catch(() => undefined)}
     >
-      <fieldset className="max-h-72 space-y-0 overflow-y-auto rounded-md border p-2">
+      <fieldset className="max-h-72 space-y-0 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] p-2">
         <legend className="sr-only">{t("prerequisites")}</legend>
         {candidates.length === 0 ? <p className="p-2 text-sm text-muted-foreground">{t("treeEmpty")}</p> : null}
         {candidates.map(({ node: n, depth }) => (

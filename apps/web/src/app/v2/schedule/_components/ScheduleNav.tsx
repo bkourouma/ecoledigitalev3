@@ -16,6 +16,7 @@ export function ScheduleNav() {
         { href: "/v2/schedule/generator", label: t("generator"), permission: "schedule.manage" },
         { href: "/v2/schedule/replacements", label: t("replacements"), permission: "schedule.manage" },
         { href: "/v2/schedule/rooms", label: t("rooms"), permission: "schedule.read" },
+        { href: "/v2/schedule/hours", label: t("hours"), permission: "schedule.manage" },
         { href: "/v2/schedule/export", label: t("export") },
       ]}
     />

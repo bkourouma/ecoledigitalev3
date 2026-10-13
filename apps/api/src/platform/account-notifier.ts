@@ -5,7 +5,10 @@
  *    `SMTP_PORT`, `SMTP_SECURE`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL`) : envoi réel par nodemailer. Le lien pointe
  *    vers `V2_APP_BASE_URL` (ex. `https://ecoledigitale.example`) : `/auth/invitation?token=…` et
  *    `/auth/reset-password?token=…` (pages du web v2, à aligner avec la fondation web).
- *  - SMTP absent : AUCUN envoi. L'événement est journalisé SANS le jeton (le secret ne doit jamais être écrit
+ *  - Mode développement (`ACCOUNT_MAIL_DEV_LINKS=1`, refusé si `NODE_ENV=production`) : sans SMTP, le LIEN d'invitation ou de
+ *    réinitialisation est écrit dans le journal de l'API (niveau info) pour être ouvert à la main. Le jeton est alors dans le
+ *    journal : réservé au poste de développement, jamais activé par défaut.
+ *  - SMTP absent (et mode développement non activé) : AUCUN envoi. L'événement est journalisé SANS le jeton (le secret ne doit jamais être écrit
  *    dans les journaux) : l'invité ne peut alors pas définir son mot de passe — à configurer avant la mise en
  *    production (documenté dans docs/architecture/platform-assembly.md).
  *
@@ -35,6 +38,18 @@ export function createLoggingNotifier(logger: Pick<Logger, "warn">): AccountNoti
     async sendInvitation(input) {
       logger.warn({ event: "iam_mail_not_sent", kind: "invitation", tenant: input.tenantName, expiresAt: input.expiresAt.toISOString() }, "Aucun transport e-mail (SMTP_HOST absent) : invitation NON envoyée.");
     },
+  };
+}
+
+/** Développement local uniquement : journalise le lien (avec son jeton) faute de transport e-mail. `V2_APP_BASE_URL` vaut `http://localhost:3000` par défaut. */
+export function createDevLinkNotifier(env: NotifierEnv, logger: Pick<Logger, "info">): AccountNotifier {
+  const env2 = { ...env, V2_APP_BASE_URL: env.V2_APP_BASE_URL?.trim() || "http://localhost:3000" };
+  const show = (kind: string, to: string, path: string, token: string, expiresAt: Date): void => {
+    logger.info({ event: "iam_mail_dev_link", kind, to, expiresAt: expiresAt.toISOString(), link: linkFor(env2, path, token) }, `[dev] Lien de ${kind === "invitation" ? "l'invitation" : "réinitialisation"} pour ${to}`);
+  };
+  return {
+    async sendPasswordReset(input) { show("password_reset", input.email, "/auth/reset-password", input.token, input.expiresAt); },
+    async sendInvitation(input) { show("invitation", input.email, "/auth/invitation", input.token, input.expiresAt); },
   };
 }
 
@@ -70,7 +85,9 @@ export function createSmtpNotifier(transport: MailTransport, env: NotifierEnv, l
 
 /** SMTP si configuré, sinon notifieur qui journalise l'absence de transport. */
 export async function accountNotifierFromEnv(env: NotifierEnv, logger: Pick<Logger, "warn" | "info">): Promise<AccountNotifier> {
-  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD) return createLoggingNotifier(logger);
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD) {
+    return env.ACCOUNT_MAIL_DEV_LINKS === "1" && env.NODE_ENV !== "production" ? createDevLinkNotifier(env, logger) : createLoggingNotifier(logger);
+  }
   const nodemailer = (await import("nodemailer")).default;
   const transport = nodemailer.createTransport({
     host: env.SMTP_HOST,

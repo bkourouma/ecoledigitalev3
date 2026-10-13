@@ -23,7 +23,7 @@ export function DossierGuardians({ application }: { application: AdmissionsAppli
   const fmt = useDateFormat();
   const [recording, setRecording] = useState(false);
   return (
-    <section aria-labelledby="dossier-guardians" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="dossier-guardians" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 id="dossier-guardians" className="text-base font-semibold">
           {t("title")}
@@ -125,7 +125,7 @@ export function DossierDuplicates({ application }: { application: AdmissionsAppl
   if (application.duplicates.length === 0) {
     return (
       <Can permission="admission.duplicate.resolve">
-        <section aria-labelledby="dossier-duplicates" className="rounded-lg border p-4">
+        <section aria-labelledby="dossier-duplicates" className="rounded-2xl border border-white/10 bg-card/40 p-4">
           <h2 id="dossier-duplicates" className="text-base font-semibold">
             {t("title")}
           </h2>
@@ -139,7 +139,7 @@ export function DossierDuplicates({ application }: { application: AdmissionsAppl
     );
   }
   return (
-    <section aria-labelledby="dossier-duplicates" className="space-y-3 rounded-lg border border-amber-300 p-4">
+    <section aria-labelledby="dossier-duplicates" className="space-y-3 rounded-2xl border border-amber-400/40 p-4">
       <h2 id="dossier-duplicates" className="text-base font-semibold">
         {t("title")}
       </h2>
@@ -180,7 +180,7 @@ export function DossierHistory({ applicationId }: { applicationId: string }) {
   const [open, setOpen] = useState(false);
   const history = useApplicationHistory(applicationId, open);
   return (
-    <details className="rounded-lg border p-4" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+    <details className="rounded-2xl border border-white/10 bg-card/40 p-4" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary className="cursor-pointer text-base font-semibold">{t("title")}</summary>
       <div className="mt-3 space-y-4">
         {open && history.isPending ? <LoadingBlock /> : null}
@@ -192,7 +192,7 @@ export function DossierHistory({ applicationId }: { applicationId: string }) {
               {history.data.decisions.length === 0 ? <p className="text-sm text-muted-foreground">{t("noDecision")}</p> : null}
               <ol className="mt-1 space-y-2 text-sm">
                 {history.data.decisions.map((d) => (
-                  <li key={d.id} className="rounded-md border p-2">
+                  <li key={d.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-2">
                     <p className="font-medium">
                       {tk(d.kind)} · {fmt.instant(d.decidedAt)}
                     </p>
@@ -247,7 +247,7 @@ export function DossierPrivacy({ application }: { application: AdmissionsApplica
   }
 
   return (
-    <section aria-labelledby="dossier-privacy" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="dossier-privacy" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="dossier-privacy" className="text-base font-semibold">
         {t("title")}
       </h2>

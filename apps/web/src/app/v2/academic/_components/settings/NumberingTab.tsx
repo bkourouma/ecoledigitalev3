@@ -26,7 +26,7 @@ export function PatternPreview({ pattern, specs, requiredToken }: { pattern: str
   const problem = hasProblem(parts);
   const missing = !hasToken(parts, requiredToken);
   return (
-    <div className="space-y-2 rounded-md border bg-muted/30 p-3" aria-live="polite">
+    <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.04] p-3" aria-live="polite">
       <p className="text-xs font-medium text-muted-foreground">{t("title")}</p>
       <ul className="flex flex-wrap items-center gap-2" aria-label={t("title")}>
         {parts.map((p, i) =>
@@ -44,7 +44,7 @@ export function PatternPreview({ pattern, specs, requiredToken }: { pattern: str
         )}
       </ul>
       {problem ? <p role="alert" className="text-xs font-medium text-destructive">{t("problem")}</p> : null}
-      {!problem && missing ? <p className="text-xs font-medium text-amber-800">{t("missingSequence", { token: requiredToken === "SEQ" ? "{SEQ:n}" : "{STUDENT_SEQ:n}" })}</p> : null}
+      {!problem && missing ? <p className="text-xs font-medium text-amber-300">{t("missingSequence", { token: requiredToken === "SEQ" ? "{SEQ:n}" : "{STUDENT_SEQ:n}" })}</p> : null}
       <p className="text-xs text-muted-foreground">{t("serverNumbers")}</p>
     </div>
   );

@@ -62,7 +62,7 @@ export function GradeConflictResolver({
   }
 
   return (
-    <section aria-labelledby="grade-conflicts-title" className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-4" data-testid="grade-conflicts">
+    <section aria-labelledby="grade-conflicts-title" className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4" data-testid="grade-conflicts">
       <h2 id="grade-conflicts-title" ref={headingRef} tabIndex={-1} className="text-base font-semibold text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {t("title")}
       </h2>
@@ -75,7 +75,7 @@ export function GradeConflictResolver({
       <div className="overflow-x-auto rounded-md border bg-background">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{t("caption")}</caption>
-          <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th scope="col" className="px-3 py-2">
                 {t("student")}

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Upload, File, AlertCircle, CheckCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUploadMaterial } from '@/lib/hooks/use-materials';
+import { AntSelect } from "@/platform/ui/FormField";
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
@@ -150,7 +151,7 @@ export default function UploadMaterialModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Cours *
             </label>
-            <select
+            <AntSelect
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white"
@@ -166,7 +167,7 @@ export default function UploadMaterialModal({
                   {course.className && ` (${course.className})`}
                 </option>
               ))}
-            </select>
+            </AntSelect>
             {coursesError && (
               <p className="mt-1 text-sm text-red-600">
                 Erreur lors du chargement des cours

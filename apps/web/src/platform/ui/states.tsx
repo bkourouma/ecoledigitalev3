@@ -22,7 +22,7 @@ export function ErrorBlock({ error, onRetry, className }: { error: unknown; onRe
   const describe = useDescribeError();
   const t = useTranslations("actions");
   return (
-    <div role="alert" className={cn("flex flex-col items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm", className)}>
+    <div role="alert" className={cn("flex flex-col items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm", className)}>
       <div className="flex items-start gap-2 text-destructive">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>{describe(error)}</p>
@@ -39,7 +39,9 @@ export function ErrorBlock({ error, onRetry, className }: { error: unknown; onRe
 export function EmptyBlock({ title, description, action, className }: { title: string; description?: string; action?: ReactNode; className?: string }) {
   return (
     <div className={cn("flex flex-col items-center gap-2 px-4 py-10 text-center", className)}>
-      <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+      <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-muted-foreground">
+        <Inbox className="h-7 w-7" />
+      </span>
       <p className="text-sm font-medium">{title}</p>
       {description ? <p className="max-w-md text-sm text-muted-foreground">{description}</p> : null}
       {action ? <div className="mt-2">{action}</div> : null}
@@ -50,14 +52,14 @@ export function EmptyBlock({ title, description, action, className }: { title: s
 /** Message de retour d'une action (succès : `role="status"`, échec : `role="alert"`). */
 export function Notice({ kind, children, className }: { kind: "success" | "error" | "info" | "warning"; children: ReactNode; className?: string }) {
   const palette = {
-    success: "border-emerald-300 bg-emerald-50 text-emerald-900",
-    error: "border-destructive/40 bg-destructive/5 text-destructive",
-    info: "border-blue-300 bg-blue-50 text-blue-900",
-    warning: "border-amber-300 bg-amber-50 text-amber-900",
+    success: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+    error: "border-red-400/40 bg-red-400/10 text-red-200",
+    info: "border-sky-400/30 bg-sky-400/10 text-sky-200",
+    warning: "border-amber-400/40 bg-amber-400/10 text-amber-200",
   }[kind];
   const Icon = kind === "success" ? CheckCircle2 : AlertCircle;
   return (
-    <div role={kind === "error" || kind === "warning" ? "alert" : "status"} className={cn("flex items-start gap-2 rounded-md border p-3 text-sm", palette, className)}>
+    <div role={kind === "error" || kind === "warning" ? "alert" : "status"} className={cn("flex items-start gap-2.5 rounded-xl border p-3.5 text-sm", palette, className)}>
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

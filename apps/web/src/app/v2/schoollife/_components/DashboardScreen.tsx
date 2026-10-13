@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle, CalendarClock, ClipboardCheck, Hourglass, UserX, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDashboard } from "@/platform/v2/schoollife";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
@@ -17,13 +18,13 @@ export function DashboardScreen() {
   const dt = useDateTime();
   const q = useDashboard();
   const d = q.data;
-  const cards: Array<{ key: string; value: number; href: string | null }> = d
+  const cards: Array<{ key: string; value: number; href: string | null; icon: LucideIcon }> = d
     ? [
-        { key: "openIncidents", value: d.openIncidents, href: null },
-        { key: "measuresToValidate", value: d.measuresToValidate, href: "/v2/schoollife/validations" },
-        { key: "activeExclusions", value: d.activeExclusions, href: null },
-        { key: "convocationsToHold", value: d.convocationsToHold, href: "/v2/schoollife/convocations" },
-        { key: "effectsAwaitingHuman", value: d.effectsAwaitingHuman, href: "/v2/schoollife/validations" },
+        { key: "openIncidents", value: d.openIncidents, href: null, icon: AlertTriangle },
+        { key: "measuresToValidate", value: d.measuresToValidate, href: "/v2/schoollife/validations", icon: ClipboardCheck },
+        { key: "activeExclusions", value: d.activeExclusions, href: null, icon: UserX },
+        { key: "convocationsToHold", value: d.convocationsToHold, href: "/v2/schoollife/convocations", icon: CalendarClock },
+        { key: "effectsAwaitingHuman", value: d.effectsAwaitingHuman, href: "/v2/schoollife/validations", icon: Hourglass },
       ]
     : [];
   return (
@@ -44,8 +45,11 @@ export function DashboardScreen() {
           <>
             <ul aria-label={t("countsLabel")} className="grid grid-cols-2 gap-3 lg:grid-cols-5">
               {cards.map((c) => (
-                <li key={c.key} className="rounded-lg border p-4">
-                  <p className="text-3xl font-bold tabular-nums">{c.value}</p>
+                <li key={c.key} className="relative rounded-2xl border border-white/10 bg-card/60 p-4 transition-colors hover:border-violet-400/30">
+                  <span aria-hidden="true" className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+                    <c.icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <p className="text-3xl font-semibold tabular-nums tracking-tight">{c.value}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {c.href ? (
                       <Link href={c.href} className="underline-offset-4 hover:underline">

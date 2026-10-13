@@ -204,7 +204,7 @@ export function StudentCreateWizard() {
               <div className="space-y-4">
                 {entries.length === 0 ? <p className="text-sm text-muted-foreground">{t("guardians.none")}</p> : null}
                 {entries.map((e, i) => (
-                  <fieldset key={e.key} disabled={e.done} className="space-y-4 rounded-md border p-3">
+                  <fieldset key={e.key} disabled={e.done} className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-3">
                     <legend className="px-1 text-sm font-semibold">{t("guardians.entry", { n: i + 1 })}</legend>
                     {e.kind === "existing" ? (
                       <FormField label={t("guardians.search")} required error={errors[`g${i}.existing`]}>
@@ -246,7 +246,7 @@ export function StudentCreateWizard() {
             title: t("reviewStep"),
             content: (
               <div className="space-y-3">
-                <dl className="grid gap-3 rounded-md border p-3 text-sm sm:grid-cols-2">
+                <dl className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-muted-foreground">{t("review.name")}</dt>
                     <dd>{`${identity.lastName} ${identity.firstName}`.trim() || "—"}</dd>

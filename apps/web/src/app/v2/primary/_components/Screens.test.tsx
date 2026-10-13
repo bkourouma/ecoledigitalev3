@@ -142,6 +142,26 @@ describe("Ma classe", () => {
       expect(api.calls.find((c) => c.path.endsWith("/submit"))!.body).toEqual({ allPresent: true });
     });
 
+    it("classe à deux demi-journées : l'API demande la demi-journée, l'instituteur choisit et l'appel s'ouvre sur cette demi-journée", async () => {
+      let attempt = 0;
+      const api = setTestApi(
+        dailyRoutes({
+          "POST /api/v1/attendance/sessions": () =>
+            (attempt += 1) === 1
+              ? json(apiErrorBody("attendance.day_part_required", "Précisez la demi-journée de l'appel : matin ou après-midi."), { status: 400 })
+              : json({ session: sessionDto({ scope: "DAILY", classroomId: ID.classroom, sessionDate: today, occurrenceId: null, dayPart: "AFTERNOON" }), created: true }),
+        }),
+      );
+      renderWithProviders(<ClassScreen />);
+      const first = await screen.findByRole("region", { name: "CE1 A" });
+      fireEvent.click(await within(first).findByRole("button", { name: "Appel du jour" }));
+      const choice = await screen.findByRole("group", { name: "Cette classe fait l'appel deux fois par jour : choisissez la demi-journée." });
+      fireEvent.click(within(choice).getByRole("button", { name: "Appel de l'après-midi" }));
+      await screen.findByTestId("daily-counts");
+      const posts = api.calls.filter((c) => c.method === "POST" && c.path.endsWith("/sessions"));
+      expect(posts[1]!.body).toEqual({ scope: "DAILY", classroomId: ID.classroom, date: today, dayPart: "AFTERNOON" });
+    });
+
     it("échec d'envoi : le message de l'API est affiché et la saisie n'est pas perdue", async () => {
       setTestApi(dailyRoutes({ [`PUT /api/v1/attendance/sessions/${ATT.session}/records`]: () => json(apiErrorBody("attendance.session_locked", "La séance est verrouillée."), { status: 409 }) }));
       renderWithProviders(<ClassScreen />);

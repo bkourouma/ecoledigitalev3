@@ -109,7 +109,7 @@ function ReviewsList({ query }: { query: ReviewsQuery }) {
           <ul className="space-y-4">
             {items.map((r) => (
               <li key={r.id}>
-                <article aria-label={t("reviews.articleLabel", { level: r.gradeLevelCode, version: r.version })} className="space-y-3 rounded-lg border p-4">
+                <article aria-label={t("reviews.articleLabel", { level: r.gradeLevelCode, version: r.version })} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-semibold">{t("reviews.level", { level: r.gradeLevelCode })}</p>
                     <div className="flex flex-wrap gap-2">

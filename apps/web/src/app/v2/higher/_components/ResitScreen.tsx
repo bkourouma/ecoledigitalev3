@@ -80,7 +80,7 @@ function Windows({ classroomId, periodId, onMessage }: { classroomId: string; pe
       <QueryBoundary query={query} isEmpty={items.length === 0} empty={<EmptyBlock title={t("noWindow")} description={t("noWindowHint")} />}>
         <ul className="space-y-3" aria-label={t("windowsLabel")}>
           {items.map((w) => (
-            <li key={w.id} className="space-y-2 rounded-md border p-3 text-sm">
+            <li key={w.id} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">{t("windowDates", { from: date.civil(w.opensOn), to: date.civil(w.closesOn) })}</p>
                 <StatusBadge label={tStatus(w.status)} tone={toneOfStatus(w.status === "CANCELLED" ? "CANCELLED" : w.status)} />
@@ -165,10 +165,10 @@ function Candidates({ classroomId, periodId }: { classroomId: string; periodId: 
         {t("candidates")}
       </h2>
       <QueryBoundary query={query} isEmpty={items.length === 0} empty={<EmptyBlock title={t("noCandidate")} description={t("noCandidateHint")} />}>
-        <div role="region" aria-label={t("candidatesCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div role="region" aria-label={t("candidatesCaption")} tabIndex={0} className="overflow-x-auto rounded-2xl border border-white/10 bg-card/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("candidatesCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.student")}</th>
                 <th scope="col" className="px-3 py-2">{t("columns.course")}</th>
@@ -177,7 +177,7 @@ function Candidates({ classroomId, periodId }: { classroomId: string; periodId: 
             </thead>
             <tbody>
               {items.map((c) => (
-                <tr key={`${c.enrollmentId}-${c.ecueNodeId}`} className="border-t">
+                <tr key={`${c.enrollmentId}-${c.ecueNodeId}`} className="border-t border-white/5 transition-colors hover:bg-white/[0.04]">
                   <th scope="row" className="px-3 py-2 text-left font-medium">
                     {names.get(c.studentId)?.name ?? t("studentFallback", { id: c.studentId.slice(0, 4) })}
                   </th>

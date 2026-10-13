@@ -357,7 +357,7 @@ export function SubstituteDialog({ o, staffName, onClose, onDone }: { o: Occurre
         {(c) => <NativeSelect {...c} value={originalId} onChange={setOriginalId} placeholder={t("chooseOriginal")} options={o.staff.map((s) => ({ value: s.staffId, label: staffName(s.staffId) }))} />}
       </FormField>
 
-      <section aria-labelledby="suggest-title" className="space-y-2 rounded-md border p-3">
+      <section aria-labelledby="suggest-title" className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 id="suggest-title" className="text-sm font-semibold">
             {t("suggestions")}

@@ -226,6 +226,16 @@ export function useCreateSubject() {
   return useApiAction({ path: `${ACADEMIC_BASE}/subjects`, body: (v: AcademicCreateSubjectBody) => v, schema: academicSubjectDtoSchema, invalidate: [["academic", "subjects"]] });
 }
 
+export function useUpdateSubject() {
+  return useApiAction({
+    method: "PATCH",
+    path: (v: { id: string; patch: Record<string, unknown> }) => `${ACADEMIC_BASE}/subjects/${v.id}`,
+    body: (v) => v.patch,
+    schema: academicSubjectDtoSchema,
+    invalidate: [["academic", "subjects"]],
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Curriculum
 // ---------------------------------------------------------------------------

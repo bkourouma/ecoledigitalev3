@@ -59,7 +59,7 @@ export function SimulationPanel({ version }: { version: RulesVersionDetailDto })
 
   return (
     <div className="space-y-4">
-      <section aria-label={t("datasetTitle")} className="space-y-3 rounded-md border p-4">
+      <section aria-label={t("datasetTitle")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h3 className="text-base font-semibold">{t("datasetTitle")}</h3>
         <p className="text-sm text-muted-foreground">{t("datasetHint")}</p>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -112,7 +112,7 @@ function SimulationReport({ simulation: s }: { simulation: RulesSimulationDto })
   const running = s.status === "PENDING" || s.status === "RUNNING";
   const show = (o: RulesSimulationDto["differences"][number]["old"]): string => (o.status === "ok" ? (o.value === null ? "—" : String(o.value)) : o.status === "error" ? t("outcomeError", { code: o.code }) : t("outcomeAbsent"));
   return (
-    <section aria-label={t("reportTitle")} className="space-y-4 rounded-md border p-4">
+    <section aria-label={t("reportTitle")} className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold">{t("reportTitle")}</h3>
         <StatusBadge label={tStatus(s.status)} tone={s.status === "COMPLETED" ? "success" : s.status === "FAILED" || s.status === "CANCELLED" ? "danger" : toneOfStatus("PENDING")} />
@@ -144,7 +144,7 @@ function SimulationReport({ simulation: s }: { simulation: RulesSimulationDto })
             <div role="region" aria-label={t("rulesTable")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <table className="w-full border-collapse text-sm">
                 <caption className="sr-only">{t("rulesTable")}</caption>
-                <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th scope="col" className="px-3 py-2">{t("columns.rule")}</th>
                     <th scope="col" className="px-3 py-2 text-right">{t("columns.evaluated")}</th>
@@ -186,7 +186,7 @@ function SimulationReport({ simulation: s }: { simulation: RulesSimulationDto })
             ) : (
               <ul className="space-y-1 text-sm">
                 {s.differences.map((d, i) => (
-                  <li key={`${d.caseRef}-${d.ruleKey}-${i}`} className="rounded-md border px-3 py-2">
+                  <li key={`${d.caseRef}-${d.ruleKey}-${i}`} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                     <span className="font-mono text-xs">{d.caseRef}</span> · <span className="font-mono text-xs">{d.ruleKey}</span> · {tKind(d.kind)} : {show(d.old)} → {show(d.new)}
                     {d.delta ? <span className="text-muted-foreground"> (Δ {d.delta})</span> : null}
                   </li>
@@ -202,7 +202,7 @@ function SimulationReport({ simulation: s }: { simulation: RulesSimulationDto })
 
 function Stat({ label, value, danger = false }: { label: string; value: string | number; danger?: boolean }) {
   return (
-    <div className={`rounded-md border p-3 ${danger ? "border-destructive/40 bg-destructive/5" : ""}`}>
+    <div className={`rounded-xl border p-3 ${danger ? "border-destructive/40 bg-destructive/5" : ""}`}>
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-lg font-semibold tabular-nums">{value}</dd>
     </div>

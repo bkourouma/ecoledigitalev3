@@ -27,7 +27,7 @@ function Counts({ session }: { session: ExamSessionDetailDto }) {
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7" aria-label={t("label")}>
       {entries.map(([key, value]) => (
-        <div key={key} className="rounded-md border p-3">
+        <div key={key} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <dt className="text-xs text-muted-foreground">{t(key as never)}</dt>
           <dd className="text-xl font-semibold" data-testid={`count-${key}`}>
             {value}
@@ -130,7 +130,7 @@ export function SessionDetailScreen({ id }: { id: string }) {
               ["endsOn", s.endsOn],
             ] as const
           ).map(([key, value]) => (
-            <div key={key} className="rounded-md border p-3">
+            <div key={key} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <dt className="text-xs text-muted-foreground">{t(`date.${key}` as never)}</dt>
               <dd className="font-medium">{date.civil(value)}</dd>
             </div>
@@ -188,7 +188,7 @@ export function SessionDetailScreen({ id }: { id: string }) {
           <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("papers")}>
             <table className="w-full text-sm">
               <caption className="sr-only">{t("papers")}</caption>
-              <thead className="bg-muted/50 text-left">
+              <thead className="bg-white/[0.04] text-left">
                 <tr>
                   <th scope="col" className="px-3 py-2">{t("paper.code")}</th>
                   <th scope="col" className="px-3 py-2">{t("paper.label")}</th>

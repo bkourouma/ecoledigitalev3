@@ -68,7 +68,7 @@ export function BarChart({ title, rows, valueHeader, noteHeader, empty }: { titl
   const id = useId();
   const max = Math.max(0, ...rows.map((r) => r.value));
   return (
-    <figure aria-labelledby={`${id}-title`} className="space-y-2 rounded-lg border p-4">
+    <figure aria-labelledby={`${id}-title`} className="space-y-3 rounded-2xl border border-white/10 bg-card/60 p-4">
       <figcaption id={`${id}-title`} className="text-sm font-medium">
         {title}
       </figcaption>
@@ -81,8 +81,8 @@ export function BarChart({ title, rows, valueHeader, noteHeader, empty }: { titl
               <span className="truncate" title={r.label}>
                 {r.label}
               </span>
-              <span aria-hidden="true" className="h-3 rounded bg-muted">
-                <span className="block h-3 rounded bg-primary" style={{ width: `${max > 0 ? Math.max(2, (r.value / max) * 100) : 0}%` }} />
+              <span aria-hidden="true" className="h-3 rounded-full bg-white/10">
+                <span className="block h-3 rounded-full bg-gradient-to-r from-violet-500 to-blue-400" style={{ width: `${max > 0 ? Math.max(2, (r.value / max) * 100) : 0}%` }} />
               </span>
               <span className="tabular-nums">
                 {r.display}
@@ -105,7 +105,7 @@ export function ColumnChart({ title, rows, valueHeader, noteHeader, summary, emp
   const height = 120;
   const barWidth = Math.min(22, Math.floor(width / Math.max(rows.length, 1)) - 6);
   return (
-    <figure aria-labelledby={`${id}-title`} className="space-y-2 rounded-lg border p-4">
+    <figure aria-labelledby={`${id}-title`} className="space-y-3 rounded-2xl border border-white/10 bg-card/60 p-4">
       <figcaption id={`${id}-title`} className="text-sm font-medium">
         {title}
       </figcaption>

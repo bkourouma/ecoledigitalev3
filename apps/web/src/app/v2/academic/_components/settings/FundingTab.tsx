@@ -290,7 +290,7 @@ function ReadOnlyStatuses() {
   return (
     <SettingsSection id="read-only-statuses" title={t("title")} description={t("description")}>
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border p-3">
+        <div className="rounded-2xl border border-white/10 bg-card/40 p-3">
           <h3 className="mb-2 text-base font-medium">{t("enrollment")}</h3>
           <ul className="flex flex-wrap gap-2" aria-label={t("enrollment")}>
             {ACADEMIC_ENROLLMENT_STATUSES.map((s) => (
@@ -300,7 +300,7 @@ function ReadOnlyStatuses() {
             ))}
           </ul>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-2xl border border-white/10 bg-card/40 p-3">
           <h3 className="mb-2 text-base font-medium">{t("learner")}</h3>
           <ul className="flex flex-wrap gap-2" aria-label={t("learner")}>
             {PEOPLE_STUDENT_STATUSES.map((s) => (

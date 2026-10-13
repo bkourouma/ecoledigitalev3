@@ -14,6 +14,11 @@ import { initChunkErrorHandler } from "@/lib/chunk-error-handler";
 // Must be imported from a client module — server-component side-effect imports
 // of "use client" modules don't run on the client under Turbopack.
 import "@/lib/fetch-interceptor";
+// Patch Ant Design v5 pour React 19 (Next 15 embarque React 19 pour l'App Router).
+// Même contrainte que ci-dessus : à importer depuis un module client, sinon le
+// patch ne s'exécute pas dans le navigateur et l'avertissement « antd: compatible »
+// réapparaît au premier effet Wave (clic sur un bouton).
+import "@ant-design/v5-patch-for-react-19";
 import { AntdConfigProvider } from "@/lib/antd-config";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { TenantProvider } from "@/contexts/TenantContext";

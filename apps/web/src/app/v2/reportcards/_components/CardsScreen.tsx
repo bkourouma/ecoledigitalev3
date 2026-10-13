@@ -82,7 +82,7 @@ export function CardsScreen({ initialClassroomId = "", initialPeriodId = "" }: {
       {flash.node}
       {bulkError ? <ErrorBlock error={bulkError} /> : null}
       {canPublish.allowed && selected.size > 0 ? (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 p-3 text-sm" role="region" aria-label={t("bulkBar")}>
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm" role="region" aria-label={t("bulkBar")}>
           <span>{t("selected", { count: selected.size })}</span>
           <button type="button" className={buttonClass.primary} onClick={() => void bulkPublish()} disabled={publishMany.isPending}>
             {t("publishSelected")}
@@ -100,7 +100,7 @@ export function CardsScreen({ initialClassroomId = "", initialPeriodId = "" }: {
         <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("tableCaption")}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 {canPublish.allowed ? (
                   <th scope="col" className="w-10 px-3 py-2">

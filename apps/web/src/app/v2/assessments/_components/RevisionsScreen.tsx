@@ -86,7 +86,7 @@ function RevisionCard({ revision: r, showAssessment, onMessage }: { revision: As
   const entry = (k: string) => tEntry(k as never);
 
   return (
-    <article className="space-y-2 rounded-md border p-3 text-sm" aria-label={t("cardLabel", { name: who })}>
+    <article className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm" aria-label={t("cardLabel", { name: who })}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold">
           {who}

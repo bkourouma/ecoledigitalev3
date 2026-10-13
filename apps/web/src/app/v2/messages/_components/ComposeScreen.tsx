@@ -18,7 +18,7 @@ import { useCreateConversation, useMyAudience, useRecipients } from "@/platform/
 import { useMyChildren } from "@/platform/v2/people";
 import { useClassroomOptions } from "@/platform/v2/lookups";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import { ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
@@ -214,14 +214,14 @@ export function ComposeScreen() {
                   me!.canSendAny ? (
                     <SelectAsync {...c} value={pickClass} onChange={setPickClass} useOptions={useActiveClassroomOptions} placeholder={t("classPlaceholder")} />
                   ) : (
-                    <select {...c} value={pickClass?.value ?? ""} onChange={(e) => setPickClass(staffClassOptions.find((o) => o.value === e.target.value) ?? null)} className={selectClass}>
+                    <AntSelect {...c} value={pickClass?.value ?? ""} onChange={(e) => setPickClass(staffClassOptions.find((o) => o.value === e.target.value) ?? null)} className={selectClass}>
                       <option value="">{t("classPlaceholder")}</option>
                       {staffClassOptions.map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
                         </option>
                       ))}
-                    </select>
+                    </AntSelect>
                   )
                 }
               </FormField>
@@ -269,14 +269,14 @@ export function ComposeScreen() {
       {me!.isGuardian ? (
         <FormField label={t("aboutStudent")} hint={t("aboutStudentHint")} error={errors["aboutStudentId"]}>
           {(c) => (
-            <select {...c} value={aboutStudentId} onChange={(e) => setAboutStudentId(e.target.value)} className={selectClass}>
+            <AntSelect {...c} value={aboutStudentId} onChange={(e) => setAboutStudentId(e.target.value)} className={selectClass}>
               <option value="">{t("noStudent")}</option>
               {(children.data ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.displayName}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
       ) : null}
@@ -287,13 +287,13 @@ export function ComposeScreen() {
         </FormField>
         <FormField label={t("priority")}>
           {(c) => (
-            <select {...c} value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} className={selectClass}>
+            <AntSelect {...c} value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} className={selectClass}>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
                   {tc(`priority.${p}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
       </div>

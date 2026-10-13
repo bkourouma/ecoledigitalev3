@@ -57,14 +57,20 @@ export function ImportAssistant({ jobId }: { jobId?: string }) {
         }
       />
 
-      <ol className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={t("assistant.steps")}>
+      <ol className="mb-6 flex flex-wrap items-center gap-2" aria-label={t("assistant.steps")}>
         {ASSISTANT_STEPS.map((s, i) => {
           const done = i < stepIndex;
           const current = i === stepIndex;
           return (
-            <li key={s} aria-current={current ? "step" : undefined} className={`flex items-center gap-2 text-sm ${current ? "font-semibold text-primary" : done ? "text-foreground" : "text-muted-foreground"}`}>
-              <span aria-hidden="true" className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs ${current ? "border-primary bg-primary text-primary-foreground" : done ? "border-emerald-500 bg-emerald-500 text-white" : "border-input"}`}>
-                {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+            <li
+              key={s}
+              aria-current={current ? "step" : undefined}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium ${
+                current ? "border-violet-400/60 bg-violet-500/20 text-violet-200" : done ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-muted-foreground"
+              }`}
+            >
+              <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-xs">
+                {done ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               <span>
                 {t(`steps.${s}`)}
@@ -76,9 +82,12 @@ export function ImportAssistant({ jobId }: { jobId?: string }) {
         })}
       </ol>
 
-      <h2 ref={headingRef} tabIndex={-1} className="mb-4 text-lg font-semibold focus:outline-none">
-        {t(`stepTitle.${step}`)}
-      </h2>
+      {/* Import demandé mais introuvable / pas encore lu : pas de titre d'étape (il annoncerait « Fichier » à tort). */}
+      {!activeId || job.data ? (
+        <h2 ref={headingRef} tabIndex={-1} className="mb-4 text-lg font-semibold focus:outline-none">
+          {t(`stepTitle.${step}`)}
+        </h2>
+      ) : null}
 
       {activeId && job.isLoading ? <LoadingBlock /> : null}
       {activeId && job.isError ? <ErrorBlock error={job.error} onRetry={() => void job.refetch()} /> : null}

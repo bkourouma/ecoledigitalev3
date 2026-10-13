@@ -64,7 +64,7 @@ import { createResultsCurriculumPort, createResultsRosterPort } from "./academic
 import { createSchedulingAcademicQuery } from "./academic-scheduling";
 import { createReportcardsAttendanceSummary } from "./attendance-reportcards";
 import { createFinanceEnrollmentDirectory, createFinanceLearnerDirectory } from "./directories-finance";
-import { createAcademicInvoiceFactsReader, createAcademicRegistrationFeeProbe } from "./finance-academic";
+import { createAcademicEnrollmentBilling, createAcademicInvoiceFactsReader, createAcademicRegistrationFeeProbe } from "./finance-academic";
 import { createFinanceReceiptDocuments, createReportcardsLearnerStanding } from "./finance-reportcards";
 import { createFinanceGuardianshipPort } from "./people-finance";
 import { createMessagingAudienceDirectory } from "./academic-messaging";
@@ -90,7 +90,7 @@ import { createResultsYearFactsPort } from "./results-year-facts";
 import { createHigherCreditsSource, createHigherCycleResults, createHigherResitSession } from "./results-higher";
 import { createAttendanceOccurrencePort, createSchedulingAttendanceQuery } from "./scheduling-attendance";
 import { asAttendanceStorage, asDocumentsStorage, asMessagingStorage, asPeopleStorage, createObjectStorage, DiskStorage, registerDiskStorageRoute, type ObjectStorage } from "./storage";
-import { createPrimarySchoolDeps, primarySchoolAuditAdapter, registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
+import { createPrimarySchoolDeps, getReportcardCompetencies, primarySchoolAuditAdapter, registerPrimarySchoolPorts, setPrimarySchoolWorkerPorts, type PrimarySchoolPorts } from "../../modules/primary_school";
 import { createAcademicClassroomActivationGuard } from "./primary-academic";
 import { createResultsCompetencyCounters, createResultsFamilyRelease } from "./primary-results";
 import { createPrimaryClassroomPort, createPrimaryOutcomePort, createPrimaryPeriodStatePort } from "./academic-primary";
@@ -206,6 +206,7 @@ export function buildPlatformPorts(
       usageGuard: createAcademicUsageGuard(assess, results),
       completion: createAcademicCompletionLookup(higher, academic),
       registrationFee: createAcademicRegistrationFeeProbe(finance, academic, clock),
+      billing: createAcademicEnrollmentBilling(finance, academic, clock),
       invoiceFacts: createAcademicInvoiceFactsReader(finance),
       promotions: createAcademicPromotionDecisions(results),
       // « classe du primaire active => titulaire » (spec 005) : règle de primary_school, appelée par academic à l'activation.
@@ -261,7 +262,16 @@ export function buildPlatformPorts(
       familyRelease: createResultsFamilyRelease(primaryDeps),
     },
     reportcards: {
-      results: createReportcardsResultsRead({ results, academic, people, rules }),
+      results: createReportcardsResultsRead({
+        results,
+        academic,
+        people,
+        rules,
+        competencies: async (ctx, q) => {
+          const r = await getReportcardCompetencies(primaryDeps, ctx, q);
+          return r.ok && r.value ? { scaleLabel: r.value.scaleLabel, domains: r.value.domains.map((d) => ({ ...d, levels: [...d.levels] })) } : null;
+        },
+      }),
       guardianship: createReportcardsGuardianshipPort(lookups),
       attendance: createReportcardsAttendanceSummary(attendance),
       standing: createReportcardsLearnerStanding(finance),

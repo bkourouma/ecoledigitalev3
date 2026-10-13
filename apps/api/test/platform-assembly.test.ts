@@ -5,7 +5,7 @@
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
 import { UnauthorizedError } from "@ecoledigitale/kernel";
-import { createLoggingNotifier, createSmtpNotifier } from "../src/platform/account-notifier";
+import { accountNotifierFromEnv, createDevLinkNotifier, createLoggingNotifier, createSmtpNotifier } from "../src/platform/account-notifier";
 import { fanoutChannel, parseFanoutMessage } from "../src/platform/event-fanout";
 import { isDeclaredPublicRoute, listPublicRoutes, resetPublicRoutesForTests, shouldBypassLegacyAuth, trackPublicRoutes } from "../src/platform/public-routes";
 import { SuperAdminAuthCode, createSuperAdminAuthorizer, type SuperAdminAuthDeps, type SuperAdminTokenClaims } from "../src/platform/super-admin-authorizer";
@@ -170,6 +170,19 @@ describe("notifications de compte (iam)", () => {
     expect(warn).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(warn.mock.calls)).not.toContain("SECRET-TOKEN");
     expect(JSON.stringify(warn.mock.calls)).not.toContain("awa@x.test");
+  });
+
+  it("mode développement : le lien d'invitation est journalisé (info), uniquement si ACCOUNT_MAIL_DEV_LINKS=1 et hors production", async () => {
+    const info = vi.fn();
+    await createDevLinkNotifier({}, { info }).sendInvitation(input);
+    expect(info.mock.calls[0]?.[0]).toMatchObject({ event: "iam_mail_dev_link", link: "http://localhost:3000/auth/invitation?token=SECRET-TOKEN-0123456789" });
+    const logger = { warn: vi.fn(), info: vi.fn() };
+    await (await accountNotifierFromEnv({ ACCOUNT_MAIL_DEV_LINKS: "1", NODE_ENV: "development" }, logger)).sendPasswordReset(input);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    await (await accountNotifierFromEnv({ ACCOUNT_MAIL_DEV_LINKS: "1", NODE_ENV: "production" }, logger)).sendPasswordReset(input);
+    await (await accountNotifierFromEnv({}, logger)).sendPasswordReset(input);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledTimes(2);
   });
 
   it("avec SMTP : le lien construit sur V2_APP_BASE_URL porte le jeton ; le HTML est échappé", async () => {

@@ -36,7 +36,7 @@ export function ChildrenAttendanceList() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {children.data.map((c) => (
-            <li key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-4">
+            <li key={c.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-card/40 p-4">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{c.displayName}</p>
                 <p className="truncate text-sm text-muted-foreground">{c.currentEnrollment?.classroomName ?? c.studentNumber}</p>
@@ -155,7 +155,7 @@ export function SummaryCards({ counts, overridden }: { counts: Counts; overridde
       </h2>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {items.map(([label, value]) => (
-          <div key={label} className="rounded-lg border p-3">
+          <div key={label} className="rounded-2xl border border-white/10 bg-card/40 p-3">
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
             <dd className="mt-1 text-2xl font-semibold">{value}</dd>
           </div>
@@ -171,7 +171,7 @@ function JustificationCard({ j, canWithdraw, onWithdraw, pending }: { j: Justifi
   const tStatus = useTranslations("v2Attendance.justifications.status");
   const date = useDateFormat();
   return (
-    <li className="space-y-1 rounded-lg border p-3 text-sm">
+    <li className="space-y-1 rounded-2xl border border-white/10 bg-card/40 p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{j.fromDate === j.toDate ? date.civil(j.fromDate) : t("window", { from: date.civil(j.fromDate), to: date.civil(j.toDate) })}</span>
         <StatusBadge label={tStatus(j.status)} tone={justificationTone(j.status)} />

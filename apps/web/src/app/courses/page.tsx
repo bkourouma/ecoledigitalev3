@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSession } from 'next-auth/react';
+import { AntSelect } from "@/platform/ui/FormField";
 
 // Sample course data
 const coursesData = [
@@ -340,7 +341,7 @@ export default function CoursesPage() {
                 
                 {/* Filters */}
                 <div className="flex items-center space-x-4">
-                  <select
+                  <AntSelect
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-role-primary/20"
@@ -348,9 +349,9 @@ export default function CoursesPage() {
                     {categories.map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
-                  </select>
+                  </AntSelect>
                   
-                  <select
+                  <AntSelect
                     value={selectedLevel}
                     onChange={(e) => setSelectedLevel(e.target.value)}
                     className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-role-primary/20"
@@ -358,7 +359,7 @@ export default function CoursesPage() {
                     {levels.map(level => (
                       <option key={level} value={level}>{level}</option>
                     ))}
-                  </select>
+                  </AntSelect>
                   
                   {/* View Mode Toggle */}
                   <div className="flex items-center space-x-1 bg-muted rounded-lg p-1">

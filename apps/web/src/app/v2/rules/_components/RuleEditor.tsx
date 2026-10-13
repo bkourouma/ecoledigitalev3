@@ -22,7 +22,7 @@ export function DiagnosticList({ diagnostics, source, id }: { diagnostics: Rules
   const t = useTranslations("v2Rules.editor");
   if (diagnostics.length === 0) return null;
   return (
-    <div id={id} role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+    <div id={id} role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm">
     <ul className="space-y-2">
       {diagnostics.map((d, i) => {
         const excerpt = source ? excerptAt(source, d.position) : null;
@@ -88,7 +88,7 @@ export function RuleEditor({ version, rule, editableExpression, editableParamete
   }
 
   return (
-    <article className="space-y-3 rounded-md border p-4" aria-label={rule.key}>
+    <article className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4" aria-label={rule.key}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-mono text-base font-semibold">{rule.key}</h3>
         <span className="flex flex-wrap gap-1">
@@ -113,7 +113,7 @@ export function RuleEditor({ version, rule, editableExpression, editableParamete
             spellCheck={false}
             aria-invalid={diagnostics.length > 0 ? true : undefined}
             aria-describedby={[c["aria-describedby"], diagnostics.length > 0 ? errId : undefined].filter(Boolean).join(" ") || undefined}
-            className="w-full rounded-md border border-input bg-background p-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40"
+            className="w-full rounded-xl border border-input bg-background p-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive read-only:bg-muted/40"
           />
         )}
       </FormField>
@@ -149,7 +149,7 @@ export function RuleEditor({ version, rule, editableExpression, editableParamete
       <ParametersTable version={version} rule={rule} editable={editableParameters} />
 
       {contractRule ? (
-        <details className="rounded-md bg-muted/30 p-3 text-sm">
+        <details className="rounded-md bg-white/[0.04] p-3 text-sm">
           <summary className="cursor-pointer font-medium">{t("contractHelp")}</summary>
           <p className="mt-2 text-muted-foreground">{contractRule.description}</p>
           <p className="mt-2 font-medium">{t("inputs")}</p>
@@ -234,7 +234,7 @@ function ParametersTable({ version, rule, editable }: { version: RulesVersionDet
           <button type="button" className={buttonClass.secondary} onClick={() => void save()} disabled={changed.length === 0 || edit.isPending} aria-label={t("saveParametersOf", { key: rule.key })}>
             {t("saveParameters")}
           </button>
-          {saved ? <span role="status" className="text-sm text-emerald-700">{t("saved")}</span> : null}
+          {saved ? <span role="status" className="text-sm text-emerald-300">{t("saved")}</span> : null}
         </div>
       ) : null}
       {edit.error ? <ErrorBlock error={edit.error} /> : null}
@@ -272,7 +272,7 @@ function EvaluateDialog({ versionId, ruleKey, onClose }: { versionId: string; ru
         {(c) => <TextAreaControl {...c} value={text} onChange={setText} rows={6} className="font-mono" />}
       </FormField>
       {out ? (
-        <section aria-label={t("result")} className="space-y-2 rounded-md border p-3 text-sm">
+        <section aria-label={t("result")} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
           <p>
             {t("resultValue")} <span className="font-mono font-semibold" data-testid="evaluate-value">{out.value === null ? "—" : String(out.value)}</span> <span className="text-muted-foreground">({out.type})</span>
           </p>

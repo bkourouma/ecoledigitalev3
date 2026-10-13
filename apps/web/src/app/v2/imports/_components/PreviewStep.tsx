@@ -8,10 +8,11 @@ import { downloadImportFile, reportPath, useImportPreview, useRunImport, useSetM
 import { RowsList } from "./RowsList";
 
 function Counter({ label, value, tone }: { label: string; value: number; tone?: "danger" | "warning" }) {
+  const danger = tone === "danger" && value > 0;
   return (
-    <div className="rounded-md border p-3">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className={`mt-1 text-2xl font-bold tabular-nums ${tone === "danger" && value > 0 ? "text-destructive" : ""}`}>{value}</dd>
+    <div className={`rounded-2xl border p-4 ${danger ? "border-red-400/40 bg-red-400/10" : "border-white/10 bg-card/60"}`}>
+      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
+      <dd className={`mt-1 text-3xl font-semibold tabular-nums tracking-tight ${danger ? "text-red-300" : ""}`}>{value}</dd>
     </div>
   );
 }
@@ -20,7 +21,7 @@ function SampleList({ title, rows, columns }: { title: string; rows: ImportRowDt
   const t = useTranslations("v2Imports.preview");
   if (rows.length === 0) return null;
   return (
-    <details className="rounded-md border p-3">
+    <details className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <summary className="cursor-pointer text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {title} ({rows.length})
       </summary>
@@ -124,7 +125,7 @@ export function PreviewStep({ job, importer }: { job: ImportJobDto; importer: Im
             </section>
 
             <form
-              className="space-y-4 rounded-md border p-4"
+              className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4"
               aria-label={t("launchTitle")}
               onSubmit={(e) => {
                 e.preventDefault();

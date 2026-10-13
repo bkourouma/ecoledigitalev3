@@ -14,6 +14,7 @@ export function ResultsNav() {
         { href: "/v2/results/decisions", label: t("decisions"), anyPermission: ["decision.record", "decision.approve", "appreciation.write"] },
         { href: "/v2/results/overrides", label: t("overrides"), anyPermission: ["result.override.request", "result.override.approve"] },
         { href: "/v2/results/resit", label: t("resit"), permission: "higher.resit.manage" },
+        { href: "/v2/results/settings", label: t("settings"), permission: "result.settings.manage" },
       ]}
     />
   );

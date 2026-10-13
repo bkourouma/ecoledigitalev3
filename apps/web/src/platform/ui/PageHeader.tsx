@@ -8,8 +8,8 @@ export function PageHeader({ title, description, actions, className }: { title: 
   return (
     <header className={cn("mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)}>
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+        {description ? <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
     </header>
@@ -17,11 +17,11 @@ export function PageHeader({ title, description, actions, className }: { title: 
 }
 
 const TONES = {
-  success: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-300 bg-amber-50 text-amber-900",
-  danger: "border-red-300 bg-red-50 text-red-800",
-  info: "border-blue-300 bg-blue-50 text-blue-800",
-  neutral: "border-border bg-muted text-muted-foreground",
+  success: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+  warning: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  danger: "border-red-400/40 bg-red-400/10 text-red-300",
+  info: "border-sky-400/30 bg-sky-400/10 text-sky-300",
+  neutral: "border-white/10 bg-white/5 text-muted-foreground",
 } as const;
 export type Tone = keyof typeof TONES;
 
@@ -36,7 +36,11 @@ export const buttonClass = {
     "inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:h-10",
   secondary:
     "inline-flex h-11 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:h-10",
+  /** Action destructrice DANS UNE LIGNE ou une barre d'actions : contour rouge discret (le texte porte le sens). */
   danger:
+    "inline-flex h-11 items-center justify-center gap-2 rounded-md border border-red-400/40 bg-red-400/10 px-4 text-sm font-medium text-red-300 transition-colors hover:bg-red-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 sm:h-10",
+  /** Confirmation d'une action destructrice (fenêtre modale) : rouge plein. */
+  dangerSolid:
     "inline-flex h-11 items-center justify-center gap-2 rounded-md bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:h-10",
   ghost:
     "inline-flex h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 sm:h-9",

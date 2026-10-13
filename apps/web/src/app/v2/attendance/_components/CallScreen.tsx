@@ -282,8 +282,8 @@ export function CallScreen({ kind, id, date, dayPart, backHref = "/v2/attendance
                     <span className={cn(row.isDefault && "opacity-70")}>
                       <StatusBadge label={statusLabel(row.shown) + (row.shown === "LATE" && (row.draft?.minutesLate ?? row.serverMinutesLate) ? ` ${row.draft?.minutesLate ?? row.serverMinutesLate} min` : "")} tone={statusTone(row.shown)} />
                     </span>
-                    {row.serverExcused ? <span className="text-xs text-blue-800">{t("excused")}</span> : null}
-                    {row.pending ? <span className="text-xs text-amber-800">{t("pendingRow")}</span> : null}
+                    {row.serverExcused ? <span className="text-xs text-sky-300">{t("excused")}</span> : null}
+                    {row.pending ? <span className="text-xs text-amber-300">{t("pendingRow")}</span> : null}
                   </span>
                 </button>
                 <button

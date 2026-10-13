@@ -36,6 +36,7 @@ import { useSessionEcueTeachers } from "@/lib/hooks/use-professional-catalog-adm
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { ExportButtons } from "@/components/ExportButtons";
 import { openSeancesPdf } from "@/lib/utils/seance-report";
+import { AntSelect } from "@/platform/ui/FormField";
 import {
   AideStatuts,
   FILTRES_VIDES,
@@ -1057,7 +1058,7 @@ export default function RemunerationSeancesPage() {
                         )}
                       </td>
                       <td className="px-2 py-2 align-top">
-                        <select
+                        <AntSelect
                           value={s.statut}
                           onChange={(e) => changeStatut(s.id, e.target.value as SeanceStatut)}
                           disabled={locked}
@@ -1083,7 +1084,7 @@ export default function RemunerationSeancesPage() {
                               {STATUT_LABELS[v]}
                             </option>
                           ))}
-                        </select>
+                        </AntSelect>
                       </td>
                       <td className="px-2 py-2 align-top">
                         {locked ? (

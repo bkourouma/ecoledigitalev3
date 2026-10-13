@@ -118,7 +118,7 @@ export function PlaceholderBanner({ ruleSourceKind, className }: { ruleSourceKin
   const t = useTranslations("v2Councils.banner");
   if (ruleSourceKind !== "placeholder") return null;
   return (
-    <div role="note" aria-label={t("title")} className={cn("flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950", className)}>
+    <div role="note" aria-label={t("title")} className={cn("flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200", className)}>
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <div>
         <p className="font-semibold">{t("title")}</p>
@@ -149,7 +149,7 @@ export function ActionError({ error }: { error: unknown }) {
   const describe = useCouncilsError();
   if (!error) return null;
   return (
-    <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+    <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
       {describe(error)}
     </p>
   );
@@ -234,7 +234,7 @@ export function councilTitle(c: { title: string | null; councilTypeLabel: string
 
 export function Section({ id, title, children, actions }: { id: string; title: string; children: ReactNode; actions?: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby={id} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id={id} className="text-lg font-semibold">
           {title}

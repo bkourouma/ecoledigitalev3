@@ -10,7 +10,7 @@ import { useRoles } from "@/platform/admin/roles/hooks";
 import { useReference } from "@/platform/v2/academic";
 import { useClassroomOptions, useInstitutions } from "@/platform/v2/lookups";
 import { useMyAudience } from "@/platform/v2/messaging";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
 import { buttonClass } from "@/platform/ui/PageHeader";
 
@@ -93,13 +93,13 @@ export function TargetsEditor({ value, onChange, error }: { value: ReadonlyArray
       <div className="grid gap-2 sm:grid-cols-[10rem_1fr_auto] sm:items-end">
         <FormField label={t("editor.targetKind")}>
           {(c) => (
-            <select {...c} value={kind} onChange={(e) => { setKind(e.target.value as MessagingTargetKind); setPick(""); setClassPick(null); }} className={selectClass}>
+            <AntSelect {...c} value={kind} onChange={(e) => { setKind(e.target.value as MessagingTargetKind); setPick(""); setClassPick(null); }} className={selectClass}>
               {kinds.map((k) => (
                 <option key={k} value={k}>
                   {t(`targets.${k}`)}
                 </option>
               ))}
-            </select>
+            </AntSelect>
           )}
         </FormField>
         {kind === "TENANT" ? (
@@ -110,14 +110,14 @@ export function TargetsEditor({ value, onChange, error }: { value: ReadonlyArray
               wide ? (
                 <SelectAsync {...c} value={classPick} onChange={setClassPick} useOptions={useActiveClassrooms} placeholder={t("editor.choose")} />
               ) : (
-                <select {...c} value={classPick?.value ?? ""} onChange={(e) => { const cl = staffClasses.find((x) => x.id === e.target.value); setClassPick(cl ? { value: cl.id, label: cl.name } : null); }} className={selectClass}>
+                <AntSelect {...c} value={classPick?.value ?? ""} onChange={(e) => { const cl = staffClasses.find((x) => x.id === e.target.value); setClassPick(cl ? { value: cl.id, label: cl.name } : null); }} className={selectClass}>
                   <option value="">{t("editor.choose")}</option>
                   {staffClasses.map((cl) => (
                     <option key={cl.id} value={cl.id}>
                       {cl.name}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               )
             }
           </FormField>
@@ -126,26 +126,26 @@ export function TargetsEditor({ value, onChange, error }: { value: ReadonlyArray
             {kind === "CAMPUS" ? (
               <FormField label={t("targets.INSTITUTION")}>
                 {(c) => (
-                  <select {...c} value={institutionId} onChange={(e) => { setInstitutionId(e.target.value); setPick(""); }} className={selectClass}>
+                  <AntSelect {...c} value={institutionId} onChange={(e) => { setInstitutionId(e.target.value); setPick(""); }} className={selectClass}>
                     <option value="">{t("editor.choose")}</option>
                     {(institutions.data ?? []).map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.name}
                       </option>
                     ))}
-                  </select>
+                  </AntSelect>
                 )}
               </FormField>
             ) : null}
             <FormField label={t(`targets.${kind}`)}>
               {(c) => (
-                <select {...c} value={pick} onChange={(e) => setPick(e.target.value)} className={selectClass}>
+                <AntSelect {...c} value={pick} onChange={(e) => setPick(e.target.value)} className={selectClass}>
                   <option value="">{t("editor.choose")}</option>
                   {kind === "INSTITUTION" ? (institutions.data ?? []).map((i) => <option key={i.id} value={i.id}>{i.name}</option>) : null}
                   {kind === "CAMPUS" ? (campuses.data ?? []).map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>) : null}
                   {kind === "LEVEL" ? (levels.data ?? []).map((l) => <option key={l.id} value={l.id}>{l.label}</option>) : null}
                   {kind === "ROLE" ? <RoleOptions /> : null}
-                </select>
+                </AntSelect>
               )}
             </FormField>
           </div>

@@ -8,6 +8,7 @@ import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "@/platform/ui/states";
 import { CATEGORIES, CHANNELS, endOfDay, startOfDay, STATUSES, STATUS_TONE } from "./notifications-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 const inputClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10";
 const DAY_RANGES = [1, 7, 30] as const;
@@ -143,36 +144,36 @@ export function JournalScreen() {
       <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-label={t("filters.label")} onSubmit={(e) => e.preventDefault()}>
         <label className="space-y-1 text-sm font-medium">
           {t("filters.channel")}
-          <select value={channel} onChange={(e) => setChannel(e.target.value as NotifChannel | "")} className={inputClass}>
+          <AntSelect value={channel} onChange={(e) => setChannel(e.target.value as NotifChannel | "")} className={inputClass}>
             <option value="">{t("filters.all")}</option>
             {CHANNELS.map((c) => (
               <option key={c} value={c}>
                 {t(`channels.${c}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </label>
         <label className="space-y-1 text-sm font-medium">
           {t("filters.status")}
-          <select value={status} onChange={(e) => setStatus(e.target.value as NotifDeliveryStatus | "")} className={inputClass}>
+          <AntSelect value={status} onChange={(e) => setStatus(e.target.value as NotifDeliveryStatus | "")} className={inputClass}>
             <option value="">{t("filters.all")}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(`status.${s}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </label>
         <label className="space-y-1 text-sm font-medium">
           {t("filters.category")}
-          <select value={category} onChange={(e) => setCategory(e.target.value as NotifCategory | "")} className={inputClass}>
+          <AntSelect value={category} onChange={(e) => setCategory(e.target.value as NotifCategory | "")} className={inputClass}>
             <option value="">{t("filters.all")}</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {t(`categories.${c}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </label>
         <label className="space-y-1 text-sm font-medium">
           {t("filters.from")}

@@ -89,7 +89,7 @@ function InstitutionSettings({ settings, onSaved }: { settings: readonly SchoolL
       <QueryBoundary query={institutions} isEmpty={(institutions.data ?? []).length === 0} empty={<EmptyBlock title={t("none")} />}>
         <ul className="space-y-3">
           {(institutions.data ?? []).map((i) => (
-            <li key={i.id} className="rounded-lg border p-4">
+            <li key={i.id} className="rounded-2xl border border-white/10 bg-card/40 p-4">
               <InstitutionCard institutionId={i.id} name={i.name} current={settings.find((s) => s.institutionId === i.id) ?? null} onSaved={onSaved} />
             </li>
           ))}

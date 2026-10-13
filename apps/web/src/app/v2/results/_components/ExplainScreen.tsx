@@ -44,7 +44,7 @@ function ExplainBody({ data, classroomId }: { data: Explanation; classroomId: st
   return (
     <div className="space-y-6">
       <Notice kind={data.source === "STORED" ? "success" : "warning"}>{t(data.source === "STORED" ? "sourceStored" : "sourceReplay")}</Notice>
-      <section aria-label={t("headerTitle")} className="space-y-3 rounded-md border p-4">
+      <section aria-label={t("headerTitle")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">{t("headerTitle")}</h2>
           <StatusBadge label={tResult(h.status)} tone={toneOfStatus(h.status)} />
@@ -107,12 +107,12 @@ function TraceTable({ records }: { records: TraceRecordDto[] }) {
   return (
     <ol className="space-y-3" aria-label={t("steps")}>
       {records.map((r, i) => (
-        <li key={`${r.ruleKey}-${i}`} className="rounded-md bg-muted/30 p-3 text-sm">
+        <li key={`${r.ruleKey}-${i}`} className="rounded-md bg-white/[0.04] p-3 text-sm">
           <p className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-mono font-medium">{r.ruleKey}</span>
             <span className="tabular-nums">{r.value === null || r.value === undefined ? "—" : String(r.value)}</span>
           </p>
-          {r.overridden ? <p className="mt-1 text-xs text-amber-800">{t("overriddenFrom", { value: String(r.overridden.original ?? "—") })}</p> : null}
+          {r.overridden ? <p className="mt-1 text-xs text-amber-300">{t("overriddenFrom", { value: String(r.overridden.original ?? "—") })}</p> : null}
           <p className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
             {r.nodesEvaluated !== undefined ? <span>{t("nodes", { count: r.nodesEvaluated })}</span> : null}
             {r.inputsHash ? (

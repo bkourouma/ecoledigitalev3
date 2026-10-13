@@ -22,6 +22,8 @@ interface Target {
   key: number;
   classroomId: string;
   curriculumNodeId: string;
+  /** Enseignant de la ligne (direction) : sans lui, l'API refuse « Indiquez l'enseignant de l'évaluation » (L-40). */
+  teacher: SelectOption | null;
 }
 
 export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/assessments" }: { initialClassroomId?: string; basePath?: string }) {
@@ -37,7 +39,7 @@ export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/asse
   const [curriculumNodeId, setNodeId] = useState("");
   const [periodId, setPeriodId] = useState("");
   const [teacher, setTeacher] = useState<SelectOption | null>(null);
-  const [targets, setTargets] = useState<Target[]>([{ key: 1, classroomId: "", curriculumNodeId: "" }]);
+  const [targets, setTargets] = useState<Target[]>([{ key: 1, classroomId: "", curriculumNodeId: "", teacher: null }]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [created, setCreated] = useState<AssessmentDto[] | null>(null);
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -47,7 +49,7 @@ export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/asse
   async function submit() {
     const common = { typeId: form.typeId, academicPeriodId: periodId, title: form.title, assessedOn: form.assessedOn, ...compact({ scaleMax: form.scaleMax, weight: form.weight }), ...(form.sessionNo ? { sessionNo: Number(form.sessionNo) } : {}) };
     if (bulk) {
-      const body = { ...common, targets: targets.filter((x) => x.classroomId || x.curriculumNodeId).map((x) => ({ classroomId: x.classroomId, curriculumNodeId: x.curriculumNodeId })) };
+      const body = { ...common, targets: targets.filter((x) => x.classroomId || x.curriculumNodeId).map((x) => ({ classroomId: x.classroomId, curriculumNodeId: x.curriculumNodeId, ...(x.teacher ? { teacherId: x.teacher.value } : {}) })) };
       const v = validateWith(assessmentBulkCreateBodySchema, body);
       if (!v.ok) return setErrors(v.errors);
       setErrors({});
@@ -77,7 +79,7 @@ export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/asse
         <Notice kind="success">{t("done", { count: created.length })}</Notice>
         <ul className="mt-4 space-y-2">
           {created.map((a) => (
-            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <span className="font-medium">{a.title}</span>
               <Link href={`${basePath}/${a.id}/grades`} className={buttonClass.primary}>
                 {t("enterGrades")}
@@ -176,16 +178,23 @@ export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/asse
             ) : null}
           </>
         ) : (
-          <fieldset className="space-y-3 rounded-md border p-3">
+          <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <legend className="px-1 text-sm font-medium">{t("targets")}</legend>
             {targets.map((target, i) => (
-              <div key={target.key} className="grid gap-3 rounded-md bg-muted/30 p-3 sm:grid-cols-[1fr_1fr_auto]">
+              <div key={target.key} className="grid gap-3 rounded-md bg-white/[0.04] p-3 sm:grid-cols-[1fr_1fr_auto]">
                 <FormField label={t("targetClassroom", { n: i + 1 })} error={errors[`targets.${i}.classroomId`]}>
                   {(c) => <ClassroomPicker {...c} value={target.classroomId} onChange={(v) => setTargets((l) => l.map((x) => (x.key === target.key ? { ...x, classroomId: v, curriculumNodeId: "" } : x)))} />}
                 </FormField>
                 <FormField label={t("targetNode", { n: i + 1 })} error={errors[`targets.${i}.curriculumNodeId`]}>
                   {(c) => <NodePicker {...c} classroomId={target.classroomId} value={target.curriculumNodeId} onChange={(v) => setTargets((l) => l.map((x) => (x.key === target.key ? { ...x, curriculumNodeId: v } : x)))} />}
                 </FormField>
+                {manage.allowed ? (
+                  <div className="sm:col-span-3">
+                    <FormField label={t("targetTeacher", { n: i + 1 })} hint={t("teacherHint")} error={errors[`targets.${i}.teacherId`]}>
+                      {(c) => <SelectAsync {...c} value={target.teacher} onChange={(v) => setTargets((l) => l.map((x) => (x.key === target.key ? { ...x, teacher: v } : x)))} useOptions={useTeacherOptions} placeholder={t("teacherPlaceholder")} />}
+                    </FormField>
+                  </div>
+                ) : null}
                 <div className="flex items-end">
                   <button type="button" className={buttonClass.ghost} onClick={() => setTargets((l) => l.filter((x) => x.key !== target.key))} disabled={targets.length === 1} aria-label={t("removeTarget", { n: i + 1 })}>
                     {t("remove")}
@@ -198,7 +207,7 @@ export function AssessmentCreate({ initialClassroomId = "", basePath = "/v2/asse
                 {errors.targets}
               </p>
             ) : null}
-            <button type="button" className={buttonClass.secondary} onClick={() => setTargets((l) => [...l, { key: Math.max(0, ...l.map((x) => x.key)) + 1, classroomId: "", curriculumNodeId: "" }])}>
+            <button type="button" className={buttonClass.secondary} onClick={() => setTargets((l) => [...l, { key: Math.max(0, ...l.map((x) => x.key)) + 1, classroomId: "", curriculumNodeId: "", teacher: null }])}>
               {t("addTarget")}
             </button>
             <FormField label={t("period")} required error={errors.academicPeriodId} hint={t("bulkPeriodHint")}>

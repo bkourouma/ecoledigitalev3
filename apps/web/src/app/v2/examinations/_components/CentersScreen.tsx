@@ -103,7 +103,7 @@ function CenterCard({ center }: { center: ExamCenterDto }) {
   const rooms = center.rooms ?? [];
   const active = center.status === "ACTIVE";
   return (
-    <li className="space-y-3 rounded-md border p-4">
+    <li className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{center.code} — {center.name}</h2>
         <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ function CenterCard({ center }: { center: ExamCenterDto }) {
         <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("rooms", { center: center.name })}>
           <table className="w-full text-sm">
             <caption className="sr-only">{t("rooms", { center: center.name })}</caption>
-            <thead className="bg-muted/50 text-left"><tr>
+            <thead className="bg-white/[0.04] text-left"><tr>
               <th scope="col" className="px-3 py-2">{t("room.code")}</th>
               <th scope="col" className="hidden px-3 py-2 sm:table-cell">{t("room.label")}</th>
               <th scope="col" className="px-3 py-2 text-right">{t("room.capacity")}</th>

@@ -272,6 +272,15 @@ export function useInvitePortalAccess() {
   });
 }
 
+/** Relie une personne à un compte DÉJÀ ouvert dans l'établissement (identité connue du tenant) : refus si déjà liée (L-04). */
+export function useLinkPersonIdentity() {
+  return useApiAction({
+    path: (v: { personId: string; identityId: string }) => `${PEOPLE_BASE}/persons/${v.personId}/identity`,
+    body: (v) => ({ identityId: v.identityId }),
+    invalidate: [GUARDIANS_KEY, STUDENTS_KEY, ["people", "staff"]],
+  });
+}
+
 export function useRelationshipTypes() {
   return hooks.useApiQuery(["people", "reference", "relationship-types"], `${PEOPLE_BASE}/reference/relationship-types`, {
     schema: itemsOf(peopleRelationshipTypeDtoSchema),

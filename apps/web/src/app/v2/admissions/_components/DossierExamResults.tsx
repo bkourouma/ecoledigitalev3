@@ -22,7 +22,7 @@ export function DossierExamResults({ application }: { application: AdmissionsApp
   const { items, canSeeAverage } = query.data;
   if (items.length === 0) return null;
   return (
-    <section aria-labelledby="dossier-exam-results" className="space-y-3 rounded-lg border p-4" data-testid="dossier-exam-results">
+    <section aria-labelledby="dossier-exam-results" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4" data-testid="dossier-exam-results">
       <h2 id="dossier-exam-results" className="text-base font-semibold">{t("title")}</h2>
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
       <ul className="divide-y text-sm">

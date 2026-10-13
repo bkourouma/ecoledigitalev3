@@ -79,7 +79,7 @@ function SettingsForm({ initial }: { initial: PrimarySettingsDto }) {
         e.preventDefault();
         void submit();
       }}
-      className="space-y-4 rounded-lg border p-4"
+      className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4"
       aria-labelledby="primary-settings-title"
     >
       <h2 id="primary-settings-title" className="text-lg font-semibold">
@@ -109,7 +109,7 @@ function TemplateSection() {
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<PrimaryTemplateResultDto | null>(null);
   return (
-    <section aria-labelledby="primary-template" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="primary-template" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="primary-template" className="text-lg font-semibold">
         {t("title")}
       </h2>

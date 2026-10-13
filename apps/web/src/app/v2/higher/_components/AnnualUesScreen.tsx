@@ -66,7 +66,7 @@ function AnnualUesContent() {
       {list.data && list.data.length > 0 ? (
         <ul aria-label={t("listLabel")} className="grid gap-3 md:grid-cols-2">
           {list.data.map((a) => (
-            <li key={a.id} className="flex flex-col gap-2 rounded-lg border p-3">
+            <li key={a.id} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-card/40 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h3 className="text-base font-medium">{name({ ueNodeId: a.ueNodeId, code: a.ueCode, label: a.ueLabel })}</h3>
                 <StatusBadge label={t("semesters", { count: a.partsExpected })} tone="info" />

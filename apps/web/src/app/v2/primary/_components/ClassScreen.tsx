@@ -121,7 +121,7 @@ export function ClassScreen() {
             const headingId = `class-${c.classroomId}`;
             return (
               <li key={c.classroomId}>
-                <section aria-labelledby={headingId} className="space-y-3 rounded-lg border p-4">
+                <section aria-labelledby={headingId} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h2 id={headingId} className="text-lg font-semibold">
@@ -146,7 +146,7 @@ export function ClassScreen() {
                             <span>{p.label}</span>
                             <span className="text-xs font-medium">{p.locked ? t("periodLocked") : t("periodOpen")}</span>
                             {p.ready ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-800">
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-300">
                                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                                 {t("ready.badge")}
                               </span>

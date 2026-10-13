@@ -21,7 +21,7 @@ function Table({ title, groups, total, groupBy }: { title: string; groups: ExamS
     <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={title}>
       <table className="w-full text-sm">
         <caption className="sr-only">{title}</caption>
-        <thead className="bg-muted/50 text-left">
+        <thead className="bg-white/[0.04] text-left">
           <tr>
             <th scope="col" className="px-3 py-2">{t("group")}</th>
             <th scope="col" className="px-3 py-2 text-right">{t("registered")}</th>

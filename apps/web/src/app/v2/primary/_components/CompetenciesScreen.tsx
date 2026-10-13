@@ -35,7 +35,7 @@ function CompetenciesBody({ initialClassroomId }: { initialClassroomId: string |
       {sel.classes.isError ? <PrimaryError error={sel.classes.error} /> : null}
       {sel.classes.data && sel.list.length === 0 ? <Notice kind="info">{t("noClassroom")}</Notice> : null}
       {sel.list.length > 0 ? (
-        <fieldset className="space-y-3 rounded-md border p-3" disabled={dirty > 0}>
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3" disabled={dirty > 0}>
           <legend className="px-1 text-sm font-medium">{t("pickers")}</legend>
           <ClassPeriodPicker
             classes={sel.list}

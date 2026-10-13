@@ -19,7 +19,7 @@ function StepProgress({ step }: { step: AcademicRolloverRunDto["progress"]["step
   const { number } = useDateFormat();
   const percent = step.total > 0 ? Math.min(100, Math.round((step.done / step.total) * 100)) : step.status === "DONE" ? 100 : 0;
   return (
-    <li className="space-y-1 rounded-md border p-3">
+    <li className="space-y-1 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">{tStep(step.key)}</span>
         <StatusBadge label={tStatus(step.status)} tone={stepTone(step.status)} />
@@ -63,16 +63,16 @@ export function RolloverReport({ report }: { report: AcademicRolloverRunReport }
       </h2>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {created.map(([label, value]) => (
-          <div key={label} className="rounded-md border p-3">
+          <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <dt className="text-xs text-muted-foreground">{t("created", { step: label })}</dt>
             <dd className="text-xl font-semibold">{number(value)}</dd>
           </div>
         ))}
-        <div className="rounded-md border p-3">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <dt className="text-xs text-muted-foreground">{t("alreadyRolledOver")}</dt>
           <dd className="text-xl font-semibold">{number(report.alreadyRolledOver)}</dd>
         </div>
-        <div className="rounded-md border p-3">
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <dt className="text-xs text-muted-foreground">{t("skipped")}</dt>
           <dd className="text-xl font-semibold">{number(report.skipped)}</dd>
         </div>

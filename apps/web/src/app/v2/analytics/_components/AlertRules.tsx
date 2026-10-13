@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { ListChecks, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ANALYTICS_ALERT_FREQUENCIES, ANALYTICS_ALERT_LIMITS, type AnalyticsAlertRule, type AnalyticsAlertRuleCreate } from "@ecoledigitale/contracts/v2/analytics";
 import { useAnalyticsAlertMetrics, useAnalyticsAlertRules, useAnalyticsCreateAlertRule, useAnalyticsScopes, useAnalyticsUpdateAlertRule } from "@/platform/v2/analytics";
@@ -77,7 +78,7 @@ function Rules() {
       {rules.isPending && rules.fetchStatus !== "idle" ? <LoadingBlock /> : null}
       {rules.isError ? <ErrorBlock error={rules.error} onRetry={() => void rules.refetch()} /> : null}
       {rules.data ? (
-        <Section id="rules-list" title={t("list.title")}>
+        <Section id="rules-list" icon={ListChecks} title={t("list.title")}>
           <DataTable
             caption={t("list.caption")}
             columns={[
@@ -221,8 +222,8 @@ function RuleForm({ draft: initial, onClose, onSaved }: { draft: Draft; onClose:
   }
 
   return (
-    <Section id="rules-form" title={draft.id ? t("editTitle") : t("newTitle")}>
-      <form className="space-y-5" noValidate onSubmit={submit} aria-label={draft.id ? t("editTitle") : t("newTitle")}>
+    <Section id="rules-form" icon={SlidersHorizontal} title={draft.id ? t("editTitle") : t("newTitle")}>
+      <form className="space-y-5 rounded-2xl border border-white/10 bg-card/40 p-4 sm:p-5" noValidate onSubmit={submit} aria-label={draft.id ? t("editTitle") : t("newTitle")}>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("label")} required error={errors.label ?? null}>
             {(c) => <TextControl {...c} value={draft.label} onChange={(v) => set({ label: v })} maxLength={ANALYTICS_ALERT_LIMITS.labelMax} />}
@@ -273,7 +274,7 @@ function RuleForm({ draft: initial, onClose, onSaved }: { draft: Draft; onClose:
           </FormField>
         </div>
 
-        <fieldset className="space-y-1" aria-describedby={errors.roles ? "roles-error" : undefined}>
+        <fieldset className="space-y-1 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4" aria-describedby={errors.roles ? "roles-error" : undefined}>
           <legend className="text-sm font-medium">{t("roles")}</legend>
           <p className="text-xs text-muted-foreground">{t("rolesHint")}</p>
           <div className="grid gap-x-4 sm:grid-cols-2">

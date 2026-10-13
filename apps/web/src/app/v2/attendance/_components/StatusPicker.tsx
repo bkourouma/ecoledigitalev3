@@ -72,7 +72,7 @@ export function StatusPicker({
         <fieldset className="space-y-1">
           <legend className="sr-only">{t("legend")}</legend>
           {options.map((o) => (
-            <label key={o.code} className="flex min-h-[2.75rem] cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+            <label key={o.code} className="flex min-h-[2.75rem] cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
               <input type="radio" name="status" value={o.code} checked={selected === o.code} onChange={() => setSelected(o.code)} className="h-4 w-4 accent-primary" />
               <span>{o.label}</span>
             </label>

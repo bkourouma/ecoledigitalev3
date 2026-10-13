@@ -25,6 +25,7 @@ import {
   listAssessmentsOfClass,
   listRevisionsOf,
   summarizeInSql,
+  summaryRowsOf,
   syncPeriodLock,
   updateDraftAssessment,
   validateClassPeriod,
@@ -526,6 +527,56 @@ export async function getCompetencyCounters(
       const evaluated = new Map(rows.map((r) => [r.enrollment_id, Number(r.n)]));
       for (const id of input.enrollmentIds) out.set(id, { evaluated: evaluated.get(id) ?? 0, expected });
       return ok(out);
+    },
+    { readOnly: true },
+  );
+}
+
+/**
+ * Bloc « Compétences » du bulletin (L-42) : par domaine du référentiel publié de la classe, les compétences évaluées (lignes
+ * VALIDÉES de la période), les attendues et le nombre d'élèves-niveau par niveau de l'échelle. Que des COMPTAGES, jamais de moyenne.
+ * `null` : aucun référentiel publié pour ce niveau de classe (bulletin numérique ou école sans pack).
+ */
+export interface ReportcardCompetencies {
+  readonly scaleLabel: string | null;
+  readonly domains: ReadonlyArray<{ code: string; label: string; evaluated: number; expected: number; levels: ReadonlyArray<{ code: string; label: string; count: number }> }>;
+}
+
+export async function getReportcardCompetencies(
+  deps: PrimarySchoolDeps,
+  ctx: RequestContext,
+  input: { classroomId: Uuid; enrollmentId: Uuid; periodId: Uuid },
+): Promise<Result<ReportcardCompetencies | null, AppError>> {
+  const classroom = await deps.ports.classrooms.getClassroom(ctx, input.classroomId);
+  if (!classroom) return err(notFound(PrimaryCode.CLASSROOM_NOT_FOUND, "Classe", input.classroomId));
+  return inTx(
+    deps,
+    ctx,
+    async (tx) => {
+      const chosen = (await listFrameworkRows(tx, { status: "PUBLISHED" })).filter((f) => appliesTo(f, classroom.gradeLevelCode))[0];
+      if (!chosen) return ok<ReportcardCompetencies | null>(null);
+      const detail = await frameworkDetailOf(tx, chosen);
+      const counts = summarizeCompetencies(await summaryRowsOf(tx, input.enrollmentId, [input.periodId]));
+      const evaluatedRows = await tx.many<{ domain_code: string; n: string }>(
+        `SELECT d.code AS domain_code, count(DISTINCT a.competency_id)::text AS n
+           FROM primary_school.competency_assessments a
+           JOIN primary_school.competencies c ON c.tenant_id = a.tenant_id AND c.id = a.competency_id
+           JOIN primary_school.competency_domains d ON d.tenant_id = c.tenant_id AND d.id = c.domain_id
+          WHERE a.enrollment_id = $1 AND a.academic_period_id = $2 AND a.framework_id = $3 AND a.status = 'VALIDATED'
+          GROUP BY d.code`,
+        [input.enrollmentId, input.periodId, chosen.id],
+      );
+      const evaluated = new Map(evaluatedRows.map((r) => [r.domain_code, Number(r.n)]));
+      return ok<ReportcardCompetencies | null>({
+        scaleLabel: detail.scale.label,
+        domains: detail.domains.map((d) => ({
+          code: d.code,
+          label: d.label,
+          evaluated: evaluated.get(d.code) ?? 0,
+          expected: d.competencies.length,
+          levels: [...detail.scale.levels].sort((a, b) => a.ordinal - b.ordinal).map((l) => ({ code: l.code, label: l.label, count: counts[d.code]?.[l.code] ?? 0 })),
+        })),
+      });
     },
     { readOnly: true },
   );

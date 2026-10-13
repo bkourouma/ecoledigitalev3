@@ -182,7 +182,7 @@ export function TimetableScreen({ exportHref = "/v2/schedule/export" }: { export
           {view === "week" ? (
             <div className="hidden gap-2 md:grid md:grid-cols-7" role="list" aria-label={t("weekGrid")}>
               {days.map((d) => (
-                <section key={d} role="listitem" aria-label={dayLabel(d)} className={cn("min-w-0 space-y-2 rounded-lg border p-2", d === today && "border-primary bg-primary/5")}>
+                <section key={d} role="listitem" aria-label={dayLabel(d)} className={cn("min-w-0 space-y-2 rounded-2xl border p-2", d === today && "border-primary bg-primary/5")}>
                   <h2 className="text-center text-sm font-semibold capitalize">{dayShort(d)}</h2>
                   {(grouped.get(d) ?? []).map((o) => (
                     <OccurrenceCard key={o.id} o={o} dirs={dirs} compact />

@@ -14,8 +14,8 @@
  */
 import type { RequestContext } from "@ecoledigitale/kernel";
 import type { Clock } from "@ecoledigitale/kernel";
-import { getAcademicYear, getClassroomFacts, getProgram, type AcademicDeps, type InvoiceFactsReader, type RegistrationFeeProbe } from "../../modules/academic";
-import { getInvoiceFacts, isRegistrationFeeDue, type FinanceDeps } from "../../modules/finance";
+import { getAcademicYear, getClassroomFacts, getEnrollment, getProgram, type AcademicDeps, type EnrollmentBilling, type InvoiceFactsReader, type RegistrationFeeProbe } from "../../modules/academic";
+import { getInvoiceFacts, isRegistrationFeeDue, issueInvoiceFromSchedule, listFeeCatalog, type FinanceDeps } from "../../modules/finance";
 
 export function createAcademicInvoiceFactsReader(finance: FinanceDeps): InvoiceFactsReader {
   return {
@@ -44,6 +44,44 @@ export function createAcademicRegistrationFeeProbe(finance: FinanceDeps, academi
         onDate: clock.now().toISOString().slice(0, 10),
       });
       return r.ok ? r.value : null;
+    },
+  };
+}
+
+/**
+ * Facture les frais d'inscription (catégorie `REGISTRATION`) d'une inscription saisie à la main ou en ligne (L-60), avec la même
+ * règle que l'admission : sans barème applicable, aucune facture. Idempotent par inscription.
+ */
+export function createAcademicEnrollmentBilling(finance: FinanceDeps, academic: AcademicDeps, clock: Clock): EnrollmentBilling {
+  return {
+    async invoiceRegistrationFees(ctx: RequestContext, input) {
+      const enrollment = await getEnrollment(academic, ctx, input.enrollmentId);
+      if (!enrollment.ok) throw enrollment.error;
+      const facts = await getClassroomFacts(academic, ctx, enrollment.value.classroomId);
+      const year = await getAcademicYear(academic, ctx, enrollment.value.academicYearId);
+      if (!facts.ok || !year.ok) throw new Error("contexte de l'inscription illisible");
+      const program = await getProgram(academic, ctx, facts.value.programId);
+      if (!program.ok) throw program.error;
+      const due = await isRegistrationFeeDue(finance, ctx, {
+        academicYear: year.value.code,
+        institutionId: enrollment.value.institutionId,
+        campusId: facts.value.campusId,
+        levelKey: facts.value.gradeLevelCode,
+        trackKey: program.value.code,
+        learnerType: enrollment.value.fundingType,
+        onDate: clock.now().toISOString().slice(0, 10),
+      });
+      if (!due.ok) throw due.error;
+      if (due.value !== true) return; // aucun barème applicable (ou inconnu) : rien à facturer
+      const fees = await listFeeCatalog(finance, ctx, { activeOnly: true, category: "REGISTRATION" });
+      if (!fees.ok) throw fees.error;
+      const issued = await issueInvoiceFromSchedule(finance, ctx, {
+        learnerId: input.studentId,
+        enrollmentId: input.enrollmentId,
+        items: fees.value.map((f) => ({ feeId: f.id })),
+        idempotencyKey: `enrollment-registration-${input.enrollmentId}`,
+      });
+      if (!issued.ok) throw issued.error;
     },
   };
 }

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { academicCurriculumTreeDtoSchema, type AcademicCurriculumTreeNodeDto } from "@ecoledigitale/contracts/v2/academic";
 import { platformApi, platformHooks } from "@/platform/api/default-client";
 import { useAcademicYears, useCurriculumVersions, usePrograms } from "@/platform/v2/academic";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 
 export interface CurriculumNodeOption {
   id: string;
@@ -70,7 +70,7 @@ export function NodePicker({ value, onChange, label, error, required, hint }: { 
   return (
     <FormField label={label} required={required} error={error} hint={hint}>
       {(c) => (
-        <select {...c} value={value} onChange={(e) => onChange(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive">
+        <AntSelect {...c} value={value} onChange={(e) => onChange(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive">
           <option value="">{isLoading ? t("loading") : t("chooseNode")}</option>
           {groups.map(([group, items]) => (
             <optgroup key={group} label={group}>
@@ -81,7 +81,7 @@ export function NodePicker({ value, onChange, label, error, required, hint }: { 
               ))}
             </optgroup>
           ))}
-        </select>
+        </AntSelect>
       )}
     </FormField>
   );

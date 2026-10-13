@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { accessRoutes, setTestApi } from "@/platform/test/api-mock";
 import { json, renderWithProviders } from "@/platform/test/render";
 import { classroom, period } from "../../_test/fixtures";
+import { STUDENTS, uuid as assessUuid } from "../../assessments/_test/fixtures";
 import { VerifyScreen, normalizeCode } from "../../verify/_components/VerifyScreen";
 import { batch, branding, card, config, detail, preflight, signatory, template, uuid, verification } from "../_test/fixtures";
 import { CardDetail } from "./CardDetail";
@@ -42,6 +43,20 @@ describe("IssueScreen — génération par lot", () => {
     expect(screen.getByTestId("preflight-counts").textContent).toBe("3 inscriptions : 2 éligibles, 1 exclues.");
     expect((screen.getByRole("button", { name: "Générer les bulletins" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("émission pour quelques élèves (L-41) : seuls les élèves cochés partent dans le lot ; aucun choix = message", async () => {
+    const api = setTestApi(routes(["reportcard.generate"], { "GET /api/v1/people/students": STUDENTS, [`POST ${R}/batches`]: () => json(batch(), { status: 202 }), [`GET ${R}/batches/${uuid(7200)}`]: batch() }));
+    renderWithProviders(<IssueScreen initialClassroomId={C} initialPeriodId={P} />);
+    await screen.findByText("Tout est prêt : vous pouvez générer les bulletins.");
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Émettre pour quelques élèves seulement/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Générer les bulletins" }));
+    expect(await screen.findByText("Choisissez au moins un élève.")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Bamba Yao/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Générer les bulletins" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.path === `${R}/batches`)).toBe(true));
+    expect(api.calls.find((c) => c.method === "POST" && c.path === `${R}/batches`)!.body).toEqual({ classroomId: C, academicPeriodId: P, kind: "REPORT_CARD", enrollmentIds: [assessUuid(2002)] });
+  }, 120_000);
 
   it("génère le lot (corps exact), suit la progression, reprend les exclus et publie le lot", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);

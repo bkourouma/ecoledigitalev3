@@ -45,16 +45,16 @@ export function OfflineIndicator({ className }: { className?: string }) {
   }
 
   const palette = {
-    ok: "border-emerald-300 bg-emerald-50 text-emerald-900",
-    info: "border-blue-300 bg-blue-50 text-blue-900",
-    warn: "border-amber-300 bg-amber-50 text-amber-900",
-    bad: "border-red-300 bg-red-50 text-red-900",
+    ok: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
+    info: "border-sky-400/40 bg-sky-400/10 text-sky-200",
+    warn: "border-amber-400/40 bg-amber-400/10 text-amber-200",
+    bad: "border-red-400/40 bg-red-400/10 text-red-200",
   }[tone];
   const Icon = !s.online ? WifiOff : tone === "bad" || tone === "warn" ? CloudOff : RefreshCw;
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div role="status" aria-live="polite" data-testid="offline-indicator" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border px-3 py-2 text-sm", palette)}>
+      <div role="status" aria-live="polite" data-testid="offline-indicator" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3 py-2 text-sm", palette)}>
         <Icon className={cn("h-4 w-4 shrink-0", s.syncing && "animate-spin")} aria-hidden="true" />
         <span className="min-w-0 flex-1">{text}</span>
         {action ? (
@@ -64,7 +64,7 @@ export function OfflineIndicator({ className }: { className?: string }) {
         ) : null}
       </div>
       {s.ready && !s.persistent ? (
-        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p role="alert" className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
           {t("volatile")}
         </p>
       ) : null}

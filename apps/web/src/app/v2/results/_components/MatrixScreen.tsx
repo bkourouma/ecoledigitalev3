@@ -96,7 +96,7 @@ function MatrixTable({ matrix, classroomId, detail, onDetail }: { matrix: ClassM
       <div role="region" aria-label={t("tableCaption")} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{t("tableCaption")}</caption>
-          <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th scope="col" className="px-3 py-2">{t("columns.student")}</th>
               <th scope="col" className="px-3 py-2 text-right">{t("columns.average")}</th>

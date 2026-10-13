@@ -47,6 +47,8 @@ import {
   examIssueDocumentBodySchema,
   examIssuedDocumentListQuerySchema,
   examMockLinkBodySchema,
+  examJuryDecisionsBodySchema,
+  examOpenJuryBodySchema,
   examPieceActionBodySchema,
   examRegisterBatchBodySchema,
   examRejectRevisionBodySchema,
@@ -88,6 +90,7 @@ import { applyImport, createImport, getBatch, listBatches, validateImport } from
 import { familyAccess, listAllChildrenExams, listChildExamDocuments, listChildExams, listMyExamDocuments, listMyExams } from "../application/family";
 import { issueBatch, issueDocument, listIssuedDocuments, readIssuedDocumentFile, revokeIssuedDocument } from "../application/issued-documents";
 import { computeMock, importFromAssess, linkAssessment, listLinks, unlinkAssessment } from "../application/mock";
+import { closeMockJury, getJury, openJury, saveJuryDecisions } from "../application/jury";
 import { createExaminationsPortRegistry, type ExaminationsPortRegistry } from "../application/port-registry";
 import type { ExaminationsPorts } from "../application/ports";
 import { createCenter, createExamType, createPaper, createRequirement, createRoom, createTrack, getExamType, instantiatePack, listCenters, listExamTypes, updateCenter, updateExamType, updatePaper, updateRequirement, updateRoom, updateTrack } from "../application/reference";
@@ -353,6 +356,11 @@ export async function examinationsPlugin(app: FastifyInstance, options: Examinat
     scope.delete("/sessions/:id/mock/links/:linkId", g(kit.require(P.mockManage), ...mock), async (request) => unwrapOrThrow(await unlinkAssessment(deps, ctxOf(request), idOf(request.params), idOf(request.params, "linkId"))));
     scope.post("/sessions/:id/mock/import-from-assess", g(kit.require(P.mockManage), ...mock), async (request) => unwrapOrThrow(await importFromAssess(deps, ctxOf(request), idOf(request.params))));
     scope.post("/sessions/:id/mock/compute", g(kit.require(P.mockManage), ...mock), async (request) => unwrapOrThrow(await computeMock(deps, ctxOf(request), idOf(request.params))));
+    // Jury d'un examen blanc (jamais d'un examen officiel). `GET` répond `null` tant que le jury n'est pas ouvert.
+    scope.get("/sessions/:id/mock/jury", g(kit.require(P.mockManage), ...mock), async (request) => ({ jury: unwrapOrThrow(await getJury(deps, ctxOf(request), idOf(request.params))) }));
+    scope.post("/sessions/:id/mock/jury", g(kit.require(P.mockManage), ...mock), async (request, reply) => reply.status(201).send(unwrapOrThrow(await openJury(deps, ctxOf(request), idOf(request.params), parse(examOpenJuryBodySchema, request.body ?? {})))));
+    scope.put("/sessions/:id/mock/jury/decisions", g(kit.require(P.mockManage), ...mock), async (request) => unwrapOrThrow(await saveJuryDecisions(deps, ctxOf(request), idOf(request.params), parse(examJuryDecisionsBodySchema, request.body))));
+    scope.post("/sessions/:id/mock/jury/close", g(kit.require(P.mockManage), ...mock), async (request) => unwrapOrThrow(await closeMockJury(deps, ctxOf(request), idOf(request.params))));
 
     // ------------------------------------------------------------------ statistiques
     scope.get("/sessions/:id/statistics", g(kit.require(P.statisticsRead), ...core), async (request) => unwrapOrThrow(await getStatistics(deps, ctxOf(request), idOf(request.params), parse(examStatisticsQuerySchema, request.query))));

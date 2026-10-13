@@ -16,7 +16,7 @@ import { saveToken } from "@/lib/jwt-storage";
 import { activeRoleOf, routeForRole } from "@/lib/role-landing";
 import { resolveBrowserTenant } from "@/platform/tenant/browser";
 import { AuthShell, FormAlert } from "./AuthShell";
-import { TextField } from "./fields";
+import { LockIcon, MailIcon, PasswordField, ShieldIcon, TextField } from "./fields";
 import { IamClientError, explainIamError, iamApi } from "./iam-api";
 
 type Step =
@@ -248,7 +248,7 @@ export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
   if (step.kind === "recovery") {
     return (
       <AuthShell title="Codes de secours" description="Conservez ces codes en lieu sûr. Chacun ne sert qu'une fois si vous perdez l'accès à votre application d'authentification.">
-        <div ref={heading} tabIndex={-1} className="outline-none">
+        <div ref={heading} tabIndex={-1} className="outline-none focus-visible:ring-0 focus-visible:ring-offset-0">
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Codes de secours">
             {step.codes.map((c) => (
               <li key={c} className="rounded-md border bg-muted px-3 py-2 text-center font-mono text-sm tracking-wider">
@@ -272,8 +272,8 @@ export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
 
   if (step.kind === "enroll") {
     return (
-      <AuthShell title="Activer la vérification en deux étapes" description="Votre rôle l'exige. Scannez le QR code avec une application d'authentification (Google Authenticator, Microsoft Authenticator, Aegis…), puis saisissez le code à 6 chiffres.">
-        <div ref={heading} tabIndex={-1} className="flex flex-col items-center gap-3 outline-none">
+      <AuthShell icon={<ShieldIcon />} title="Activer la vérification en deux étapes" description="Votre rôle l'exige. Scannez le QR code avec une application d'authentification (Google Authenticator, Microsoft Authenticator, Aegis…), puis saisissez le code à 6 chiffres.">
+        <div ref={heading} tabIndex={-1} className="flex flex-col items-center gap-3 outline-none focus-visible:ring-0 focus-visible:ring-offset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={step.qr} width={192} height={192} alt="QR code à scanner avec votre application d'authentification" className="rounded-md border bg-white p-2" />
           <details className="w-full text-sm">
@@ -296,9 +296,9 @@ export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
 
   if (step.kind === "challenge") {
     return (
-      <AuthShell title="Vérification en deux étapes" description={useRecovery ? "Saisissez l'un de vos codes de secours." : "Saisissez le code à 6 chiffres de votre application d'authentification."}>
+      <AuthShell icon={<ShieldIcon />} title="Vérification en deux étapes" description={useRecovery ? "Saisissez l'un de vos codes de secours." : "Saisissez le code à 6 chiffres de votre application d'authentification."}>
         <form onSubmit={submitChallenge} className="space-y-4" noValidate>
-          <div ref={heading} tabIndex={-1} className="outline-none">
+          <div ref={heading} tabIndex={-1} className="outline-none focus-visible:ring-0 focus-visible:ring-offset-0">
             <TextField
               label={useRecovery ? "Code de secours" : "Code à 6 chiffres"}
               inputMode={useRecovery ? "text" : "numeric"}
@@ -328,30 +328,36 @@ export function LoginFlow({ prefill }: { prefill?: LoginPrefill } = {}) {
   }
 
   return (
-    <AuthShell title="Connexion" description="Accédez à votre espace éducatif.">
+    <AuthShell title="Connexion" description="Accédez à votre espace éducatif." icon={<LockIcon />}>
       <form onSubmit={submitCredentials} className="space-y-4" noValidate>
-        <div ref={heading} tabIndex={-1} className="outline-none">
+        <div ref={heading} tabIndex={-1} className="outline-none focus-visible:ring-0 focus-visible:ring-offset-0 empty:hidden">
           {expired ? <FormAlert kind="info">Votre session a pris fin. Reconnectez-vous.</FormAlert> : null}
         </div>
-        <TextField label="Adresse e-mail" type="email" autoComplete="username" autoCapitalize="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <TextField label="Mot de passe" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <TextField label="Adresse e-mail" icon={<MailIcon />} type="email" autoComplete="username" autoCapitalize="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <PasswordField label="Mot de passe" icon={<LockIcon />} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error ? <FormAlert>{error}</FormAlert> : null}
-        <Button type="submit" className="h-11 w-full" disabled={busy || !email || !password}>
+        <Button type="submit" className="h-12 w-full rounded-xl text-base font-semibold shadow-lg shadow-primary/25" disabled={busy || !email || !password}>
           {busy ? "Connexion…" : "Se connecter"}
         </Button>
         {googleEnabled ? (
-          <Button type="button" variant="outline" className="h-11 w-full" disabled={busy} onClick={() => void signIn("google", { callbackUrl: "/login?social=1" })}>
+          <Button type="button" variant="outline" className="h-11 w-full rounded-lg" disabled={busy} onClick={() => void signIn("google", { callbackUrl: "/login?social=1" })}>
             Continuer avec Google
           </Button>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <Link href="/v2/forgot-password" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 border-t border-white/10 pt-3 text-sm">
+          <Link href="/v2/forgot-password" className="inline-flex min-h-11 items-center text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline">
             Mot de passe oublié ?
           </Link>
-          <Link href="/register" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">
+          <Link href="/register" className="inline-flex min-h-11 items-center text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline">
             S&apos;inscrire en ligne
           </Link>
         </div>
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+          <span className="text-emerald-400">
+            <ShieldIcon />
+          </span>
+          Connexion sécurisée · vérification en deux étapes selon votre rôle
+        </p>
       </form>
     </AuthShell>
   );

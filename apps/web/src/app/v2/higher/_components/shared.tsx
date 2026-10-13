@@ -57,7 +57,7 @@ export function CurriculumNodePicker({
   const nodes = useMemo(() => flatten(tree.data?.roots ?? []).filter((n) => (filter ? filter(n) : true)), [tree.data, filter]);
 
   return (
-    <fieldset className="space-y-3 rounded-md border p-3">
+    <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <legend className="px-1 text-sm font-medium">{label}</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label={t("program")}>

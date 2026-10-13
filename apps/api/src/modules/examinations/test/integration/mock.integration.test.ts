@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { newId, unwrap } from "@ecoledigitale/kernel";
 import { issueDocument } from "../../application/issued-documents";
+import { closeMockJury, getJury, openJury, saveJuryDecisions } from "../../application/jury";
 import { computeMock, importFromAssess, linkAssessment, listLinks, unlinkAssessment } from "../../application/mock";
 import { listResults } from "../../application/results";
 import { getSessionDetail, transitionSession } from "../../application/sessions";
@@ -140,6 +141,62 @@ describeIntegration("examinations : examens blancs", () => {
     if (!official.ok) expect(official.error.code).toBe("examinations.mock_only");
     const cand = (await env.db.admin.query("SELECT id FROM examinations.candidates WHERE session_id = $1 LIMIT 1", [mockId])).rows[0].id as string;
     await expect(env.db.tenantDb.run(env.ctxA(), (tx) => tx.query("DELETE FROM examinations.candidate_results WHERE candidate_id = $1", [cand]))).rejects.toThrow(/permission|denied/);
+  });
+
+  it("jury d'un examen blanc : relit les résultats de la règle, tranche, motive les écarts, se clôt une fois tous les candidats tranchés ; ne touche jamais au résultat calculé", async () => {
+    const ids = (await env.db.admin.query("SELECT id FROM examinations.candidates WHERE session_id = $1 ORDER BY candidate_seq", [mockId])).rows.map((r) => r.id as string);
+    const codes = async () => (await env.db.admin.query("SELECT r.result_code FROM examinations.candidate_results r JOIN examinations.candidates c ON c.id = r.candidate_id WHERE r.session_id = $1 ORDER BY c.candidate_seq", [mockId])).rows.map((r) => r.result_code);
+    const before = await codes();
+
+    // jamais pour un examen officiel
+    const official = await openJury(env.deps(), env.ctxA(), officialId, {});
+    expect(official.ok).toBe(false);
+    if (!official.ok) expect(official.error.code).toBe("examinations.jury_mock_only");
+
+    expect(unwrap(await getJury(env.deps(), env.ctxA(), mockId))).toBeNull();
+    const opened = unwrap(await openJury(env.deps(), env.ctxA(), mockId, { heldOn: "2026-10-20", note: "Jury de l'examen blanc de CEPE" }));
+    expect(opened).toMatchObject({ status: "OPEN", heldOn: "2026-10-20", counts: { total: 4, decided: 0, changed: 0 } });
+    expect(opened.rows.map((r) => r.proposedCode)).toEqual(["ADMITTED", "FAILED", "ABSENT", "ABSENT"]);
+    expect(unwrap(await openJury(env.deps(), env.ctxA(), mockId, {})).id).toBe(opened.id); // idempotent
+
+    // confirmer la proposition (sans justification) ; un écart sans justification suffisante est refusé ligne par ligne
+    const first = unwrap(
+      await saveJuryDecisions(env.deps(), env.ctxA(), mockId, {
+        items: [
+          { candidateId: ids[0]!, finalCode: "ADMITTED" },
+          { candidateId: ids[1]!, finalCode: "ADMITTED", justification: "trop court" },
+          { candidateId: ids[2]!, finalCode: "DEFERRED", justification: "Absence justifiée par certificat médical : à rattraper." },
+        ],
+      }),
+    );
+    expect(first.saved).toBe(2);
+    expect(first.failed).toEqual([expect.objectContaining({ index: 1, candidateId: ids[1], code: "examinations.jury_justification_required" })]);
+
+    // clôture refusée tant qu'il reste des candidats sans décision
+    const early = await closeMockJury(env.deps(), env.ctxA(), mockId);
+    expect(early.ok).toBe(false);
+    if (!early.ok) expect(early.error.code).toBe("examinations.jury_incomplete");
+
+    unwrap(
+      await saveJuryDecisions(env.deps(), env.ctxA(), mockId, {
+        items: [
+          { candidateId: ids[1]!, finalCode: "ADMITTED", justification: "Progrès nets en fin d'année, avis unanime du jury." },
+          { candidateId: ids[3]!, finalCode: "DEFERRED", justification: "Sans note : épreuve de remplacement à organiser." },
+        ],
+      }),
+    );
+    const closed = unwrap(await closeMockJury(env.deps(), env.ctxA(), mockId));
+    expect(closed).toMatchObject({ status: "CLOSED", counts: { total: 4, decided: 4, changed: 3 } });
+    expect(closed.rows.find((r) => r.candidateId === ids[1])?.decision).toMatchObject({ finalCode: "ADMITTED", changedFromProposal: true });
+
+    // figé : plus de décision, ni par l'API ni par la base
+    const late = await saveJuryDecisions(env.deps(), env.ctxA(), mockId, { items: [{ candidateId: ids[0]!, finalCode: "FAILED", justification: "Correction tardive qui ne doit pas passer." }] });
+    expect(late.ok).toBe(false);
+    if (!late.ok) expect(late.error.code).toBe("examinations.jury_closed");
+    await expect(env.db.admin.query("UPDATE examinations.mock_jury_decisions SET final_code = 'FAILED', justification = repeat('x', 30) WHERE candidate_id = $1", [ids[0]])).rejects.toThrow(/jury_closed/);
+
+    // le résultat calculé par la règle n'a pas bougé
+    expect(await codes()).toEqual(before);
   });
 
   it("publier un examen blanc n'émet AUCUN événement de résultat officiel ; aucun document officiel n'en découle", async () => {

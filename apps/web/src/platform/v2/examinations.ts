@@ -22,6 +22,9 @@ import {
   examCandidateDtoSchema,
   examCenterDtoSchema,
   examComputeMockReportSchema,
+  examJuryDtoSchema,
+  examJuryEnvelopeSchema,
+  examJurySaveReportDtoSchema,
   examEvaluateAllReportSchema,
   examEvaluateOneResultSchema,
   examExportDownloadDtoSchema,
@@ -433,6 +436,30 @@ export function useImportFromAssess(sessionId: string) {
 
 export function useComputeMock(sessionId: string) {
   return useApiAction({ path: `${EXAMINATIONS_BASE}/sessions/${sessionId}/mock/compute`, schema: examComputeMockReportSchema, invalidate: [RESULTS, CANDIDATES, [...KEY, "statistics"]] });
+}
+
+// Jury d'un examen blanc ----------------------------------------------------------------------------------------------
+
+export function useMockJury(sessionId: string | null) {
+  return hooks.useApiQuery([...KEY, "mock", "jury", sessionId], `${EXAMINATIONS_BASE}/sessions/${sessionId}/mock/jury`, { schema: examJuryEnvelopeSchema, select: (d) => d.jury, enabled: sessionId !== null, retry: false });
+}
+
+export function useOpenMockJury(sessionId: string) {
+  return useApiAction({ path: `${EXAMINATIONS_BASE}/sessions/${sessionId}/mock/jury`, body: (v: { heldOn?: string; note?: string }) => v, schema: examJuryDtoSchema, invalidate: [[...KEY, "mock", "jury"]] });
+}
+
+export function useSaveJuryDecisions(sessionId: string) {
+  return useApiAction({
+    method: "PUT",
+    path: `${EXAMINATIONS_BASE}/sessions/${sessionId}/mock/jury/decisions`,
+    body: (v: { items: Array<{ candidateId: string; finalCode: "ADMITTED" | "FAILED" | "DEFERRED"; justification?: string }> }) => v,
+    schema: examJurySaveReportDtoSchema,
+    invalidate: [[...KEY, "mock", "jury"]],
+  });
+}
+
+export function useCloseMockJury(sessionId: string) {
+  return useApiAction({ path: `${EXAMINATIONS_BASE}/sessions/${sessionId}/mock/jury/close`, schema: examJuryDtoSchema, invalidate: [[...KEY, "mock", "jury"]] });
 }
 
 // ---------------------------------------------------------------------------

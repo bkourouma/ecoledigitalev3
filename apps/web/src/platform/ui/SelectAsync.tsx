@@ -118,7 +118,7 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
             setOpen(true);
           }}
           onKeyDown={onKeyDown}
-          className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-3 pr-16 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-destructive"
+          className="flex h-11 w-full rounded-[10px] border border-[#3d4450] bg-[#2c3139] py-2 pl-3.5 pr-16 text-sm transition-colors placeholder:text-[#7c8aa0] hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-red-400"
         />
         <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
           {open && result.isLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
@@ -143,13 +143,13 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
       </div>
       {open && options.length === 0 ? (
         // Un `listbox` vide est invalide (aria-required-children) : sans option, le message est un simple bloc.
-        <div id={listId} className="absolute z-30 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+        <div id={listId} className="absolute z-30 mt-1 w-full rounded-xl border border-white/10 bg-[#24282e] p-1 text-popover-foreground shadow-xl shadow-black/40">
           {!result.isLoading && !result.error ? <p className="px-2 py-2 text-sm text-muted-foreground">{t("noResults")}</p> : null}
           {result.error ? <p className="px-2 py-2 text-sm text-destructive">{t("error")}</p> : null}
         </div>
       ) : null}
       {open && options.length > 0 ? (
-        <ul id={listId} role="listbox" aria-label={ariaLabel ?? placeholder ?? t("placeholder")} className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+        <ul id={listId} role="listbox" aria-label={ariaLabel ?? placeholder ?? t("placeholder")} className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-white/10 bg-[#24282e] p-1 text-popover-foreground shadow-xl shadow-black/40">
           {options.map((option, index) => (
             <li
               key={option.value}
@@ -159,7 +159,7 @@ export function SelectAsync({ value, onChange, useOptions, placeholder, clearabl
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => choose(option)}
               onMouseEnter={() => setActive(index)}
-              className={cn("flex cursor-pointer items-start gap-2 rounded-sm px-2 py-2 text-sm", index === active && "bg-accent text-accent-foreground")}
+              className={cn("flex cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2 text-sm", index === active && "bg-violet-500/20 text-foreground")}
             >
               <Check className={cn("mt-0.5 h-4 w-4 shrink-0", value?.value === option.value ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               <span className="min-w-0">

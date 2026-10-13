@@ -7,6 +7,7 @@ import { studentSummary } from "../../_test/fixtures-people";
 import { sessionDto } from "../../attendance/_test/fixtures";
 import { blockingConflict, campus, entry, IDS, institution, occurrence, page, room, timetable, uuid } from "../_test/fixtures";
 import { ExportScreen } from "./ExportScreen";
+import { HoursScreen } from "./HoursScreen";
 import { OccurrencesScreen } from "./OccurrencesScreen";
 import { ReplacementsScreen } from "./ReplacementsScreen";
 import { RoomsScreen } from "./RoomsScreen";
@@ -442,4 +443,29 @@ describe("ExportScreen : calendrier par jeton révocable", () => {
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(api.calls.find((c) => c.path.endsWith("/download.ics"))!.query).toMatchObject({ scope: "STAFF", subjectId: IDS.staff });
   });
+});
+
+describe("HoursScreen — horaires d'ouverture (L-16)", () => {
+  const dto = (over: Record<string, unknown> = {}) => ({ institutionId: IDS.institution, timezone: "Africa/Abidjan", staffAvailabilityMode: "OPEN", maxGenerationWeeks: 52, generationHorizonWeeks: 12, allowSelfValidation: false, supervisorsPaid: false, openingStart: null, openingEnd: null, openingWeekdays: null, ...over });
+
+  it("heures et jours ouvrés enregistrés ; ouverture sans fermeture refusée", async () => {
+    const api = setTestApi({
+      ...accessRoutes(["schedule.manage", "schedule.read"]),
+      ...tenancy,
+      "GET /api/v1/scheduling/reference/settings": dto(),
+      "PUT /api/v1/scheduling/reference/settings": () => json(dto({ openingStart: "07:30", openingEnd: "17:00", openingWeekdays: [1, 2, 3, 4, 5] })),
+    });
+    renderWithProviders(<HoursScreen />);
+    const open = (await screen.findByLabelText("Ouverture")) as HTMLInputElement;
+    expect(await screen.findByText(/Horaires non renseignés/)).toBeTruthy();
+    fireEvent.change(open, { target: { value: "07:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(await screen.findByText(/ET la fermeture/)).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Fermeture"), { target: { value: "17:00" } });
+    for (const d of ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"]) fireEvent.click(screen.getByRole("checkbox", { name: d }));
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByText("Horaires enregistrés.");
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ institutionId: IDS.institution, openingStart: "07:30", openingEnd: "17:00", openingWeekdays: [1, 2, 3, 4, 5] });
+  }, 120_000);
 });

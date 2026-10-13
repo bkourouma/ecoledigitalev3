@@ -31,7 +31,7 @@ export function DossierAttach({ application }: { application: AdmissionsApplicat
 
   return (
     <Can permission="admission.document.attach">
-      <section aria-labelledby="dossier-attach" className="space-y-3 rounded-lg border p-4">
+      <section aria-labelledby="dossier-attach" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="dossier-attach" className="text-base font-semibold">
           {t("title")}
         </h2>

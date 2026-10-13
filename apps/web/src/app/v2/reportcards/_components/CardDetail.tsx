@@ -73,7 +73,7 @@ export function CardDetail({ id }: { id: string }) {
 
           <Summary snapshot={card.snapshot} />
 
-          <section aria-labelledby="verif-h" className="space-y-2 rounded-md border p-4">
+          <section aria-labelledby="verif-h" className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <h2 id="verif-h" className="text-lg font-semibold">
               {t("verification")}
             </h2>
@@ -114,7 +114,7 @@ export function CardDetail({ id }: { id: string }) {
             ) : (
               <ul className="space-y-2">
                 {card.renders.map((r) => (
-                  <li key={r.id} className="rounded-md border p-3 text-sm">
+                  <li key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                     <p className="flex flex-wrap items-center gap-2">
                       <StatusBadge label={tRender(r.status)} tone={toneOfStatus(r.status)} />
                       <span className="text-muted-foreground">{t("attempts", { count: r.attempts })}</span>
@@ -147,7 +147,7 @@ export function CardDetail({ id }: { id: string }) {
               ) : (
                 <ul className="space-y-2 text-sm">
                   {(explain.data?.explain ?? []).map((e) => (
-                    <li key={e.lineCode} className="rounded-md border p-2">
+                    <li key={e.lineCode} className="rounded-xl border border-white/10 bg-white/[0.02] p-2">
                       <p className="font-mono font-medium">{e.lineCode}</p>
                       <p className="text-xs text-muted-foreground">{e.rules.map((r) => `${r.key} = ${r.output === null ? "—" : String(r.output)}`).join(" · ")}</p>
                     </li>
@@ -168,7 +168,7 @@ function Summary({ snapshot }: { snapshot: ReportcardSnapshot }) {
   const s = snapshot.results.summary;
   const label = (code: string | null) => (code ? (snapshot.labels[code] ?? code) : "—");
   return (
-    <section aria-labelledby="sum-h" className="space-y-3 rounded-md border p-4">
+    <section aria-labelledby="sum-h" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id="sum-h" className="text-lg font-semibold">
         {t("summary")}
       </h2>

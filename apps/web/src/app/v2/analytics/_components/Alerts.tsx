@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { Bell, CheckCircle2, Eye, History, MessageSquare, ListChecks } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { AnalyticsAlert, AnalyticsAlertMetric, AnalyticsAlertSeverity, AnalyticsAlertStatus } from "@ecoledigitale/contracts/v2/analytics";
 import { ANALYTICS_ALERT_METRICS, ANALYTICS_ALERT_SEVERITIES, ANALYTICS_ALERT_STATUSES } from "@ecoledigitale/contracts/v2/analytics";
@@ -56,7 +57,7 @@ function Alerts() {
           </div>
         }
       />
-      <form className="grid gap-3 sm:grid-cols-3" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("filters.label")}>
+      <form className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-4 sm:p-5 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]" noValidate onSubmit={(e) => e.preventDefault()} aria-label={t("filters.label")}>
         <FormField label={t("filters.status")}>
           {(c) => <NativeSelect {...c} value={status} onChange={(v) => setStatus(v as AnalyticsAlertStatus | "")} placeholder={t("filters.allStatuses")} options={ANALYTICS_ALERT_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />}
         </FormField>
@@ -73,11 +74,11 @@ function Alerts() {
       {data ? (
         <>
           <KpiGrid label={t("kpiLabel")}>
-            <KpiCard label={t("counts.open")} value={date.number(data.counts.open)} detail={data.counts.open > 0 ? t("counts.openDetail") : undefined} />
-            <KpiCard label={t("counts.acknowledged")} value={date.number(data.counts.acknowledged)} />
-            <KpiCard label={t("counts.resolved")} value={date.number(data.counts.resolved)} detail={t("counts.resolvedDetail")} />
+            <KpiCard icon={Bell} label={t("counts.open")} value={date.number(data.counts.open)} detail={data.counts.open > 0 ? t("counts.openDetail") : undefined} />
+            <KpiCard icon={Eye} label={t("counts.acknowledged")} value={date.number(data.counts.acknowledged)} />
+            <KpiCard icon={CheckCircle2} label={t("counts.resolved")} value={date.number(data.counts.resolved)} detail={t("counts.resolvedDetail")} />
           </KpiGrid>
-          <Section id="alerts-list" title={t("list.title")}>
+          <Section id="alerts-list" icon={ListChecks} title={t("list.title")}>
             <DataTable
               caption={t("list.caption")}
               columns={[
@@ -150,8 +151,8 @@ function AcknowledgePanel({ alert, onDone }: { alert: AnalyticsAlert | undefined
     ack.mutate({ id: alert!.id, body: note.trim() ? { note: note.trim() } : {} }, { onSuccess: () => { flash.show(t("done")); onDone(); } });
   }
   return (
-    <Section id="alerts-ack" title={t("title", { rule: alert.ruleLabel })}>
-      <form className="space-y-3" noValidate onSubmit={submit} aria-label={t("form")}>
+    <Section id="alerts-ack" icon={MessageSquare} title={t("title", { rule: alert.ruleLabel })}>
+      <form className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4 sm:p-5" noValidate onSubmit={submit} aria-label={t("form")}>
         <p className="text-sm text-muted-foreground">{t("hint")}</p>
         <FormField label={t("note")} hint={t("noteHint")}>
           {(c) => <TextAreaControl {...c} value={note} onChange={setNote} maxLength={500} rows={3} />}
@@ -178,12 +179,12 @@ function AlertDetail({ id }: { id: string }) {
   const query = useAnalyticsAlert(id);
   const a = query.data;
   return (
-    <Section id="alerts-detail" title={t("title")}>
+    <Section id="alerts-detail" icon={History} title={t("title")}>
       {query.isPending && query.fetchStatus !== "idle" ? <LoadingBlock /> : null}
       {query.isError ? <ErrorBlock error={query.error} onRetry={() => void query.refetch()} /> : null}
       {a ? (
         <div className="space-y-4">
-          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <dl className="grid gap-x-6 gap-y-3 rounded-2xl border border-white/10 bg-card/60 p-4 text-sm sm:grid-cols-2 sm:p-5">
             <Row label={t("raisedAt")} value={date.instant(a.raisedAt)} />
             <Row label={t("lastSeenAt")} value={date.instant(a.lastSeenAt)} />
             <Row label={t("asOf")} value={a.asOf ? date.instant(a.asOf) : "—"} />

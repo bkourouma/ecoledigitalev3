@@ -9,7 +9,7 @@ import { CampaignPicker, useSelectedCampaign } from "./AdmissionsShell";
 
 function Card({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="rounded-lg border p-4">
+    <section aria-labelledby={id} className="rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id={id} className="mb-3 text-base font-semibold">
         {title}
       </h2>

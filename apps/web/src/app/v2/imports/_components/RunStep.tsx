@@ -26,9 +26,9 @@ export function RunStep({ job, canCancel }: { job: ImportJobDto; canCancel: bool
             ["failed", job.failedCount],
           ] as const
         ).map(([k, v]) => (
-          <div key={k} className="rounded-md border p-3">
-            <dt className="text-sm text-muted-foreground">{t(k)}</dt>
-            <dd className="mt-1 text-2xl font-bold tabular-nums">{v}</dd>
+          <div key={k} className="rounded-2xl border border-white/10 bg-card/60 p-4">
+            <dt className="text-sm font-medium text-muted-foreground">{t(k)}</dt>
+            <dd className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{v}</dd>
           </div>
         ))}
       </dl>

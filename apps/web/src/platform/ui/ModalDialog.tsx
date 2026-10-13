@@ -124,7 +124,7 @@ export function ReasonDialog({
             onChange={(e) => setReason(e.target.value)}
             aria-invalid={(touched && tooShort) || undefined}
             aria-describedby="reason-help"
-            className="flex min-h-[5rem] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive"
+            className="flex min-h-[5rem] w-full rounded-[10px] border border-[#3d4450] bg-[#2c3139] px-3.5 py-2 text-sm transition-colors hover:border-violet-400/60 focus-visible:border-violet-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-violet-500/25 aria-[invalid=true]:border-destructive"
           />
           <p id="reason-help" className={cn("text-xs", touched && tooShort ? "font-medium text-destructive" : "text-muted-foreground")} role={touched && tooShort ? "alert" : undefined}>
             {touched && tooShort ? t("tooShort", { min: minLength }) : t("hint", { min: minLength, max: maxLength })}

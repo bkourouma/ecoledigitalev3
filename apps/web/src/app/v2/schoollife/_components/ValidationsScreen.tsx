@@ -292,7 +292,7 @@ function MeasureList({ measures, showAppeals = false, children }: { measures: re
           </p>
           {showAppeals
             ? m.appeals.map((a) => (
-                <p key={a.id} className="rounded-md border bg-muted/40 p-2 text-sm">
+                <p key={a.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-sm">
                   <span className="font-medium">{t("appealBy", { name: a.filedByName })}</span> — {a.reason}
                 </p>
               ))

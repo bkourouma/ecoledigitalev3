@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Textarea } from "@ecoledigitale/ui";
 import { ArrowLeft, GraduationCap, Loader2, Save } from "lucide-react";
 import { useDiploma, useUpdateDiploma } from "@/lib/hooks/use-professional-diplomas";
+import { AntSelect } from "@/platform/ui/FormField";
 
 export default function EditDiplomaPage() {
   const router = useRouter();
@@ -101,14 +102,14 @@ export default function EditDiplomaPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Statut</Label>
-                <select
+                <AntSelect
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.statut}
                   onChange={(e) => setForm({ ...form, statut: e.target.value })}
                 >
                   <option value="actif">Actif</option>
                   <option value="inactif">Inactif</option>
-                </select>
+                </AntSelect>
               </div>
             </div>
 

@@ -16,7 +16,7 @@ import {
 } from "@/platform/v2/messaging";
 import { useDescribeError } from "@/platform/ui/errors";
 import { useDateFormat } from "@/platform/ui/format";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { ModalDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
@@ -102,13 +102,13 @@ function ReportReview({ report, canDecide, onClose, onDone }: { report: Messagin
                     <input type="checkbox" checked={restrict} onChange={(e) => setRestrict(e.target.checked)} /> {t("restrictSender")}
                   </label>
                   {restrict ? (
-                    <select aria-label={t("restrictDuration")} value={days} onChange={(e) => setDays(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    <AntSelect aria-label={t("restrictDuration")} value={days} onChange={(e) => setDays(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
                       {["1", "7", "30", "90", "forever"].map((d) => (
                         <option key={d} value={d}>
                           {d === "forever" ? t("untilLifted") : t("days", { count: Number(d) })}
                         </option>
                       ))}
-                    </select>
+                    </AntSelect>
                   ) : null}
                 </div>
               ) : null}

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getTenantSlug } from "@/lib/api-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 interface ChildForm {
   firstName: string;
@@ -275,7 +276,7 @@ function RegisterForm() {
                         </div>
                         <div>
                           <Label>Genre</Label>
-                          <select
+                          <AntSelect
                             value={child.gender}
                             onChange={(e) => updateChild(index, "gender", e.target.value)}
                             className={SELECT_CLASS}
@@ -283,7 +284,7 @@ function RegisterForm() {
                             <option value="">— Sélectionner —</option>
                             <option value="masculin">Masculin</option>
                             <option value="feminin">Féminin</option>
-                          </select>
+                          </AntSelect>
                         </div>
                       </div>
 

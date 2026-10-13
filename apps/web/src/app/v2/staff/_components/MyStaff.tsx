@@ -23,7 +23,7 @@ export function MyStaffScreen() {
       {me.isPending && me.fetchStatus !== "idle" ? <LoadingBlock /> : null}
       {me.isError ? <ErrorBlock error={me.error} onRetry={() => void me.refetch()} /> : null}
       {me.data ? (
-        <section aria-labelledby="me-profile" className="rounded-lg border p-4">
+        <section aria-labelledby="me-profile" className="rounded-2xl border border-white/10 bg-card/40 p-4">
           <h2 id="me-profile" className="mb-3 flex flex-wrap items-center gap-2 text-lg font-semibold">
             {me.data.displayName} <StatusBadge label={tStatus(me.data.status)} tone={staffTone(me.data.status)} />
           </h2>
@@ -52,7 +52,7 @@ export function MyStaffScreen() {
         {classes.data && classes.data.length === 0 ? <EmptyBlock title={t("noClasses")} /> : null}
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("classes")}>
           {(classes.data ?? []).map((c) => (
-            <li key={c.classroomId} className="rounded-lg border p-3 text-sm">
+            <li key={c.classroomId} className="rounded-2xl border border-white/10 bg-card/40 p-3 text-sm">
               <p className="font-medium">
                 <ClassroomLabel classroomId={c.classroomId} link={false} />
               </p>

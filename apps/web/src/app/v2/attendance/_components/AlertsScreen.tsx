@@ -93,7 +93,7 @@ export function AlertsScreen() {
             e.preventDefault();
             add();
           }}
-          className="space-y-3 rounded-lg border p-4"
+          className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4"
           aria-label={t("addTitle")}
         >
           <h2 className="text-lg font-semibold">{t("addTitle")}</h2>

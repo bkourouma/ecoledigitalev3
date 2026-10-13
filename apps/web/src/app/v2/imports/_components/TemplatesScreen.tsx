@@ -67,7 +67,7 @@ export function TemplatesScreen() {
         <QueryBoundary query={importers}>
           <ul className="grid gap-3 md:grid-cols-2">
             {(importers.data?.items ?? []).map((i) => (
-              <li key={i.key} className="rounded-md border p-4">
+              <li key={i.key} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
                 <h3 className="font-medium">{i.label}</h3>
                 <p className="mb-3 text-sm text-muted-foreground">{i.description}</p>
                 <div className="flex flex-wrap gap-2">

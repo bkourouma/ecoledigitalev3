@@ -25,7 +25,7 @@ export function DossierInterviews({ application }: { application: AdmissionsAppl
   if (!enabled && application.interviews.length === 0) return null;
 
   return (
-    <section aria-labelledby="dossier-interviews" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="dossier-interviews" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 id="dossier-interviews" className="text-base font-semibold">
           {t("title")}

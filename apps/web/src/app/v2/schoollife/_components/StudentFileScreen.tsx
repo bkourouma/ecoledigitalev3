@@ -143,7 +143,7 @@ function Timeline({ life }: { life: SchoolLifeStudentLifeDto }) {
                 <span className="text-sm text-muted-foreground">{dt.dateTime(e.at)}</span>
               </div>
               {e.row.masked ? (
-                <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed bg-muted/40 p-3">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 border-dashed bg-white/[0.04] p-3">
                   <p className="text-sm italic text-muted-foreground">{t("masked")}</p>
                   {life.clearance === "CONFIDENTIAL" ? (
                     <Can permission="schoollife.confidential.read">
@@ -320,7 +320,7 @@ function AttendanceView({ life }: { life: SchoolLifeStudentLifeDto }) {
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
                 <caption className="sr-only">{t("caption")}</caption>
-                <thead className="bg-muted/50 text-left">
+                <thead className="bg-white/[0.04] text-left">
                   <tr>
                     <th scope="col" className="p-2">{t("columns.date")}</th>
                     <th scope="col" className="p-2">{t("columns.status")}</th>

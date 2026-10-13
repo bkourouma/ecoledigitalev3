@@ -86,6 +86,28 @@ const detailRoutes = (perms: string[], extra: Record<string, unknown> = {}) => (
 });
 
 describe("StaffDetail", () => {
+  it("lier la fiche à un compte existant (L-04) : liste des comptes de l'établissement, aucune invitation envoyée", async () => {
+    const PERSON = staffDetail.personId;
+    const api = setTestApi(
+      detailRoutes(["staff.read", "staff.update"], {
+        "GET /api/v1/iam/admin/members": { members: [{ membershipId: uuid(8001), identityId: uuid(8002), email: "proprietaire@ecole.test", status: "active", roles: ["owner"], baseRole: "owner", mfaEnabled: true, createdAt: "2026-09-01T08:00:00.000Z" }] },
+        [`POST /api/v1/people/persons/${PERSON}/identity`]: () => json({ personId: PERSON, identityId: uuid(8002), status: "ACTIVE" }),
+      }),
+    );
+    renderWithProviders(<StaffDetail id={uuid(4000)} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Lier à un compte existant" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Lier le compte" }));
+    expect(await within(dialog).findByText("Choisissez un compte.")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    await within(dialog).findByRole("option", { name: "proprietaire@ecole.test" });
+    fireEvent.change(within(dialog).getByLabelText(/^Compte/), { target: { value: uuid(8002) } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Lier le compte" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST")).toBe(true));
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ identityId: uuid(8002) });
+    expect(api.calls.some((c) => c.path.endsWith("portal-invitation"))).toBe(false);
+  }, 120_000);
+
   it("contrats : liste, ajout (volume horaire + unité ensemble) sans aucun champ de salaire", async () => {
     const api = setTestApi(
       detailRoutes(["staff.read", "staff.contract.read", "staff.contract.manage"], {

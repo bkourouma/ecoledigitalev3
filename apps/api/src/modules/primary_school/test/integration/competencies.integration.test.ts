@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { unwrap } from "@ecoledigitale/kernel";
 import type { PrimaryBulkLine } from "@ecoledigitale/contracts/src/v2/primary_school";
-import { bulkRecordCompetencies, getCompetencyCounters, listMyClassrooms, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
+import { bulkRecordCompetencies, getCompetencyCounters, getReportcardCompetencies, listMyClassrooms, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, reviseCompetencyAssessment, validateCompetencies } from "../../application/competencies";
 import { createFramework, publishFramework, putStructure } from "../../application/frameworks";
 import { isPeriodReleasedToFamilies, listPeriodReadiness, markPeriodReady, withdrawPeriodReady } from "../../application/readiness";
 import { instantiatePrimaryReferenceData } from "../../application/template";
@@ -221,6 +221,24 @@ describeIntegration("primary_school : évaluation par compétences (base réelle
     // le tenant B ne voit rien (RLS) : même identifiant d'inscription, base commune
     const other = await db.tenantDb.run(ctxOf(tenantB, IDS.admin), (tx) => summaryRowsOf(tx, enrollmentId, null), { readOnly: true });
     expect(other).toEqual([]);
+  });
+
+  it("bloc « Compétences » du bulletin (L-42) : compteurs par domaine et niveau de la période, attendues du référentiel, jamais de moyenne", async () => {
+    const enrollmentId = w.students.s2.enrollmentId;
+    const total: Record<string, Record<string, number>> = {};
+    for (const periodId of w.periods) {
+      const block = unwrap(await getReportcardCompetencies(deps, teacherA(), { classroomId: w.classA, enrollmentId, periodId }));
+      expect(block).not.toBeNull();
+      expect(block!.scaleLabel).toBeTruthy();
+      for (const d of block!.domains) {
+        expect(d.expected).toBeGreaterThan(0);
+        expect(d.evaluated).toBeLessThanOrEqual(d.expected);
+        for (const l of d.levels) total[d.code] = { ...total[d.code], [l.code]: (total[d.code]?.[l.code] ?? 0) + l.count };
+      }
+    }
+    // la somme des périodes retrouve la synthèse validée de l'inscription
+    expect(total.LANG?.N2).toBe(2);
+    expect(total.MATH?.N4).toBe(1);
   });
 
   it("compteurs pour `results` (decision_fin_annee, competency-period@1) : on COMPTE les compétences distinctes validées contre les attendues, jamais un niveau ; autre tenant : zéros ; classe inconnue : 404", async () => {

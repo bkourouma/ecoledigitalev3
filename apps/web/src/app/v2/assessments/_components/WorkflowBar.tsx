@@ -60,11 +60,11 @@ export function WorkflowBar({ assessment, unsaved, onSaveRequest, onMessage }: {
   }
 
   return (
-    <section aria-label={t("label")} className="space-y-3 rounded-md border p-3">
-      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" aria-label={t("steps")}>
+    <section aria-label={t("label")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label={t("steps")}>
         {STEPS.map((s, i) => (
-          <li key={s} aria-current={s === assessment.status ? "step" : undefined} className={s === assessment.status ? "font-semibold text-primary" : i < currentIndex ? "text-emerald-700" : "text-muted-foreground"}>
-            {i > 0 ? <span aria-hidden="true"> › </span> : null}
+          <li key={s} aria-current={s === assessment.status ? "step" : undefined} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium ${s === assessment.status ? "border-violet-400/60 bg-violet-500/20 text-violet-200" : i < currentIndex ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-muted-foreground"}`}>
+            <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-[10px]">{i < currentIndex ? "✓" : i + 1}</span>
             {tStatus(s)}
             {i < currentIndex ? <span className="sr-only"> ({t("passed")})</span> : null}
             {s === assessment.status ? <span className="sr-only"> ({t("current")})</span> : null}
@@ -84,7 +84,7 @@ export function WorkflowBar({ assessment, unsaved, onSaveRequest, onMessage }: {
           </button>
         ) : null}
         {assessment.status !== "CANCELLED" && canCancel ? (
-          <button type="button" className={buttonClass.danger} onClick={() => setCancelling(true)}>
+          <button type="button" className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-red-400/40 bg-red-400/10 px-4 text-sm font-medium text-red-300 transition-colors hover:bg-red-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10" onClick={() => setCancelling(true)}>
             {t("cancel")}
           </button>
         ) : null}

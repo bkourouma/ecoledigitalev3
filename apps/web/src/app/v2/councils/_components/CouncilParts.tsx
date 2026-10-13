@@ -15,7 +15,7 @@ export function CouncilStatusBar({ detail, compact = false }: { detail: Councils
   const dt = useDateTime();
   const { council, quorum } = detail;
   return (
-    <div role="status" aria-label={t("label")} className="space-y-2 rounded-lg border bg-muted/30 p-3">
+    <div role="status" aria-label={t("label")} className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <EnumLabel group="status" value={council.status} />
         <StatusBadge label={quorum.met ? t("quorumMet") : t("quorumNotMet")} tone={quorum.met ? "success" : "danger"} />

@@ -30,6 +30,7 @@ import {
 import { useTeacherMaterials, formatFileSize, getFileTypeCategory, useMaterialDownload } from '@/lib/hooks/use-materials';
 import { useTeacherAssignments } from '@/lib/hooks/use-teacher-assignments';
 import UploadMaterialModal from '@/components/UploadMaterialModal';
+import { AntSelect } from "@/platform/ui/FormField";
 
 export default function TeacherContentPage() {
   const { data: session, status } = useSession();
@@ -273,7 +274,7 @@ export default function TeacherContentPage() {
               </div>
 
               {/* Type Filter */}
-              <select
+              <AntSelect
                 value={selectedType}
                 onChange={(e) => {
                   setSelectedType(e.target.value);
@@ -287,10 +288,10 @@ export default function TeacherContentPage() {
                 <option value="video">Vidéos</option>
                 <option value="image">Images</option>
                 <option value="ppt">Présentations</option>
-              </select>
+              </AntSelect>
 
               {/* Course Filter */}
-              <select
+              <AntSelect
                 value={selectedCourse}
                 onChange={(e) => {
                   setSelectedCourse(e.target.value);
@@ -302,7 +303,7 @@ export default function TeacherContentPage() {
                 {uniqueCourses.map((course) => (
                   <option key={course} value={course}>{course}</option>
                 ))}
-              </select>
+              </AntSelect>
             </div>
 
             {/* View Mode Toggle */}

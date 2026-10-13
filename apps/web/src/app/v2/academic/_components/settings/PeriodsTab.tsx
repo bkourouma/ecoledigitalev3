@@ -272,7 +272,7 @@ function PeriodPlanDialog({ initial, onClose, onDone }: { initial: AcademicPerio
         ) : null}
         <ul className="space-y-3">
           {slots.map((s, i) => (
-            <li key={i} className="space-y-3 rounded-md border p-3">
+            <li key={i} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <FormField label={t("slots.type")} required error={errors[`slots.${i}.type`]}>
                   {(c) => <NativeSelect {...c} value={s.type} placeholder={tCommon("choose")} onChange={(v) => setSlot(i, { type: v })} options={typeOptions} />}

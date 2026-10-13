@@ -113,13 +113,13 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
             ["assigned", o.assignments.length],
           ] as const
         ).map(([k, v]) => (
-          <div key={k} className="rounded-md border p-3"><dt className="text-xs text-muted-foreground">{t(`summaryItem.${k}` as never)}</dt><dd className="text-xl font-semibold" data-testid={`assign-${k}`}>{v}</dd></div>
+          <div key={k} className="rounded-xl border border-white/10 bg-white/[0.02] p-3"><dt className="text-xs text-muted-foreground">{t(`summaryItem.${k}` as never)}</dt><dd className="text-xl font-semibold" data-testid={`assign-${k}`}>{v}</dd></div>
         ))}
       </dl>
       {o.unassigned > 0 && o.capacity < o.registered ? <Notice kind="warning">{t("insufficient", { missing: o.registered - o.capacity })}</Notice> : null}
 
       <Can permission="exam.center.manage">
-        <section aria-labelledby="centers-title" className="space-y-3 rounded-md border p-4">
+        <section aria-labelledby="centers-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h2 id="centers-title" className="text-base font-semibold">{t("centersTitle")}</h2>
           {o.centers.length === 0 ? <p className="text-sm text-muted-foreground">{t("noCenters")}</p> : (
             <fieldset className="space-y-1" disabled={o.frozen}>
@@ -130,7 +130,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
           <button type="button" className={buttonClass.secondary} disabled={o.frozen || setCenters.isPending || o.centers.length === 0} onClick={() => void saveCenters()}>{t("saveCenters")}</button>
           {setCenters.isError ? <ErrorBlock error={setCenters.error} /> : null}
         </section>
-        <section aria-labelledby="auto-title" className="space-y-3 rounded-md border p-4">
+        <section aria-labelledby="auto-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h2 id="auto-title" className="text-base font-semibold">{t("autoTitle")}</h2>
           <p className="text-sm text-muted-foreground">{t("autoHint")}</p>
           <CheckControl checked={reassign} onChange={setReassign} label={t("reassign")} hint={t("reassignHint")} />
@@ -144,7 +144,7 @@ function Panel({ session }: { session: ExamSessionDetailDto }) {
         {o.rooms.length === 0 ? <p className="text-sm text-muted-foreground">{t("noRooms")}</p> : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {o.rooms.map((r) => (
-              <li key={r.roomId} className="rounded-md border p-3 text-sm">
+              <li key={r.roomId} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <p className="font-medium">{r.centerName} — {r.code}</p>
                 <p className="text-muted-foreground">{t("occupancy", { used: r.used, capacity: r.capacity })}{r.active ? "" : ` (${t("inactive")})`}</p>
               </li>

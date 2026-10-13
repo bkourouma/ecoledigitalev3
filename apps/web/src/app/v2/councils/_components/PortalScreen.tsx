@@ -52,7 +52,7 @@ function Decisions({ data }: { data: CouncilsFamilyDecisionsDto }) {
       {data.studentName ? <p className="text-sm text-muted-foreground">{t("about", { name: data.studentName })}</p> : null}
       <ul className="space-y-3" aria-label={t("listLabel")}>
         {data.items.map((i, idx) => (
-          <li key={`${i.councilId}-${idx}`} className="space-y-2 rounded-lg border p-4">
+          <li key={`${i.councilId}-${idx}`} className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold">{i.decisionTypeLabel}</h2>
               <EnumLabel group="decisionFamily" value={i.family} />

@@ -49,7 +49,7 @@ export function ItemWorkArea({ councilId, itemId, variant }: { councilId: string
           </Section>
           <SuggestionsPanel facts={detail.facts} />
           {variant === "full" ? <ProposalsPanel itemId={itemId} proposals={detail.proposals} /> : (
-            <details className="rounded-lg border p-3">
+            <details className="rounded-2xl border border-white/10 bg-card/40 p-3">
               <summary className="cursor-pointer text-sm font-semibold">{t("proposalsCount", { count: detail.proposals.length })}</summary>
               <div className="mt-3">
                 <ProposalsPanel itemId={itemId} proposals={detail.proposals} />

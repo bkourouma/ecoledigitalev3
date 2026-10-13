@@ -7,7 +7,7 @@ import { usePermission } from "@/platform/access";
 import { useChannelTest, useNotifChannels, useNotifSettings, useUpdateNotifSettings } from "@/platform/v2/notifications";
 import { useDateFormat } from "@/platform/ui/format";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader, StatusBadge, type Tone } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { CHANNELS, SETTINGS } from "./notifications-utils";
@@ -175,13 +175,13 @@ function SettingsForm({ settings, canEdit }: { settings: NotifSettings; canEdit:
           {CHANNELS.map((c) => (
             <FormField key={c} label={t("modelOf", { channel: t(`channels.${c}`) })}>
               {(ctl) => (
-                <select {...ctl} value={models[c] ?? "IMPLIED"} onChange={(e) => setModels({ ...models, [c]: e.target.value as (typeof NOTIF_CONSENT_MODELS)[number] })} className={inputClass}>
+                <AntSelect {...ctl} value={models[c] ?? "IMPLIED"} onChange={(e) => setModels({ ...models, [c]: e.target.value as (typeof NOTIF_CONSENT_MODELS)[number] })} className={inputClass}>
                   {NOTIF_CONSENT_MODELS.map((m) => (
                     <option key={m} value={m}>
                       {t(`models.${m}`)}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               )}
             </FormField>
           ))}

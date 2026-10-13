@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { BadgeCheck, CalendarDays, FileText, GraduationCap, Megaphone, Percent, School, Shield, Users } from "lucide-react";
 import { ANALYTICS_ADMISSION_STATUSES } from "@ecoledigitale/contracts/v2/analytics";
 import { useAnalyticsAdmissionsFunnel, useAnalyticsSchoolLife } from "@/platform/v2/analytics";
 import { DataTable } from "@/platform/ui/DataTable";
@@ -43,15 +44,15 @@ function Funnel() {
           <FreshnessBar meta={query.data?.meta} />
           <Notice kind="info">{t("snapshot")}</Notice>
           <KpiGrid label={t("kpiLabel")}>
-            <KpiCard label={t("kpi.submitted")} value={date.number(d.totals.submitted)} detail={t("kpi.submittedDetail", { total: d.totals.applications })} measured={d.campaigns.length > 0} />
-            <KpiCard label={t("kpi.accepted")} value={date.number(d.totals.accepted)} detail={t("kpi.acceptedDetail")} measured={d.campaigns.length > 0} />
-            <KpiCard label={t("kpi.enrolled")} value={date.number(d.totals.enrolled)} measured={d.campaigns.length > 0} />
-            <KpiCard label={t("kpi.acceptanceRate")} value={money.bps(d.totals.acceptanceRateBps)} measured={d.totals.acceptanceRateBps !== null} />
-            <KpiCard label={t("kpi.enrollmentRate")} value={money.bps(d.totals.enrollmentRateBps)} detail={t("kpi.enrollmentRateDetail")} measured={d.totals.enrollmentRateBps !== null} />
-            <KpiCard label={t("kpi.seats")} value={date.number(d.totals.seats)} detail={d.totals.seatsLeft === null ? undefined : t("kpi.seatsLeft", { count: d.totals.seatsLeft })} measured={d.totals.seats !== null} />
+            <KpiCard icon={FileText} label={t("kpi.submitted")} value={date.number(d.totals.submitted)} detail={t("kpi.submittedDetail", { total: d.totals.applications })} measured={d.campaigns.length > 0} />
+            <KpiCard icon={BadgeCheck} label={t("kpi.accepted")} value={date.number(d.totals.accepted)} detail={t("kpi.acceptedDetail")} measured={d.campaigns.length > 0} />
+            <KpiCard icon={School} label={t("kpi.enrolled")} value={date.number(d.totals.enrolled)} measured={d.campaigns.length > 0} />
+            <KpiCard icon={Percent} label={t("kpi.acceptanceRate")} value={money.bps(d.totals.acceptanceRateBps)} measured={d.totals.acceptanceRateBps !== null} />
+            <KpiCard icon={GraduationCap} label={t("kpi.enrollmentRate")} value={money.bps(d.totals.enrollmentRateBps)} detail={t("kpi.enrollmentRateDetail")} measured={d.totals.enrollmentRateBps !== null} />
+            <KpiCard icon={Users} label={t("kpi.seats")} value={date.number(d.totals.seats)} detail={d.totals.seatsLeft === null ? undefined : t("kpi.seatsLeft", { count: d.totals.seatsLeft })} measured={d.totals.seats !== null} />
           </KpiGrid>
 
-          <Section id="adm-status" title={t("byStatus.title")}>
+          <Section id="adm-status" icon={Megaphone} title={t("byStatus.title")}>
             <BarChart
               title={t("byStatus.chart")}
               rows={ANALYTICS_ADMISSION_STATUSES.map((s) => {
@@ -63,13 +64,13 @@ function Funnel() {
             />
           </Section>
 
-          <Section id="adm-campaigns" title={t("campaigns.title")}>
+          <Section id="adm-campaigns" icon={CalendarDays} title={t("campaigns.title")}>
             {d.campaigns.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("empty")}</p>
             ) : (
               d.campaigns.map((c) => (
-                <div key={c.campaignId} className="space-y-2">
-                  <h3 className="font-medium">
+                <div key={c.campaignId} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4 sm:p-5">
+                  <h3 className="text-base font-semibold">
                     {c.label} <span className="text-sm font-normal text-muted-foreground">({c.code})</span>
                   </h3>
                   <p className="text-sm text-muted-foreground">
@@ -126,7 +127,7 @@ function SchoolLife() {
           <FreshnessBar meta={query.data?.meta} />
           <KpiGrid label={t("kpiLabel")}>
             {d.indicators.map((i) => (
-              <KpiCard key={i.indicator} label={t(`indicators.${i.indicator}.label`)} value={date.number(i.value)} detail={t(`indicators.${i.indicator}.detail`)} measured={i.measured} />
+              <KpiCard key={i.indicator} icon={Shield} label={t(`indicators.${i.indicator}.label`)} value={date.number(i.value)} detail={t(`indicators.${i.indicator}.detail`)} measured={i.measured} />
             ))}
           </KpiGrid>
         </>

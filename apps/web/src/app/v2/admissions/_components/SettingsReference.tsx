@@ -23,7 +23,7 @@ import { parseInteger } from "./admissions-utils";
 
 function Block({ id, title, hint, children }: { id: string; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="max-w-3xl space-y-3 rounded-lg border p-4">
+    <section aria-labelledby={id} className="max-w-3xl space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id={id} className="text-base font-semibold">
         {title}
       </h2>

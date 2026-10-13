@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { primaryReviseBodySchema, type PrimaryAssessmentDto, type PrimaryCompetencySheetDto } from "@ecoledigitale/contracts/v2/primary_school";
 import { usePermission } from "@/platform/access";
 import { ApiError } from "@/platform/api/errors";
-import { FormField, NativeSelect, TextAreaControl } from "@/platform/ui/FormField";
+import { FormField, NativeSelect, TextAreaControl, AntSelect } from "@/platform/ui/FormField";
 import { useDateFormat } from "@/platform/ui/format";
 import { newIdempotencyKey } from "@/platform/ui/idempotency";
 import { FormDialog } from "@/platform/ui/ModalDialog";
@@ -314,7 +314,7 @@ export function GridWorkspace({ sheet, onReload, onDirtyChange }: { sheet: Prima
 
       <SaveStateNotice state={saveState} error={saveError} online={online} onRetry={() => void doSave()} onReload={() => void reloadKeepingDrafts()} />
 
-      <section aria-label={t("counters.label")} className="rounded-md border p-3">
+      <section aria-label={t("counters.label")} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <p role="status" aria-live="polite" className="text-sm font-medium" data-testid="completeness">
           {t("counters.recorded", { recorded: progress.recorded, expected: progress.expected })}
           {" · "}
@@ -336,7 +336,7 @@ export function GridWorkspace({ sheet, onReload, onDirtyChange }: { sheet: Prima
       </div>
 
       {editable ? (
-        <fieldset className="space-y-3 rounded-md border p-3">
+        <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-medium">{t("fill.legend")}</legend>
           <p className="text-xs text-muted-foreground">{t("fill.hint")}</p>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -503,7 +503,7 @@ function StudentCard({ bundle, student, index, onIndex, fallbackName }: { bundle
   const p = progressOf(model, base, drafts, { enrollmentId: student.enrollmentId });
   const last = model.students.length - 1;
   return (
-    <section aria-label={t("card.label")} className="space-y-4 rounded-lg border p-3">
+    <section aria-label={t("card.label")} className="space-y-4 rounded-2xl border border-white/10 bg-card/40 p-3">
       <div className="flex items-center gap-2">
         <button type="button" className={buttonClass.secondary} disabled={index <= 0} onClick={() => onIndex(index - 1)} aria-label={t("card.previous")}>
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -525,7 +525,7 @@ function StudentCard({ bundle, student, index, onIndex, fallbackName }: { bundle
         </p>
       </div>
       {model.domains.map((domain) => (
-        <fieldset key={domain.id} className="space-y-3 rounded-md border p-3">
+        <fieldset key={domain.id} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <legend className="px-1 text-sm font-semibold">{`${domain.code} — ${domain.label}`}</legend>
           {domain.competencies.map((competency) => {
             const key = cellKey(student.enrollmentId, competency.id);
@@ -591,7 +591,7 @@ function GridTable({ bundle, fallbackName }: { bundle: Bundle; fallbackName: (id
   const { model, base, drafts, errors, editable, canRevise, onPick, onRevise } = bundle;
   return (
     <section aria-label={t("table.label")} className="space-y-2">
-      <details className="rounded-md border p-3 text-sm">
+      <details className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
         <summary className="min-h-[2.75rem] cursor-pointer py-2 font-medium">{t("table.legend")}</summary>
         <dl className="mt-2 grid gap-1 sm:grid-cols-2">
           {model.competencies.map((c) => (
@@ -649,7 +649,7 @@ function GridTable({ bundle, fallbackName }: { bundle: Bundle; fallbackName: (id
                             ) : null}
                           </div>
                         ) : (
-                          <select
+                          <AntSelect
                             aria-label={t("table.cellLabel", { student: name, competency: c.label })}
                             aria-invalid={err ? true : undefined}
                             disabled={!editable}
@@ -665,9 +665,9 @@ function GridTable({ bundle, fallbackName }: { bundle: Bundle; fallbackName: (id
                                 {`${l.code} — ${l.label}`}
                               </option>
                             ))}
-                          </select>
+                          </AntSelect>
                         )}
-                        {cell.status === "pending" ? <span className="block px-1 text-[11px] text-amber-800">{t("cell.pending")}</span> : null}
+                        {cell.status === "pending" ? <span className="block px-1 text-[11px] text-amber-300">{t("cell.pending")}</span> : null}
                         {err ? (
                           <span role="alert" className="block px-1 text-[11px] font-medium text-destructive">
                             {err}
@@ -697,7 +697,7 @@ function SummaryPanel({ model, periodId, fallbackName }: { model: GridModel; per
   const summary = usePrimaryCompetencySummary(open && enrollmentId ? enrollmentId : null, [periodId]);
   if (model.students.length === 0) return null;
   return (
-    <section aria-label={t("summary.label")} className="space-y-3 rounded-md border p-3">
+    <section aria-label={t("summary.label")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <h2 className="text-base font-semibold">{t("summary.title")}</h2>
       <p className="text-xs text-muted-foreground">{t("summary.hint")}</p>
       <div className="grid gap-3 sm:grid-cols-2">

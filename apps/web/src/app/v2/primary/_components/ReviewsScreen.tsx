@@ -127,7 +127,7 @@ function ReviewsBody() {
       <PageHeader title={t("title")} description={t("description")} />
       <RuleBanner classroomId={classroomId || null} />
       {flash.node}
-      <fieldset className="space-y-3 rounded-md border p-3">
+      <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <legend className="px-1 text-sm font-medium">{t("pickers")}</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("year")}>

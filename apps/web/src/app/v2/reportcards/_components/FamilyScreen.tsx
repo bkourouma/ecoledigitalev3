@@ -41,7 +41,7 @@ export function FamilyScreen() {
             </h2>
             <ul className="space-y-2">
               {g.cards.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                   <span>
                     <span className="block font-medium">{c.title}</span>
                     <span className="block text-xs text-muted-foreground">{t("publishedOn", { date: date.instant(c.publishedAt) })}</span>

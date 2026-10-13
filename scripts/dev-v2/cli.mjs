@@ -161,6 +161,10 @@ function loadEnvLocal() {
   }
   // Environnements créés avant l'ajout du fournisseur simulé : actif par défaut en développement.
   if (env.NEXT_PUBLIC_FINANCE_SANDBOX === undefined) env.NEXT_PUBLIC_FINANCE_SANDBOX = "1";
+  // Pas de SMTP en développement : l'API journalise le lien des invitations (cherchez « iam_mail_dev_link » dans le terminal de `pnpm dev:v2`).
+  if (env.ACCOUNT_MAIL_DEV_LINKS === undefined) env.ACCOUNT_MAIL_DEV_LINKS = "1";
+  // Pas de ClamAV en développement : l'analyseur local met en quarantaine un fichier contenant la chaîne d'essai EICAR (voir `docs/guide-test/14-documents-ged.md`).
+  if (env.DOCUMENTS_SCANNER === undefined) env.DOCUMENTS_SCANNER = "dev-eicar";
   return env;
 }
 
@@ -198,11 +202,45 @@ async function up() {
   });
 }
 
+/**
+ * Simule des webhooks de paiement EN ÉCHEC (L-62) : aucun opérateur réel n'en envoie en développement, donc « Webhooks en échec »
+ * restait vide et « Rejouer » intestable. Pour chaque paiement simulé (fournisseur `sandbox`) encore EN ATTENTE de l'école
+ * (DEVV2_SCHOOL_SLUG, défaut ecole-flamboyants), pose un événement FAILED (compte signataire différent du compte encaisseur).
+ * Créez d'abord un paiement simulé dont le montant finit par 001 (en attente). Refusé hors base locale ecoledigitale_v2.
+ */
+async function failWebhook() {
+  const slug = process.env.DEVV2_SCHOOL_SLUG?.trim() || "ecole-flamboyants";
+  const n = await withClient(DB, async (c) => {
+    const t = (await c.query("SELECT id FROM kernel.tenants WHERE slug = $1", [slug])).rows[0];
+    if (!t) die(`école « ${slug} » introuvable.`);
+    const pending = (
+      await c.query(
+        `SELECT p.id FROM finance.payments p
+          WHERE p.tenant_id = $1 AND p.provider = 'sandbox' AND p.status = 'PENDING'
+            AND NOT EXISTS (SELECT 1 FROM finance.webhook_events w WHERE w.tenant_id = p.tenant_id AND w.payment_id = p.id AND w.status = 'FAILED')`,
+        [t.id],
+      )
+    ).rows;
+    for (const p of pending) {
+      await c.query(
+        `INSERT INTO finance.webhook_events (id, tenant_id, provider, event_id, event_type, payload, status, payment_id, error, attempts, received_at, processed_at)
+         VALUES (gen_random_uuid(), $1, 'sandbox', $2, 'payment.succeeded', $3::jsonb, 'FAILED', $4, 'finance.webhook_account_mismatch', 1, now(), now())`,
+        [t.id, `dev-fail-${p.id}`, JSON.stringify({ simulated: true, reference: p.id }), p.id],
+      );
+    }
+    return pending.length;
+  });
+  console.log(n === 0 ? "[dev-v2] aucun paiement simulé en attente sans événement en échec : créez d'abord un paiement dont le montant finit par 001." : `[dev-v2] ${n} webhook(s) en échec créé(s) : Finance > Webhooks en échec > Rejouer.`);
+}
+
 const cmd = process.argv[2] ?? "up";
 if (cmd === "setup") await setup();
 else if (cmd === "up") await up();
 else if (cmd === "seed") await seed();
 else if (cmd === "new-school") await seed("scripts/dev-v2/new-school.ts");
 else if (cmd === "add-account") await seed("scripts/dev-v2/add-account.ts");
+else if (cmd === "real-school") await seed("scripts/dev-v2/real-school.ts");
+else if (cmd === "fail-webhook") await failWebhook();
+else if (cmd === "probe") await seed("scripts/dev-v2/probe.ts");
 else if (cmd === "status") console.log(`base ${DB} + rôle ${ROLE} : ${(await dbReady()) ? "prêts" : "à configurer (pnpm dev:v2:setup)"}`);
 else die(`commande inconnue : ${cmd} (setup | up | status)`);

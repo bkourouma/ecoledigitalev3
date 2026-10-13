@@ -1,0 +1,11 @@
+﻿Code du noeud;Libellé;Type de noeud (code);Code du parent;Code de la matière;Niveau (code);Coefficient;Ordre d'affichage;Obligatoire
+CP1;CP1;LEVEL;;;CP1;;1;oui
+CP1-FRANC;Français;SUBJECT;CP1;FRANC;;4;1;oui
+CP1-MATHS;Mathématiques;SUBJECT;CP1;MATHS;;4;2;oui
+CP1-EVEIL;Éveil / Sciences;SUBJECT;CP1;EVEIL;;2;3;oui
+CP1-EPS;Éducation physique et sportive;SUBJECT;CP1;EPS;;1;4;oui
+CM2;CM2;LEVEL;;;CM2;;2;oui
+CM2-FRANC;Français;SUBJECT;CM2;FRANC;;4;1;oui
+CM2-MATHS;Mathématiques;SUBJECT;CM2;MATHS;;4;2;oui
+CM2-EVEIL;Éveil / Sciences;SUBJECT;CM2;EVEIL;;2;3;oui
+CM2-EPS;Éducation physique et sportive;SUBJECT;CM2;EPS;;1;4;oui

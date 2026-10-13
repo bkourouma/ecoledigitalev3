@@ -48,7 +48,7 @@ describe("menu v2 (fonctions pures)", () => {
     expect(noFeature).toEqual([]);
 
     // Jokers de permission.
-    const wildcard = buildV2Menu({ apiItems: [], permissions: ["*"], features: ["audit.log"], labelOf });
+    const wildcard = buildV2Menu({ apiItems: [], permissions: ["*"], features: V2_ADMIN_ENTRIES.flatMap((e) => (e.feature ? [e.feature] : [])), labelOf });
     expect(wildcard).toHaveLength(V2_ADMIN_ENTRIES.length);
   });
 

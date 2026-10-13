@@ -6,6 +6,7 @@
  * + événements d'outbox + audit. Dans un lot, chaque inscription s'exécute dans un SAVEPOINT : une inscription en erreur est
  * rapportée sans faire échouer le lot (AC1.3). Relancer un lot (même clé d'idempotence) ne crée aucun doublon (AC1.2).
  */
+import { createHash } from "node:crypto";
 import { err, ok, type AppError, type RequestContext, type Result } from "@ecoledigitale/kernel";
 import { isUniqueViolation, type Tx } from "@ecoledigitale/database";
 import { REPORTCARDS_PACK_LIST } from "../domain/constants";
@@ -253,7 +254,9 @@ export async function createBatch(deps: ReportcardsDeps, ctx: RequestContext, in
   const keyOk = await ensureSigningKeyRegistered(deps);
   if (!keyOk.ok) return keyOk;
 
-  const idempotencyKey = input.idempotencyKey ?? `${kind}:${input.classroomId}:${input.academicPeriodId}:v${state.resultsVersion}:${provisional ? "provisional" : "final"}${input.reissueReason ? ":reissue" : ""}`;
+  // Émission pour quelques élèves (L-41) : la sélection entre dans la clé, sinon un second élève rejouerait le lot du premier.
+  const selection = input.enrollmentIds && input.enrollmentIds.length > 0 ? `:sel-${createHash("sha256").update([...input.enrollmentIds].sort().join(",")).digest("hex").slice(0, 16)}` : "";
+  const idempotencyKey = input.idempotencyKey ?? `${kind}:${input.classroomId}:${input.academicPeriodId}:v${state.resultsVersion}:${provisional ? "provisional" : "final"}${input.reissueReason ? ":reissue" : ""}${selection}`;
   const wanted = input.enrollmentIds ? new Set(input.enrollmentIds) : null;
   const scope = roster.filter((r) => !wanted || wanted.has(r.enrollmentId));
   const unknownIds = wanted ? [...wanted].filter((id) => !roster.some((r) => r.enrollmentId === id)) : [];

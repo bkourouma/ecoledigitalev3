@@ -208,6 +208,23 @@ describe("PublicOfferScreen : réponse à une offre", () => {
     expect(await screen.findByText("Ce lien n'est pas ou plus valide.")).toBeTruthy();
   });
 
+  it("refus à l'acceptation (409) : l'établissement vous contactera, jamais « lien invalide » ; 410 : proposition échue", async () => {
+    for (const [status, text] of [[409, /l'établissement vous contactera/], [410, /arrivée à échéance/]] as const) {
+      window.location.hash = `#t=${"S".repeat(43)}`;
+      setTestApi({
+        [`POST ${P}/offers/view`]: view,
+        [`POST ${P}/offers/respond`]: () => json({ status, code: "admissions.public_unavailable", message: "x" }, { status }),
+      });
+      const r = renderWithProviders(<PublicOfferScreen school={SLUG} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Accepter la place" }));
+      const group = await screen.findByRole("group", { name: "Confirmation" });
+      fireEvent.click(within(group).getByRole("button", { name: "Accepter la place" }));
+      expect(await screen.findByText(text)).toBeTruthy();
+      expect(screen.queryByText("Ce lien n'est pas ou plus valide.")).toBeNull();
+      r.unmount();
+    }
+  });
+
   it("offre déjà close : pas de boutons de réponse", async () => {
     window.location.hash = `#t=${"S".repeat(43)}`;
     setTestApi({ [`POST ${P}/offers/view`]: { ...view, status: "EXPIRED" } });

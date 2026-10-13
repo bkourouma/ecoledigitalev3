@@ -130,7 +130,7 @@ export function StudentAttendanceScreen({ studentId, initialPeriodId }: { studen
             ) : certificate.isError ? (
               <ErrorBlock error={certificate.error} onRetry={() => void certificate.refetch()} />
             ) : (
-              <article aria-label={t("certificateLabel")} className="space-y-3 rounded-lg border p-5">
+              <article aria-label={t("certificateLabel")} className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-5">
                 <h3 className="text-xl font-bold">{t("certificateTitle")}</h3>
                 <p>{t("certificateIntro", { name: certificate.data.displayName ?? name })}</p>
                 {certificate.data.windowFrom && certificate.data.windowTo ? <p>{t("certificateWindow", { from: date.civil(certificate.data.windowFrom), to: date.civil(certificate.data.windowTo) })}</p> : null}

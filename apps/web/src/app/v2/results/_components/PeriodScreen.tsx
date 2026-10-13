@@ -65,15 +65,15 @@ function PeriodDetail({ view, classroomId, periodId }: { view: PeriodView; class
   return (
     <div className="space-y-6">
       {flash.node}
-      <section aria-label={t("stateTitle")} className="space-y-3 rounded-md border p-4">
+      <section aria-label={t("stateTitle")} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">{t("stateTitle")}</h2>
           <StatusBadge label={tStatus(state.status)} tone={toneOfStatus(state.status)} />
         </div>
-        <ol aria-label={t("steps")} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <ol aria-label={t("steps")} className="flex flex-wrap items-center gap-2 text-xs">
           {STEPS.map((s, i) => (
-            <li key={s} aria-current={s === state.status ? "step" : undefined} className={s === state.status ? "font-semibold text-primary" : i < currentIndex ? "text-emerald-700" : "text-muted-foreground"}>
-              {i > 0 ? <span aria-hidden="true"> › </span> : null}
+            <li key={s} aria-current={s === state.status ? "step" : undefined} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-medium ${s === state.status ? "border-violet-400/60 bg-violet-500/20 text-violet-200" : i < currentIndex ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-muted-foreground"}`}>
+              <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-[10px]">{i < currentIndex ? "✓" : i + 1}</span>
               {tStatus(s)}
               {s === state.status ? <span className="sr-only"> ({t("current")})</span> : null}
             </li>
@@ -119,7 +119,7 @@ function PeriodDetail({ view, classroomId, periodId }: { view: PeriodView; class
       {view.counts.error > 0 ? <Notice kind="error">{t("errorsHint", { count: view.counts.error })}</Notice> : null}
 
       {view.pendingAssessments.length > 0 && state.status === "OPEN" ? (
-        <section aria-label={t("pendingLabel")} className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <section aria-label={t("pendingLabel")} className="space-y-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-200">
           <h2 className="font-semibold">{t("pendingTitle", { count: view.pendingAssessments.length })}</h2>
           <ul className="list-disc pl-5">
             {view.pendingAssessments.map((a) => (
@@ -195,7 +195,7 @@ function PeriodDetail({ view, classroomId, periodId }: { view: PeriodView; class
           </h2>
           <ul className="space-y-2">
             {view.closures.map((c) => (
-              <li key={c.id} className="rounded-md border p-3 text-sm">
+              <li key={c.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
                 <p className="font-medium">{t("closure", { version: c.resultsVersion, count: c.resultsCount, date: date.instant(c.closedAt) })}</p>
                 <p className="text-xs text-muted-foreground">
                   {t("closureHash")} <span title={c.closureHash} className="font-mono">{shortHash(c.closureHash)}</span>
@@ -252,7 +252,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 
 function Count({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
   return (
-    <div className={`rounded-md border p-3 ${danger ? "border-destructive/40 bg-destructive/5" : ""}`}>
+    <div className={`rounded-xl border p-3 ${danger ? "border-destructive/40 bg-destructive/5" : ""}`}>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-2xl font-bold tabular-nums">{value}</p>
     </div>
@@ -444,7 +444,7 @@ function RepinReport({ result }: { result: RepinResult }) {
   const sim = result.simulation;
   if (!sim) return <Notice kind="info">{t("noChange")}</Notice>;
   return (
-    <section aria-label={t("reportTitle")} className="space-y-2 rounded-md border p-4 text-sm">
+    <section aria-label={t("reportTitle")} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
       <h2 className="text-lg font-semibold">{t("reportTitle")}</h2>
       <p>{t("reportFromTo", { from: `${sim.from.ruleSetCode} v${sim.from.ruleVersionNo}`, to: `${sim.to.ruleSetCode} v${sim.to.ruleVersionNo}` })}</p>
       <p data-testid="repin-counts">{t("reportCounts", { computed: sim.computed, changed: sim.changed, unchanged: sim.unchanged, errors: sim.errors })}</p>

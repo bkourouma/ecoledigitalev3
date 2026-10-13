@@ -93,7 +93,7 @@ function VersionsTable({ versions, currentId, onSelect }: { versions: CouncilsMi
         </thead>
         <tbody className="divide-y">
           {versions.map((m) => (
-            <tr key={m.id} aria-current={m.id === currentId ? "true" : undefined} className={m.id === currentId ? "bg-muted/40" : undefined}>
+            <tr key={m.id} aria-current={m.id === currentId ? "true" : undefined} className={m.id === currentId ? "bg-white/[0.04]" : undefined}>
               <td className={TD}>{t("versionValue", { version: m.version })}</td>
               <td className={TD}><EnumLabel group="minutesStatus" value={m.status} /></td>
               <td className={TD}><EnumLabel group="renderStatus" value={m.renderStatus} /></td>
@@ -183,7 +183,7 @@ function CurrentMinutes({ minutes }: { minutes: CouncilsMinutesDto }) {
           </p>
         ) : null}
         {pdf.error ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             {describe(pdf.error)}
           </p>
         ) : null}
@@ -260,7 +260,7 @@ function CurrentMinutes({ minutes }: { minutes: CouncilsMinutesDto }) {
       </div>
 
       {snapshot ? (
-        <details className="rounded-md border p-3">
+        <details className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <summary className="cursor-pointer text-sm font-semibold">{t("contentTitle")}</summary>
           <div className="mt-3 space-y-2">
             {snapshot.placeholderNotice ? <p className="text-xs font-medium">{snapshot.placeholderNotice}</p> : null}

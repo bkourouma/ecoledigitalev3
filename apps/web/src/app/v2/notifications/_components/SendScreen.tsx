@@ -8,7 +8,7 @@ import { usePermission } from "@/platform/access";
 import { useNotifCatalog, useNotifChannels, useSendNotification } from "@/platform/v2/notifications";
 import { useClassroomOptions, useStudentOptions } from "@/platform/v2/lookups";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { ModalDialog } from "@/platform/ui/ModalDialog";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { SelectAsync, type SelectOption } from "@/platform/ui/SelectAsync";
@@ -140,7 +140,7 @@ export function SendScreen() {
         >
           <FormField label={t("template")}>
             {(c) => (
-              <select
+              <AntSelect
                 {...c}
                 value={entry?.code ?? ""}
                 onChange={(e) => {
@@ -156,7 +156,7 @@ export function SendScreen() {
                     {e.label}
                   </option>
                 ))}
-              </select>
+              </AntSelect>
             )}
           </FormField>
           {entry ? <p className="text-sm text-muted-foreground">{entry.description}</p> : null}
@@ -165,13 +165,13 @@ export function SendScreen() {
             <legend className="px-1 text-sm font-semibold">{t("audience")}</legend>
             <FormField label={t("audienceKind")}>
               {(c) => (
-                <select {...c} value={audience} onChange={(e) => setAudience(e.target.value as Audience)} className={inputClass}>
+                <AntSelect {...c} value={audience} onChange={(e) => setAudience(e.target.value as Audience)} className={inputClass}>
                   {AUDIENCES.map((a) => (
                     <option key={a} value={a}>
                       {t(`audiences.${a}`)}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               )}
             </FormField>
             {audience === "STUDENT_GUARDIANS" ? (
@@ -222,13 +222,13 @@ export function SendScreen() {
             </div>
             <FormField label={t("strategy")} hint={t("strategyHint")}>
               {(c) => (
-                <select {...c} value={strategy} onChange={(e) => setStrategy(e.target.value as NotifStrategy)} className={inputClass}>
+                <AntSelect {...c} value={strategy} onChange={(e) => setStrategy(e.target.value as NotifStrategy)} className={inputClass}>
                   {NOTIF_STRATEGIES.map((s) => (
                     <option key={s} value={s}>
                       {t(`strategies.${s}`)}
                     </option>
                   ))}
-                </select>
+                </AntSelect>
               )}
             </FormField>
             {canUrgent ? (

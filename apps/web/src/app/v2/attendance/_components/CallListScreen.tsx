@@ -77,7 +77,7 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
               const s = sessionOfOccurrence.get(o.id);
               const time = `${format.dateTime(new Date(o.startsAt), { timeStyle: "short" })} – ${format.dateTime(new Date(o.endsAt), { timeStyle: "short" })}`;
               return (
-                <li key={o.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <li key={o.id} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">{time}</p>
                     <p className="truncate text-sm">
@@ -110,7 +110,7 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
               const parts = callScope.halfDays(levelOfClass.get(c.classroomId));
               if (parts.length > 0) {
                 return (
-                  <li key={c.classroomId} className="space-y-2 rounded-lg border p-3">
+                  <li key={c.classroomId} className="space-y-2 rounded-2xl border border-white/10 bg-card/40 p-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{classrooms.name(c.classroomId)}</p>
                       <p className="text-xs text-muted-foreground">{tHalf("listHint")}</p>
@@ -137,7 +137,7 @@ export function CallListScreen({ basePath = "/v2/attendance/call" }: { basePath?
               }
               const done = dailySessions.find((s) => s.classroomId === c.classroomId);
               return (
-                <li key={c.classroomId} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <li key={c.classroomId} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-card/40 p-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{classrooms.name(c.classroomId)}</p>
                     {done ? <StatusBadge label={tSession(done.status)} tone={done.status === "OPEN" ? "info" : "success"} /> : null}
@@ -179,7 +179,7 @@ function OtherCall({ date }: { date: string }) {
   // La direction ouvre l'appel de n'importe quelle classe : la demi-journée se choisit (vide = journée entière, cycle à appel unique).
   const [part, setPart] = useState<"" | HalfDay>("");
   return (
-    <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
+    <div className="grid gap-3 rounded-2xl border border-white/10 bg-card/40 p-3 sm:grid-cols-[1fr_10rem_10rem_auto] sm:items-end">
       <FormField label={t("otherClass")}>{(c) => <SelectAsync {...c} value={classroom} onChange={setClassroom} useOptions={useClassroomOptions} placeholder={t("chooseClass")} />}</FormField>
       <FormField label={t("otherDate")}>{(c) => <TextControl {...c} type="date" value={day} onChange={setDay} />}</FormField>
       <FormField label={tHalf("otherPart")} hint={tHalf("otherPartHint")}>
@@ -227,7 +227,7 @@ function OutboxList({ basePath }: { basePath: string }) {
           const count = Object.keys(c.records).length;
           const href = c.target.kind === "occurrence" ? `${basePath}/occurrence/${c.target.occurrenceId}` : `${basePath}/daily/${c.target.classroomId}?date=${c.target.date}${partQuery(c.target.dayPart)}`;
           return (
-            <li key={c.key} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <li key={c.key} className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
                 <p className="font-medium">{c.label ?? t("untitled", { date: dateFmt.civil(c.date) })}</p>
                 <p className="text-muted-foreground">

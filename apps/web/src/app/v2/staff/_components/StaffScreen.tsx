@@ -124,11 +124,11 @@ function ExpiringQualifications() {
   const q = useExpiringQualifications();
   if (!q.data || q.data.length === 0) return null;
   return (
-    <section aria-labelledby="expiring-title" className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-      <h2 id="expiring-title" className="mb-2 text-base font-semibold text-amber-950">
+    <section aria-labelledby="expiring-title" className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4">
+      <h2 id="expiring-title" className="mb-2 text-base font-semibold text-amber-300">
         {t("title", { count: q.data.length })}
       </h2>
-      <ul className="divide-y divide-amber-200 text-sm">
+      <ul className="divide-y divide-amber-400/20 text-sm">
         {q.data.map((e) => (
           <li key={e.qualificationId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
             <Link href={`/v2/staff/${e.staffId}`} className="font-medium text-primary underline-offset-4 hover:underline">

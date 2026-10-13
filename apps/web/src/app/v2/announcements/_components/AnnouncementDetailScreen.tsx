@@ -12,6 +12,7 @@ import { buttonClass, StatusBadge } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 import { useDescribeError } from "@/platform/ui/errors";
 import { formatBytes, priorityTone } from "../../messages/_components/messaging-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 const RECEIPT_STATES = ["all", "unread", "read", "acknowledged", "pending_ack"] as const;
 
@@ -29,13 +30,13 @@ function Receipts({ id }: { id: string }) {
         </h2>
         <label className="inline-flex items-center gap-2 text-sm">
           {t("receipts.filter")}
-          <select value={state} onChange={(e) => setState(e.target.value as typeof state)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <AntSelect value={state} onChange={(e) => setState(e.target.value as typeof state)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
             {RECEIPT_STATES.map((s) => (
               <option key={s} value={s}>
                 {t(`receipts.states.${s}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         </label>
       </div>
       {receipts.isPending ? (

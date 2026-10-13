@@ -30,7 +30,7 @@ export function ScalesSection() {
   const [creating, setCreating] = useState(false);
   const flash = useFlash();
   return (
-    <section aria-labelledby="primary-scales" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="primary-scales" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="primary-scales" className="text-lg font-semibold">
           {t("title")}
@@ -46,7 +46,7 @@ export function ScalesSection() {
       <QueryBoundary query={scales} isEmpty={(scales.data ?? []).length === 0} empty={<EmptyBlock title={t("empty")} />}>
         <ul className="space-y-3">
           {(scales.data ?? []).map((s) => (
-            <li key={s.id} className="space-y-2 rounded-md border p-3">
+            <li key={s.id} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{s.label}</p>
                 <span className="font-mono text-xs text-muted-foreground">{s.code}</span>
@@ -107,7 +107,7 @@ function CreateScaleDialog({ onClose, onCreated }: { onClose: () => void; onCrea
       <FormField label={t("label")} required error={errors.label}>
         {(c) => <TextControl {...c} value={label} onChange={setLabel} maxLength={200} />}
       </FormField>
-      <fieldset className="space-y-3 rounded-md border p-3">
+      <fieldset className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <legend className="px-1 text-sm font-medium">{t("levels")}</legend>
         {errors.levels ? (
           <p role="alert" className="text-xs font-medium text-destructive">

@@ -3,22 +3,39 @@
  * par le propriétaire de l'école (comme le fait le seed), activé, MFA enrôlée, rôle système attribué, puis écrit dans
  * `.dev-v2/credentials.json` (local, ignoré par git) pour que le panneau « Comptes par tenant » de la page de connexion l'affiche.
  *
- * Variables : DEVV2_SCHOOL_SLUG (défaut `ecole-flamboyants`), DEVV2_ACCOUNT_ROLE (`directeur` par défaut, ou `responsable_pedagogique`).
+ * Variables : DEVV2_SCHOOL_SLUG (défaut `ecole-flamboyants`), DEVV2_ACCOUNT_ROLE (`directeur` par défaut ; voir `ROLES` : direction, secrétariat, économe, éducateur, examens, admissions, instituteur, parent, élève).
  * Il faut que le propriétaire de l'école figure déjà dans le fichier des comptes (créé par `pnpm dev:v2:new-school`).
  * Garde-fous identiques à `new-school.ts`. Les mots de passe sont générés à l'exécution et jamais affichés.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { Accounts, actorFrom, expectStatus, totpAt } from "../seed-v2/actors";
+import { SYSTEM_ROLE_TEMPLATES } from "../../apps/api/src/modules/rbac/templates/system-roles";
+import { Accounts, actorFrom, type Actor, expectStatus, totpAt } from "../seed-v2/actors";
 import { SeedRefusedError, assertSeedEnvironment, databaseNameOf } from "../seed-v2/guards";
 import { startSeedPlatform } from "../seed-v2/runtime";
 
 const SLUG = process.env.DEVV2_SCHOOL_SLUG?.trim() || "ecole-flamboyants";
 const ROLE = process.env.DEVV2_ACCOUNT_ROLE?.trim() || "directeur";
-const ROLES: Record<string, { prefix: string }> = {
-  directeur: { prefix: "directeur" },
-  responsable_pedagogique: { prefix: "pedagogie" },
+/**
+ * Rôles pris en charge. `staff` : membre du personnel invité par le propriétaire (rôle système rbac, MFA là où le modèle de rôle la
+ * recommande). `teacher` : instituteur, avec une fiche du personnel créée puis liée au compte par l'invitation au portail.
+ * `parent` / `student` : compte de portail relié à un tuteur / un élève de test créé pour l'occasion.
+ */
+type Kind = "staff" | "teacher" | "parent" | "student";
+const ROLES: Record<string, { prefix: string; kind: Kind }> = {
+  directeur: { prefix: "directeur", kind: "staff" },
+  responsable_pedagogique: { prefix: "pedagogie", kind: "staff" },
+  directeur_etudes: { prefix: "etudes", kind: "staff" },
+  secretariat: { prefix: "secretariat", kind: "staff" },
+  econome: { prefix: "econome", kind: "staff" },
+  educateur: { prefix: "educateur", kind: "staff" },
+  responsable_examens: { prefix: "examens", kind: "staff" },
+  admissions_officer: { prefix: "admissions", kind: "staff" },
+  instituteur: { prefix: "instituteur", kind: "teacher" },
+  parent: { prefix: "parent", kind: "parent" },
+  eleve: { prefix: "eleve", kind: "student" },
 };
+const mfaRecommended = (role: string): boolean => SYSTEM_ROLE_TEMPLATES.find((t) => t.key === role)?.mfaRecommended === true;
 
 interface Row { tenant: string; pack?: string; role: string; email: string; password: string; totpSecret?: string }
 
@@ -31,6 +48,31 @@ function assertDevAllowed(env: NodeJS.ProcessEnv): void {
   const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
   if (!local || databaseNameOf(url) !== "ecoledigitale_v2") {
     throw new SeedRefusedError("SEED_DATABASE_REFUSED", `Refusé : base « ${databaseNameOf(url) ?? "?"} » sur « ${host} » (attendu : ecoledigitale_v2 sur le serveur local).`);
+  }
+}
+
+const ref = (b: any, ...keys: string[]): string => {
+  for (const k of keys) { const v = k.split(".").reduce((o, p) => o?.[p], b); if (typeof v === "string") return v; }
+  throw new Error("Identifiant absent de la réponse de l'API.");
+};
+
+/** Instituteur (fiche du personnel liée), parent (tuteur) ou élève : crée la fiche, invite au portail, active le compte. */
+async function portalAccount(owner: Actor, accounts: Accounts, kind: Exclude<Kind, "staff">, email: string): Promise<void> {
+  if (kind === "teacher") {
+    const cats = (await owner.get("/api/v1/people/reference/staff-categories")).body.items as Array<{ code: string; canTeach: boolean }>;
+    const cat = cats.find((c) => c.canTeach);
+    if (!cat) throw new Error("Aucune catégorie de personnel enseignant.");
+    const staff = await owner.post("/api/v1/people/staff", { person: { lastName: "KOFFI", firstName: "Instituteur", sex: "M", birthDate: "1988-03-14", email }, categoryCode: cat.code, hiredOn: "2024-09-01" }, 201);
+    await owner.post(`/api/v1/people/staff/${ref(staff.body, "staff.id", "id")}/portal-invitation`, { role: "instituteur" }, [200, 201]);
+    await accounts.portal("instituteur", email);
+  } else if (kind === "parent") {
+    const g = await owner.post("/api/v1/people/guardians", { person: { lastName: "KOUASSI", firstName: "Parent", sex: "F", phone: "0700000001", email } }, 201);
+    await owner.post(`/api/v1/people/persons/${ref(g.body, "guardian.personId")}/portal-invitation`, { quality: "GUARDIAN" }, [200, 201]);
+    await accounts.portal("parent", email);
+  } else {
+    const s = await owner.post("/api/v1/people/students", { person: { lastName: "KOUASSI", firstName: "Eleve", sex: "M", birthDate: "2014-05-20", birthPlace: "Abidjan", email } }, 201);
+    await owner.post(`/api/v1/people/persons/${ref(s.body, "student.personId")}/portal-invitation`, { quality: "STUDENT" }, [200, 201]);
+    await accounts.portal("eleve", email);
   }
 }
 
@@ -68,7 +110,8 @@ async function main(): Promise<void> {
 
     console.log(`• ${ROLE} : invitation, activation, MFA et rôle (${email})`);
     const accounts = new Accounts(http, platform.invitations, SLUG);
-    await accounts.staff(owner, ROLE, email, ROLE);
+    if (spec.kind === "staff") await accounts.staff(owner, ROLE, email, ROLE, { mfa: mfaRecommended(ROLE) });
+    else await portalAccount(owner, accounts, spec.kind, email);
     created = accounts.list().find((a) => a.role === ROLE) ?? null;
   } finally {
     await platform.stop();

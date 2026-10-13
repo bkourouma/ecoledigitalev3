@@ -78,7 +78,7 @@ function RuleSetCard({ set, onDerive }: { set: RulesRuleSetDto; onDerive: (versi
   const variants = useFeature("rules.variants");
   const versions = [...set.versions].sort((a, b) => b.versionNo - a.versionNo);
   return (
-    <article className="space-y-3 rounded-md border p-4" aria-label={set.name}>
+    <article className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4" aria-label={set.name}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">{set.name}</h2>
@@ -99,7 +99,7 @@ function RuleSetCard({ set, onDerive }: { set: RulesRuleSetDto; onDerive: (versi
         <div role="region" aria-label={t("versionsOf", { name: set.name })} tabIndex={0} className="overflow-x-auto rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <table className="w-full border-collapse text-sm">
             <caption className="sr-only">{t("versionsOf", { name: set.name })}</caption>
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-3 py-2">{t("columns.version")}</th>
                 <th scope="col" className="px-3 py-2">{t("columns.status")}</th>

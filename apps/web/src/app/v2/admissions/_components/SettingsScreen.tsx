@@ -58,6 +58,7 @@ function GeneralForm({ settings }: { settings: AdmissionsSettingsDto }) {
   const [waitlistEnabled, setWaitlistEnabled] = useState(settings.waitlistEnabled);
   const [promotion, setPromotion] = useState<string>(settings.waitlistPromotion);
   const [consentRequired, setConsentRequired] = useState(settings.consentRequired);
+  const [publicFormEnabled, setPublicFormEnabled] = useState(settings.publicFormEnabled);
   const [validity, setValidity] = useState(String(settings.offerValidityDays));
   const [deadline, setDeadline] = useState(settings.paymentDeadlineDays === null ? "" : String(settings.paymentDeadlineDays));
   const [retention, setRetention] = useState(settings.rejectedRetentionMonths === null ? "" : String(settings.rejectedRetentionMonths));
@@ -77,6 +78,7 @@ function GeneralForm({ settings }: { settings: AdmissionsSettingsDto }) {
       waitlistEnabled,
       waitlistPromotion: promotion,
       consentRequired,
+      publicFormEnabled,
       offerValidityDays: parseInteger(validity, 1, 365) ?? 0,
       paymentDeadlineDays: deadline.trim() === "" ? null : (parseInteger(deadline, 1, 365) ?? 0),
       rejectedRetentionMonths: retention.trim() === "" ? null : (parseInteger(retention, 1, 240) ?? 0),
@@ -95,7 +97,7 @@ function GeneralForm({ settings }: { settings: AdmissionsSettingsDto }) {
   }
 
   return (
-    <form noValidate onSubmit={submit} aria-label={t("general")} className="max-w-3xl space-y-4 rounded-lg border p-4">
+    <form noValidate onSubmit={submit} aria-label={t("general")} className="max-w-3xl space-y-4 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 className="text-base font-semibold">{t("general")}</h2>
       {flash.node}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -123,6 +125,7 @@ function GeneralForm({ settings }: { settings: AdmissionsSettingsDto }) {
       </div>
       <CheckControl checked={waitlistEnabled} onChange={setWaitlistEnabled} label={t("waitlistEnabled")} />
       <CheckControl checked={consentRequired} onChange={setConsentRequired} label={t("consentRequired")} hint={t("consentRequiredHint")} />
+      <CheckControl checked={publicFormEnabled} onChange={setPublicFormEnabled} label={t("publicFormEnabled")} hint={t("publicFormEnabledHint")} />
       <fieldset className="space-y-3 border-t pt-4">
         <legend className="text-sm font-semibold">{t("antiSpam")}</legend>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -156,7 +159,7 @@ function PublicLink({ settings }: { settings: AdmissionsSettingsDto }) {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
   return (
-    <section aria-labelledby="public-link" className="max-w-3xl space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="public-link" className="max-w-3xl space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="public-link" className="text-base font-semibold">
         {t("title")}
       </h2>

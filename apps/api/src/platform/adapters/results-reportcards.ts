@@ -50,6 +50,8 @@ export interface ReportcardsResultsDeps {
   readonly academic: AcademicDeps;
   readonly people: PeopleDeps;
   readonly rules: RulesApi;
+  /** Compteurs de compétences d'une inscription × période (module `primary_school`) ; absent : bulletin sans bloc « Compétences ». */
+  readonly competencies?: ((ctx: RequestContext, input: { classroomId: string; enrollmentId: string; periodId: string }) => Promise<ReportcardSnapshot["competencies"] | null>) | undefined;
 }
 
 function must<T>(r: { ok: true; value: T } | { ok: false; error: AppError }): T {
@@ -319,6 +321,9 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
       }
     }
 
+    // Primaire / maternelle : les compteurs de compétences par domaine alimentent le bloc « Compétences » du bulletin (L-42).
+    const competencies = deps.competencies ? await deps.competencies(ctx, { classroomId: header.classroomId, enrollmentId: header.enrollmentId, periodId }).catch(() => null) : null;
+
     const summary = header.summary as { classSize?: unknown; distinction?: unknown };
     const classSize = typeof summary.classSize === "number" ? summary.classSize : header.cohortSize;
     return {
@@ -368,6 +373,7 @@ export function createReportcardsResultsRead(deps: ReportcardsResultsDeps): Resu
       deliberation: held?.heldOn ? { heldOn: held.heldOn, nature: held.kind } : null,
       generalAppreciation: truncate(general?.body, 1000),
       attendance: null,
+      ...(competencies ? { competencies } : {}),
       rules: {
         ruleSetCode: header.ruleSetCode.slice(0, 80),
         ruleVersionNo: header.ruleVersionNo,

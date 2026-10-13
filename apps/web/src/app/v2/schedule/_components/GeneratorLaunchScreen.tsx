@@ -25,7 +25,7 @@ interface NeedRow {
   teacher: SelectOption | null;
 }
 
-const NUMBER_INPUT = "h-11 w-20 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10";
+const NUMBER_INPUT = "h-11 w-20 rounded-xl border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10";
 const WEIGHT_KEYS = ["gap", "teacherGap", "spread", "balance", "preference", "teacherChange"] as const;
 const useTeacherOptions = (search: string, enabled: boolean) => useStaffOptions(search, enabled, { canTeach: true, status: "ACTIVE" });
 
@@ -217,12 +217,12 @@ export function GeneratorLaunchScreen() {
         {pickClass && nodes.data && nodes.data.length === 0 ? <p className="text-sm text-muted-foreground">{t("needs.noNodes")}</p> : null}
 
         {rows.length === 0 ? (
-          <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{t("needs.empty")}</p>
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] border-dashed p-4 text-sm text-muted-foreground">{t("needs.empty")}</p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-[44rem] text-sm">
               <caption className="sr-only">{t("needs.caption")}</caption>
-              <thead className="bg-muted/50 text-left">
+              <thead className="bg-white/[0.04] text-left">
                 <tr>
                   <th scope="col" className="px-3 py-2">{t("needs.columns.subject")}</th>
                   <th scope="col" className="px-3 py-2">{t("needs.columns.sessions")}</th>

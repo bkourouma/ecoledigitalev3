@@ -33,7 +33,7 @@ export function AwardDocuments({ award }: { award: HigherAwardDto }) {
           {docs.length > 0 ? (
             <ul className="space-y-2" aria-label={t("listLabel", { reference: award.reference })}>
               {docs.map((d) => (
-                <li key={d.id} className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3 sm:flex-row sm:items-start sm:justify-between">
+                <li key={d.id} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
                     <p className="font-medium">
                       {tKind(d.documentKind)} <span className="font-mono text-xs font-normal text-muted-foreground">{d.reference} · {t("version", { n: d.version })}</span>

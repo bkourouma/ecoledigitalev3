@@ -43,7 +43,7 @@ function PolicyChoice<T extends string>({
         {options.map((o) => {
           const id = `${name}-${o.value}`;
           return (
-            <div key={o.value} className={`flex items-start gap-3 rounded-md border p-3 ${value === o.value ? "border-primary bg-primary/5" : ""}`}>
+            <div key={o.value} className={`flex items-start gap-3 rounded-xl border p-3 ${value === o.value ? "border-primary bg-primary/5" : ""}`}>
               <input id={id} type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} aria-describedby={`${id}-help`} className="mt-1 h-4 w-4 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <label htmlFor={id} className="min-w-0 text-sm">
                 <span className="block font-medium">{o.label}</span>

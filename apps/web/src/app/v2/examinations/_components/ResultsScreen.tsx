@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { examBulkResultsBodySchema, examBulkScoresBodySchema, type ExamResultDto, type ExamScoreMatrixDto, type ExamSessionDetailDto } from "@ecoledigitale/contracts/v2/examinations";
 import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
-import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
+import { FormField, NativeSelect, TextControl, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader } from "@/platform/ui/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Notice } from "@/platform/ui/states";
 import { showDecimal } from "@/platform/ui/format";
@@ -57,7 +57,7 @@ function ScoresTab({ session, matrix }: { session: ExamSessionDetailDto; matrix:
       <div className="overflow-x-auto rounded-md border" tabIndex={0} role="region" aria-label={t("caption")}>
         <table className="w-full text-sm">
           <caption className="sr-only">{t("caption")}</caption>
-          <thead className="bg-muted/50 text-left">
+          <thead className="bg-white/[0.04] text-left">
             <tr>
               <th scope="col" className="px-3 py-2">{t("candidate")}</th>
               {matrix.papers.map((p) => <th key={p.id} scope="col" className="px-3 py-2">{p.code}<span className="block text-xs font-normal text-muted-foreground">/{showDecimal(p.scaleMax)}</span></th>)}
@@ -76,10 +76,10 @@ function ScoresTab({ session, matrix }: { session: ExamSessionDetailDto; matrix:
                       {forTrack ? (
                         <Can permission="exam.score.enter" fallback={<span>{cell.status === "ENTERED" ? showDecimal(cell.score) : labels.scoreStatus(cell.status)}</span>}>
                           <div className="flex min-w-[8rem] gap-1">
-                            <input aria-label={t("scoreOf", { name, paper: p.code })} inputMode="decimal" disabled={cell.status !== "ENTERED"} value={cell.score} onChange={(e) => change(r.candidateId, p.id, { score: e.target.value })} className="h-10 w-16 rounded-md border border-input bg-background px-2 text-sm" />
-                            <select aria-label={t("statusOf", { name, paper: p.code })} value={cell.status} onChange={(e) => change(r.candidateId, p.id, { status: e.target.value, ...(e.target.value === "ENTERED" ? {} : { score: "" }) })} className="h-10 rounded-md border border-input bg-background px-1 text-xs">
+                            <input aria-label={t("scoreOf", { name, paper: p.code })} inputMode="decimal" disabled={cell.status !== "ENTERED"} value={cell.score} onChange={(e) => change(r.candidateId, p.id, { score: e.target.value })} className="h-10 w-16 rounded-xl border border-input bg-background px-2 text-sm" />
+                            <AntSelect aria-label={t("statusOf", { name, paper: p.code })} value={cell.status} onChange={(e) => change(r.candidateId, p.id, { status: e.target.value, ...(e.target.value === "ENTERED" ? {} : { score: "" }) })} className="h-10 rounded-xl border border-input bg-background px-1 text-xs">
                               {SCORE_STATUSES.map((s) => <option key={s} value={s}>{labels.scoreStatus(s)}</option>)}
-                            </select>
+                            </AntSelect>
                           </div>
                         </Can>
                       ) : <span className="text-muted-foreground">—</span>}
@@ -135,7 +135,7 @@ function EnterResult({ session }: { session: ExamSessionDetailDto }) {
     }
   }
   return (
-    <section aria-labelledby="enter-title" className="space-y-3 rounded-md border p-4">
+    <section aria-labelledby="enter-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h3 id="enter-title" className="text-base font-semibold">{t("title")}</h3>
       <p className="text-sm text-muted-foreground">{t("hint")}</p>
       <div className="grid gap-3 md:grid-cols-5">

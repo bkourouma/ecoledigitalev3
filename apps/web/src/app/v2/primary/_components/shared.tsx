@@ -81,7 +81,7 @@ export function PrimaryError({ error, className }: { error: unknown; className?:
   const message = notFound ? t("notFoundNeutral") : code === "port_unavailable" ? (hint ?? describe(error)) : describe(error);
   const blockers = blockersOf(error);
   return (
-    <div role="alert" className={className ?? "space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"}>
+    <div role="alert" className={className ?? "space-y-2 rounded-xl border border-red-400/40 bg-red-400/10 p-3.5 text-sm text-red-200"}>
       <p>{message}</p>
       {hint && code !== "port_unavailable" ? <p className="text-xs">{hint}</p> : null}
       {blockers.length > 0 ? (
@@ -106,8 +106,8 @@ export function PrimaryError({ error, className }: { error: unknown; className?:
 export function PlaceholderNotice({ compact = false }: { compact?: boolean }) {
   const t = useTranslations("v2PrimaryCommon");
   return (
-    <aside role="note" aria-label={t("ruleBanner.label")} className="flex items-start gap-2 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950" data-testid="placeholder-notice">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+    <aside role="note" aria-label={t("ruleBanner.label")} className="flex items-start gap-2.5 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3.5 text-sm text-amber-100" data-testid="placeholder-notice">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
       <div className="min-w-0">
         <p className="font-semibold">{PRIMARY_PLACEHOLDER_NOTICE}</p>
         {compact ? null : <p className="mt-0.5 text-xs">{t("ruleBanner.explain")}</p>}
@@ -295,7 +295,7 @@ export function ConfirmActionDialog({
           <button type="button" className={buttonClass.secondary} disabled={isPending} onClick={() => onOpenChange(false)}>
             {t("cancel")}
           </button>
-          <button type="button" className={destructive ? buttonClass.danger : buttonClass.primary} disabled={disabled} onClick={onConfirm}>
+          <button type="button" className={destructive ? buttonClass.dangerSolid : buttonClass.primary} disabled={disabled} onClick={onConfirm}>
             {isPending ? t("working") : confirmLabel}
           </button>
         </div>

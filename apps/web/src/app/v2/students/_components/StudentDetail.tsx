@@ -137,7 +137,7 @@ function IdentityTab({ student: s }: { student: PeopleStudentDetailDto }) {
 
   return (
     <div className="space-y-5">
-      <section aria-labelledby="id-civil" className="rounded-lg border p-4">
+      <section aria-labelledby="id-civil" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="id-civil" className="mb-3 text-lg font-semibold">
           {t("civil")}
         </h2>
@@ -153,7 +153,7 @@ function IdentityTab({ student: s }: { student: PeopleStudentDetailDto }) {
           <Item label={t("portalAccount")}>{s.portalAccount === "NONE" ? t("noPortal") : s.portalAccount}</Item>
         </dl>
       </section>
-      <section aria-labelledby="id-contact" className="rounded-lg border p-4">
+      <section aria-labelledby="id-contact" className="rounded-2xl border border-white/10 bg-card/40 p-4">
         <h2 id="id-contact" className="mb-3 text-lg font-semibold">
           {t("contact")}
         </h2>
@@ -167,7 +167,7 @@ function IdentityTab({ student: s }: { student: PeopleStudentDetailDto }) {
         </dl>
       </section>
       {s.primaryGuardian ? (
-        <section aria-labelledby="id-primary" className="rounded-lg border p-4">
+        <section aria-labelledby="id-primary" className="rounded-2xl border border-white/10 bg-card/40 p-4">
           <h2 id="id-primary" className="mb-2 text-lg font-semibold">
             {t("primaryGuardian")}
           </h2>
@@ -180,7 +180,7 @@ function IdentityTab({ student: s }: { student: PeopleStudentDetailDto }) {
         </section>
       ) : null}
       {canSensitive.allowed ? (
-        <section aria-labelledby="id-sensitive" className="space-y-3 rounded-lg border border-amber-300 bg-amber-50/40 p-4">
+        <section aria-labelledby="id-sensitive" className="space-y-3 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4">
           <h2 id="id-sensitive" className="text-lg font-semibold">
             {t("sensitive")}
           </h2>

@@ -58,6 +58,7 @@ export function unavailablePorts(): PrimarySchoolPorts {
       getDeliberation: fail("résultats et délibérations"),
       listProposals: fail("résultats et délibérations"),
       confirmDecision: fail("résultats et délibérations"),
+      publishManualDecision: fail("résultats et délibérations"),
       getYearResult: fail("résultats et délibérations"),
       getRuleSourceKind: fail("résultats et délibérations"),
       getConfirmedYearDecision: fail("résultats et délibérations"),
@@ -322,6 +323,14 @@ export class InMemoryWorld {
             return { decisionId: d.decisionId, enrollmentId: d.enrollmentId, finalCode, ruleProposalCode: d.ruleProposalCode, changedFromProposal: changed };
           }
           throw NotFoundError.of("Décision", input.decisionId);
+        },
+        async publishManualDecision(_c, input): Promise<ConfirmedDecision> {
+          const del = w.deliberations.get(input.deliberationId);
+          const decisionId = newId();
+          const list = w.decisions.get(key2(input.classroomId, input.periodId)) ?? [];
+          w.decisions.set(key2(input.classroomId, input.periodId), [...list, { decisionId, enrollmentId: input.enrollmentId, ruleProposalCode: null, finalCode: input.finalCode, status: "CONFIRMED", justification: input.justification }]);
+          if (del) w.confirmedYearDecisions.set(key2(input.enrollmentId, del.academicYearId), { decisionId, finalCode: input.finalCode });
+          return { decisionId, enrollmentId: input.enrollmentId, finalCode: input.finalCode, ruleProposalCode: null, changedFromProposal: false };
         },
         async getYearResult(_c, { enrollmentId, academicYearId }): Promise<YearResultInfo> {
           return w.yearResults.get(key2(enrollmentId, academicYearId)) ?? { complete: false, yearResultRef: null, ruleVersionRef: null, ruleSourceKind: null, yearDecisionCode: null };

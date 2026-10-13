@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/platform/access";
+import { useShellMenu } from "@/platform/shell/context";
 
 export interface SectionNavItem {
   href: string;
@@ -44,8 +45,8 @@ function ItemLink({ item, pathname }: { item: SectionNavItem; pathname: string }
         href={item.href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "inline-flex h-11 items-center whitespace-nowrap border-b-2 px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10",
-          active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+          "inline-flex h-11 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10",
+          active ? "bg-primary/20 text-violet-200 ring-1 ring-primary/40" : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
         )}
       >
         {item.label}
@@ -54,12 +55,19 @@ function ItemLink({ item, pathname }: { item: SectionNavItem; pathname: string }
   );
 }
 
-/** Navigation secondaire d'une section (onglets défilants sur mobile). */
-export function SectionNav({ label, items }: { label: string; items: ReadonlyArray<SectionNavItem> }) {
+/**
+ * Navigation secondaire d'une section (onglets défilants sur mobile).
+ *
+ * Dans la coque de GESTION, le menu latéral porte déjà toutes les destinations : ces onglets n'y sont pas rendus. Ils restent dans
+ * les portails (parent, élève, enseignant), dont le menu est court, et pour les vrais sous-onglets d'un écran (`persistent`).
+ */
+export function SectionNav({ label, items, persistent = false }: { label: string; items: ReadonlyArray<SectionNavItem>; persistent?: boolean }) {
   const pathname = usePathname() ?? "";
+  const shell = useShellMenu();
+  if (!persistent && shell?.kind === "management") return null;
   return (
-    <nav aria-label={label} className="mb-6 overflow-x-auto border-b">
-      <ul className="flex min-w-max gap-1">
+    <nav aria-label={label} className="mb-6 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex min-w-max gap-1.5 rounded-full border border-white/10 bg-card/40 p-1">
         {items.map((item) => (
           <Item key={item.href} item={item} pathname={pathname} />
         ))}

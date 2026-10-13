@@ -8,7 +8,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ClamavScanner, clamavScannerFromEnv, parseClamdResponse, scanPolicyFromEnv } from "../../infrastructure/clamav-scanner";
+import { ClamavScanner, clamavScannerFromEnv, DevEicarScanner, parseClamdResponse, scanPolicyFromEnv } from "../../infrastructure/clamav-scanner";
 import { OfficeConverter, officeConverterFromEnv, type ExecFn } from "../../infrastructure/office-converter";
 import { eicarBytes, InMemoryStorage } from "../../infrastructure/in-memory-ports";
 import { pdfBytes } from "../support/files";
@@ -164,6 +164,18 @@ describe("configuration par l'environnement", () => {
     expect(warnings[0]).toMatch(/aucun antivirus/);
     expect(scanPolicyFromEnv({ NODE_ENV: "development" }, { warn: (m) => warnings.push(m) }).scanner).toBeNull();
     expect(warnings).toHaveLength(1);
+  });
+});
+
+describe("analyseur de développement (dev-eicar)", () => {
+  it("la chaîne d'essai EICAR est « infectée », tout autre fichier est « sain » ; refusé en production", async () => {
+    const scanner = new DevEicarScanner();
+    expect(await scanner.scan(eicarBytes())).toEqual({ status: "INFECTED", signature: "Eicar-Test-Signature" });
+    expect(await scanner.scan(pdfBytes())).toEqual({ status: "CLEAN" });
+    const policy = scanPolicyFromEnv({ DOCUMENTS_SCANNER: "dev-eicar", NODE_ENV: "development" });
+    expect(policy.scanner?.engine).toBe("dev-eicar");
+    expect(policy.failClosed).toBe(false);
+    expect(() => scanPolicyFromEnv({ DOCUMENTS_SCANNER: "dev-eicar", NODE_ENV: "production" })).toThrow(/réservé au développement/);
   });
 });
 

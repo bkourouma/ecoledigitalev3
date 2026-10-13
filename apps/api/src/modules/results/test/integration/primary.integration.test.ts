@@ -181,8 +181,9 @@ describeIntegration("primaire et N périodes (Postgres réel + règles fictives)
       expect((await adminRows<{ n: string }>(db, "SELECT count(*)::text AS n FROM kernel.domain_events WHERE type = 'results.decision.confirmed'"))[0]!.n).toBe(eventsBefore);
 
       // D (absences) : redoublement décidé par le conseil
-      const d = unwrap(await publishYearDecision(w.deps, w.director, { stateId: stateT3, enrollmentId: students[3]!.enrollmentId, finalCode: "REPEAT", deliberationId: delib.id, actor: ACTOR }));
-      expect(d).toMatchObject({ status: "CONFIRMED", finalCode: "REPEAT" });
+      const d = unwrap(await publishYearDecision(w.deps, w.director, { stateId: stateT3, enrollmentId: students[3]!.enrollmentId, finalCode: "REPEAT", deliberationId: delib.id, justification: "Absences répétées non justifiées sur l'année.", actor: ACTOR }));
+      // décision créée par le conseil sans proposition de règle : la justification est conservée avec la décision (L-50)
+      expect(d).toMatchObject({ status: "CONFIRMED", finalCode: "REPEAT", justification: "Absences répétées non justifiées sur l'année." });
 
       // B : la règle propose REPEAT ; le conseil décide le passage ⇒ écart ⇒ justification obligatoire (R-RES-05)
       const noJustification = await publishYearDecision(w.deps, w.director, { stateId: stateT3, enrollmentId: students[1]!.enrollmentId, finalCode: "PROMOTED", actor: ACTOR });

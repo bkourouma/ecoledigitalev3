@@ -246,6 +246,18 @@ export const unknownRegistrationFee: RegistrationFeeProbe = Object.freeze({
   },
 });
 
+/**
+ * Facturation des frais d'inscription À L'INSCRIPTION (L-60). Appelée après la création d'une inscription saisie à la main ou en
+ * ligne (jamais pour une admission, qui facture elle-même à l'acceptation de l'offre). Meilleur effort : un échec est journalisé,
+ * l'inscription reste créée et l'économe peut facturer (idempotent par inscription). Repli : aucune facturation.
+ */
+export interface EnrollmentBilling {
+  invoiceRegistrationFees(ctx: RequestContext, input: { enrollmentId: string; studentId: string }): Promise<void>;
+}
+export const noEnrollmentBilling: EnrollmentBilling = Object.freeze({
+  async invoiceRegistrationFees(): Promise<void> {},
+});
+
 export interface InvoiceFacts {
   invoiceId: string;
   learnerId: string;
@@ -304,6 +316,7 @@ export interface AcademicPorts {
   templates: TemplateProvider;
   institutions: InstitutionDirectory;
   registrationFee: RegistrationFeeProbe;
+  billing: EnrollmentBilling;
   invoiceFacts: InvoiceFactsReader;
   promotions: PromotionDecisionPort;
 }
@@ -320,6 +333,7 @@ export const DEFAULT_PORTS: AcademicPorts = Object.freeze({
   templates: bundledTemplates,
   institutions: anyInstitution,
   registrationFee: unknownRegistrationFee,
+  billing: noEnrollmentBilling,
   invoiceFacts: noInvoiceFacts,
   promotions: noPromotionDecisions,
 });

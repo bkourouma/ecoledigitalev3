@@ -160,7 +160,7 @@ export function ExternalCandidatePanel({ session }: { session: ExamSessionDetail
   const [importing, setImporting] = useState(false);
   if (session.sessionKind !== "OFFICIAL") return <Notice kind="info">{t("officialOnly")}</Notice>;
   return (
-    <section aria-labelledby="external-title" className="space-y-3 rounded-md border p-4">
+    <section aria-labelledby="external-title" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <h2 id="external-title" className="text-base font-semibold">{t("title")}</h2>
       <p className="text-sm text-muted-foreground">{t("hint")}</p>
       <div className="flex flex-wrap gap-2">

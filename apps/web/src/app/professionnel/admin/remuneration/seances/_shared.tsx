@@ -6,6 +6,7 @@ import { ChevronDown, HelpCircle } from "lucide-react";
 import type { SeancePaie, SeanceStatut, SeanceFilters } from "@/lib/hooks/use-professional-remuneration";
 import { useProfessionalUeSessionsList } from "@/lib/hooks/use-professional-catalog-admin";
 import { createApiHeaders } from "@/lib/api-utils";
+import { AntSelect } from "@/platform/ui/FormField";
 
 /**
  * Pièces de l'écran de validation des séances — feature 031, US1.
@@ -263,7 +264,7 @@ export function PaginationTableau({
     <div className="border-t border-border px-3 py-2 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Afficher</span>
-        <select
+        <AntSelect
           value={taillePage}
           onChange={(e) => onTaillePage(Number(e.target.value))}
           className="rounded-md border border-input bg-background text-foreground px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -273,7 +274,7 @@ export function PaginationTableau({
               {t}
             </option>
           ))}
-        </select>
+        </AntSelect>
         <span>par page</span>
       </div>
 

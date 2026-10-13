@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Archive, CalendarRange, CheckCircle2, DoorOpen, Lock, Pencil, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { AcademicPeriodDto, AcademicYearDto } from "@ecoledigitale/contracts/v2/academic";
 import { academicCreatePeriodBodySchema, academicCreateYearBodySchema } from "@ecoledigitale/contracts/v2/academic";
@@ -25,6 +26,7 @@ import { Can } from "@/platform/ui/AccessGate";
 import { DataTable, type DataTableColumn } from "@/platform/ui/DataTable";
 import { FormDialog, ReasonDialog } from "@/platform/ui/ModalDialog";
 import { FormField, NativeSelect, TextControl } from "@/platform/ui/FormField";
+import { cn } from "@/lib/utils";
 import { useDateFormat } from "@/platform/ui/format";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
@@ -33,6 +35,8 @@ import { InstitutionField, toneOf, useDefaultInstitutionId } from "./shared";
 
 /** Boutons proposés selon l'état d'une année (affordance d'écran) ; la transition elle-même est décidée par l'API. */
 const YEAR_ACTIONS: Record<string, YearAction[]> = { DRAFT: ["open"], OPEN: ["set-current"], CLOSED: ["archive"], ARCHIVED: [] };
+const YEAR_ACTION_ICONS: Record<YearAction, LucideIcon> = { open: DoorOpen, "set-current": CheckCircle2, archive: Archive };
+const ICON_BUTTON = "w-10 px-0 sm:w-9";
 const PERIOD_ACTIONS: Record<string, PeriodAction[]> = { PLANNED: ["open"], OPEN: ["close-grading", "close"], GRADING_CLOSED: ["close"], CLOSED: [] };
 
 export function YearsScreen() {
@@ -64,14 +68,15 @@ export function YearsScreen() {
   }
 
   const columns: DataTableColumn<AcademicYearDto>[] = [
-    { id: "label", header: t("columns.label"), cell: (y) => <span className="font-medium">{y.label}</span>, rowHeader: true },
-    { id: "code", header: t("columns.code"), cell: (y) => y.code, className: "hidden sm:table-cell" },
-    { id: "dates", header: t("columns.dates"), cell: (y) => `${date.civil(y.startsOn)} → ${date.civil(y.endsOn)}` },
+    { id: "label", header: t("columns.label"), cell: (y) => <span className="font-medium">{y.label}</span>, rowHeader: true, className: "whitespace-nowrap" },
+    { id: "code", header: t("columns.code"), cell: (y) => y.code, className: "hidden whitespace-nowrap sm:table-cell" },
+    { id: "dates", header: t("columns.dates"), cell: (y) => `${date.civil(y.startsOn)} → ${date.civil(y.endsOn)}`, className: "whitespace-nowrap" },
     {
       id: "status",
       header: t("columns.status"),
+      className: "whitespace-nowrap",
       cell: (y) => (
-        <span className="flex flex-wrap items-center gap-1">
+        <span className="flex flex-nowrap items-center gap-1">
           <StatusBadge label={tStatus(y.status)} tone={toneOf(y.status)} />
           {y.isCurrent ? <StatusBadge label={t("current")} tone="success" /> : null}
         </span>
@@ -82,26 +87,29 @@ export function YearsScreen() {
       header: <span className="sr-only">{t("columns.actions")}</span>,
       align: "right",
       cell: (y) => (
-        <span className="flex flex-wrap justify-end gap-1">
-          <button type="button" className={buttonClass.ghost} onClick={() => setSelectedId(y.id)} aria-pressed={selectedId === y.id}>
-            {t("periodsOf", { label: y.label })}
+        <span className="flex flex-nowrap items-center justify-end gap-1">
+          <button type="button" className={cn(buttonClass.ghost, ICON_BUTTON)} onClick={() => setSelectedId(y.id)} aria-pressed={selectedId === y.id} aria-label={`${t("periodsOf", { label: y.label })} — ${y.label}`} title={t("periodsOf", { label: y.label })}>
+            <CalendarRange className="h-4 w-4" aria-hidden="true" />
           </button>
           <Can permission="academic.year.manage">
-            {(YEAR_ACTIONS[y.status] ?? []).map((a) => (
-              <button key={a} type="button" className={buttonClass.secondary} onClick={() => void run(a, y)} disabled={yearAction[a].isPending} aria-label={`${t(`actions.${a}`)} — ${y.label}`}>
-                {t(`actions.${a}`)}
-              </button>
-            ))}
+            {(YEAR_ACTIONS[y.status] ?? []).map((a) => {
+              const Icon = YEAR_ACTION_ICONS[a];
+              return (
+                <button key={a} type="button" className={cn(buttonClass.ghost, ICON_BUTTON)} onClick={() => void run(a, y)} disabled={yearAction[a].isPending} aria-label={`${t(`actions.${a}`)} — ${y.label}`} title={t(`actions.${a}`)}>
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </button>
+              );
+            })}
             {y.status !== "ARCHIVED" ? (
-              <button type="button" className={buttonClass.ghost} onClick={() => setEditing(y)} aria-label={`${t("edit")} — ${y.label}`}>
-                {t("edit")}
+              <button type="button" className={cn(buttonClass.ghost, ICON_BUTTON)} onClick={() => setEditing(y)} aria-label={`${t("edit")} — ${y.label}`} title={t("edit")}>
+                <Pencil className="h-4 w-4" aria-hidden="true" />
               </button>
             ) : null}
           </Can>
           {y.status === "OPEN" ? (
             <Can permission="academic.year.close">
-              <button type="button" className={buttonClass.danger} onClick={() => setClosing(y)} aria-label={`${t("actions.close")} — ${y.label}`}>
-                {t("actions.close")}
+              <button type="button" className={cn(buttonClass.danger, ICON_BUTTON)} onClick={() => setClosing(y)} aria-label={`${t("actions.close")} — ${y.label}`} title={t("actions.close")}>
+                <Lock className="h-4 w-4" aria-hidden="true" />
               </button>
             </Can>
           ) : null}
@@ -384,7 +392,7 @@ function PeriodsPanel({ year }: { year: AcademicYearDto }) {
   ];
 
   return (
-    <section aria-labelledby="periods-title" className="space-y-3 rounded-lg border p-4">
+    <section aria-labelledby="periods-title" className="space-y-3 rounded-2xl border border-white/10 bg-card/40 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 id="periods-title" className="text-lg font-semibold">
           {t("title", { label: year.label })}

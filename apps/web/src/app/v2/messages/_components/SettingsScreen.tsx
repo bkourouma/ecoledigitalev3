@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { MESSAGING_ATTACHMENT_TYPES, MESSAGING_STUDENT_POLICIES, type MessagingSettingsDto, type MessagingSystemTemplateDto } from "@ecoledigitale/contracts/v2/messaging";
 import { useMessagingSettings, useSystemTemplates, useUpdateMessagingSettings, useUpdateSystemTemplate } from "@/platform/v2/messaging";
 import { useDescribeError } from "@/platform/ui/errors";
-import { FormField } from "@/platform/ui/FormField";
+import { FormField, AntSelect } from "@/platform/ui/FormField";
 import { buttonClass, PageHeader, StatusBadge } from "@/platform/ui/PageHeader";
 import { ErrorBlock, LoadingBlock, Notice, useFlash } from "@/platform/ui/states";
 
@@ -63,13 +63,13 @@ function SettingsForm({ settings }: { settings: MessagingSettingsDto }) {
     <form onSubmit={submit} className="space-y-6" noValidate aria-label={t("title")}>
       <FormField label={t("studentPolicy")} hint={t("studentPolicyHint")}>
         {(c) => (
-          <select {...c} value={draft.studentPolicy} onChange={(e) => setDraft({ ...draft, studentPolicy: e.target.value as MessagingSettingsDto["studentPolicy"] })} className={inputClass}>
+          <AntSelect {...c} value={draft.studentPolicy} onChange={(e) => setDraft({ ...draft, studentPolicy: e.target.value as MessagingSettingsDto["studentPolicy"] })} className={inputClass}>
             {MESSAGING_STUDENT_POLICIES.map((p) => (
               <option key={p} value={p}>
                 {t(`policies.${p}`)}
               </option>
             ))}
-          </select>
+          </AntSelect>
         )}
       </FormField>
       <FormField label={t("adminContactRoles")} hint={t("adminContactRolesHint")}>

@@ -72,7 +72,7 @@ export type { AnnualReview, CallerCaps as PrimaryCallerCaps, CompetencyAssessmen
 // Cas d'usage
 export { getSettings as getPrimarySettings, updateSettings as updatePrimarySettings } from "./application/settings";
 export { createFramework, createScale, getFrameworkDetail, listFrameworks, listScales, newFrameworkVersion, publishFramework, putLevels, putStructure, updateScale } from "./application/frameworks";
-export { bulkRecordCompetencies, getCompetencyCounters, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, listMyClassrooms, reviseCompetencyAssessment, validateCompetencies } from "./application/competencies";
+export { bulkRecordCompetencies, getCompetencyCounters, getReportcardCompetencies, type ReportcardCompetencies, getCompetencySheet, getCompetencySummary, getFamilyCompetencySummary, listMyClassrooms, reviseCompetencyAssessment, validateCompetencies } from "./application/competencies";
 export { createPhrase, listPhrases, updatePhrase } from "./application/phrases";
 export { decideCouncilCase, getCouncil, listCouncils, outcomeCodeOfDecision, prepareCouncil, putCouncilAttendance, requestCouncilMinutes, updateCouncilCase } from "./application/council";
 export { getAnnualReview, listAnnualReviews, listFamilyAnnualReviews, prepareAnnualReviews, purgeStaleDraftReviews, reissueAnnualReview, requestReviewDocument, sealAnnualReview } from "./application/reviews";

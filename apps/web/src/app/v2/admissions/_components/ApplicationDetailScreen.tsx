@@ -78,7 +78,7 @@ function Dossier({ application, backLabel, onReload }: { application: Admissions
       <EnrollmentStatus application={application} />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="dossier-info" className="rounded-lg border p-4">
+        <section aria-labelledby="dossier-info" className="rounded-2xl border border-white/10 bg-card/40 p-4">
           <h2 id="dossier-info" className="mb-3 text-base font-semibold">
             {t("info")}
           </h2>
@@ -126,7 +126,7 @@ function EnrollmentStatus({ application }: { application: AdmissionsApplicationD
   const fmt = useDateFormat();
   if (!application.enrollmentId) return null;
   return (
-    <section aria-labelledby="dossier-enrollment" className="rounded-lg border p-4">
+    <section aria-labelledby="dossier-enrollment" className="rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="dossier-enrollment" className="mb-2 text-base font-semibold">
         {t("enrollment")}
       </h2>
@@ -174,7 +174,7 @@ function Actions({ application, onDone }: { application: AdmissionsApplicationDe
   }
 
   return (
-    <section aria-labelledby="dossier-actions" className="rounded-lg border p-4">
+    <section aria-labelledby="dossier-actions" className="rounded-2xl border border-white/10 bg-card/40 p-4">
       <h2 id="dossier-actions" className="mb-2 text-base font-semibold">
         {t("actions")}
       </h2>
